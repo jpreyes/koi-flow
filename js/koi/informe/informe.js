@@ -72,7 +72,8 @@ const P = (html) => `<p>${html}</p>`;
 const EQ = (html) => `<div class="formula">${html}</div>`;
 const ND = (t = 'Pendiente de ingreso de datos.') => `<p class="nd">${t}</p>`;
 
-function construir(koi, datos = {}) {
+// Contenido del informe (portada + capítulos + pie), reutilizable para pantalla y Word.
+function contenido(koi, datos = {}) {
   const proj = koi.project || {};
   const fecha = new Date().toLocaleDateString('es-CL', { year: 'numeric', month: 'long', day: 'numeric' });
   const H = numerador();
@@ -81,11 +82,31 @@ function construir(koi, datos = {}) {
     `<section class="cap">${capHidraulico(koi, H)}</section>`,
     `<section class="cap">${capSocavacion(koi, H)}</section>`,
   ].join('\n');
+  return `${portada(proj, fecha)}${cuerpo}${pieLicencia()}`;
+}
+
+function construir(koi, datos = {}) {
+  const proj = koi.project || {};
   return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
     <title>Informe hidrológico-hidráulico · ${esc(proj.name || 'koi-flow')}</title><style>${CSS}</style></head><body>
     <div class="toolbar no-print"><button onclick="window.print()">🖨 Imprimir / PDF</button>
       <span>koi-flow · ${MARCA.autor} / ${MARCA.empresa}</span></div>
-    <main>${portada(proj, fecha)}${cuerpo}${pieLicencia()}</main></body></html>`;
+    <main>${contenido(koi, datos)}</main></body></html>`;
+}
+
+// Exporta el informe a Word (.doc): HTML compatible con Word (tablas/fórmulas/texto).
+export async function generarInformeWord(koi) {
+  let datos = {};
+  try { datos = await reunirDatos(koi); } catch (e) { console.warn('informe word:', e.message); }
+  const proj = koi.project || {};
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+    <head><meta charset="utf-8"><title>Informe · ${esc(proj.name || 'koi-flow')}</title>
+    <!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View></w:WordDocument></xml><![endif]-->
+    <style>${CSS}</style></head><body><main>${contenido(koi, datos)}</main></body></html>`;
+  const blob = new Blob(['﻿', html], { type: 'application/msword' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `${(proj.name || 'informe').replace(/\s+/g, '_')}.doc`; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1500);
 }
 
 function portada(proj, fecha) {

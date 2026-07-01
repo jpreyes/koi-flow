@@ -17,7 +17,7 @@ import { Dock } from './ui/dock.js?v=2';
 import { HudManager } from './ui/hud.js?v=2';
 import { abrirEstacionHUD } from './datos/estacion_hud.js?v=2';
 import { abrirConfigHUD } from './ui/config_ui.js?v=2';
-import { generarInforme } from './informe/informe.js?v=2';
+import { generarInforme, generarInformeWord } from './informe/informe.js?v=2';
 import { abrirAyudaHUD } from './ui/ayuda.js?v=2';
 import { setupMenubar } from './ui/menubar.js?v=2';
 import { Flujo2D } from './hidraulica/panel2d.js?v=2';
@@ -235,6 +235,7 @@ async function startBoot() {
     'importar': () => treeQ('#cap-file')?.click(),
     'bati': () => { dock.show('hidraulica'); setTimeout(() => bati.body?.querySelector('#bp-file')?.click(), 60); },
     'informe': () => generarInforme(window.__koi),
+    'informe-word': () => generarInformeWord(window.__koi),
     'add-punto': () => { if (mode !== '2d') setMode('2d'); map.setPickMode(!map.pickMode); },
     'add-etiqueta': () => capas._colocarEtiqueta(),
     'config': () => abrirConfigHUD(huds),
