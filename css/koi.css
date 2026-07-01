@@ -21,7 +21,7 @@ body { font: 14px/1.45 system-ui, "Segoe UI", Roboto, sans-serif; background: va
 #app { display: flex; flex-direction: column; height: 100vh; }
 
 #menubar {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: center; justify-content: flex-start;
   height: 52px; padding: 0 16px; background: var(--bg2);
   border-bottom: 1px solid var(--border); z-index: 20;
 }

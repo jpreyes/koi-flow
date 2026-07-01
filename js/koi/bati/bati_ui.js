@@ -37,6 +37,8 @@ export class BatiPanel {
     this.dominio = null;          // polígono del dominio inundable (para el motor 2D)
     this.mesh2d = null;           // malla 2D generada (construirMalla2D)
     this.result2d = null;         // resultado del solver 2D (h, V, H por nodo)
+    this.modo = 'cad';            // 'cad' (DXF/curvas) | 'dem' (DEM base Terrarium, sin CAD)
+    this.baseDEM = null;          // grilla DEM base (fetchDEM) para trabajar sin CAD
   }
 
   _selCauce(i) { this.iCauce = i; this.secciones = this.cauces[i].secciones; this._render(); this._dibujarSecciones(); }
@@ -66,6 +68,13 @@ export class BatiPanel {
       <p class="hp-note">Exporta tu DWG a <b>DXF</b> (SAVEAS/DXFOUT en AutoCAD/CivilCAD). Se leen curvas de nivel (LWPOLYLINE/3D), malla TIN (3DFACE), puntos y cotas.</p>
       ${this.res ? this._resumenDXF() : ''}</section>`;
 
+    // Alternativa SIN CAD: trabajar sobre el DEM base (Terrarium) — cauces secos (Tarapacá)
+    h += `<section class="hp-sec"><h4 class="hp-sec-h">…o sin CAD: DEM del terreno</h4>
+      <button class="hp-run" id="bp-usardem">🗺️ Usar DEM base ${this.tramo ? 'del tramo' : 'de la vista'}</button>
+      <span class="hp-dl-status" id="bp-demst"></span>
+      ${this.baseDEM ? `<div class="hp-kv"><div><span>DEM base</span><b>${this.baseDEM.nx}×${this.baseDEM.ny} · z${this.baseDEM.zoom ?? '?'}</b></div><div><span>Cotas</span><b>${f2(this.baseDEM.zmin)} – ${f2(this.baseDEM.zmax)} m</b></div></div>` : ''}
+      <p class="hp-note">Para cauces secos o sin levantamiento: baja el relieve del terreno y traza el eje y las secciones directamente sobre él (sin DXF ni curvas).</p></section>`;
+
     if (this.res) {
       // 2) Capas de terreno
       h += `<section class="hp-sec"><h4 class="hp-sec-h">2 · Capas de terreno</h4>
@@ -83,9 +92,9 @@ export class BatiPanel {
         ${this.demM ? this._resumenDEM() : ''}</section>`;
     }
 
-    if (this.demM) {
-      // 4) Colocar
-      h += `<section class="hp-sec"><h4 class="hp-sec-h">4 · Colocar sobre el terreno</h4>
+    if (this.demM || this.baseDEM) {
+      // 4) Colocar (solo con CAD)
+      if (this.demM) h += `<section class="hp-sec"><h4 class="hp-sec-h">4 · Colocar sobre el terreno</h4>
         <p class="hp-note">Arrastra el marcador ✛ en el mapa hasta el punto real. Se coloca a escala (metros exactos), sin depender del huso.</p>
         <div class="bp-btns">
           <button class="bp-b" id="bp-center">🎯 Centrar en tramo</button>
@@ -256,6 +265,7 @@ export class BatiPanel {
       this.capasSel = [...this.body.querySelectorAll('[data-capa]:checked')].map((x) => x.dataset.capa);
     }));
     $('#bp-build')?.addEventListener('click', () => this._construir());
+    $('#bp-usardem')?.addEventListener('click', () => this._usarDEMbase());
     $('#bp-center')?.addEventListener('click', () => this._centrar());
     $('#bp-eleva')?.addEventListener('click', () => this._autoElevar());
     $('#bp-fit')?.addEventListener('click', () => this.map?.fitBati());
@@ -313,6 +323,7 @@ export class BatiPanel {
     const paso = parseFloat(this.body.querySelector('#bp-paso').value) || undefined;
     try {
       this.demM = construirDEMmetrico(this.res, this.capasSel, { metodo, paso, usarCotasTexto: true });
+      this.modo = 'cad';
     } catch (err) { alert(err.message); return; }
     // ancla inicial: centro del tramo activo, o centro del mapa
     const c = this.tramo ? this._centroTramo(this.tramo) : this._centroMapa();
@@ -544,7 +555,7 @@ export class BatiPanel {
       let w = 180, s = 90, e = -180, n = -90;
       for (const [lo, la] of this.dominio) { w = Math.min(w, lo); e = Math.max(e, lo); s = Math.min(s, la); n = Math.max(n, la); }
       const mLon = (e - w) * 0.15, mLat = (n - s) * 0.15;
-      let dem = this.fused || await fetchDEM({ west: w - mLon, east: e + mLon, south: s - mLat, north: n + mLat }, { maxDim: 400 });
+      let dem = this.fused || this.baseDEM || await fetchDEM({ west: w - mLon, east: e + mLon, south: s - mLat, north: n + mLat }, { maxDim: 400 });
       // Estructuras sólidas → se "queman" en el DEM (Higher value) antes de mallar,
       // igual que la modificación de terreno de HEC-RAS: el flujo las rodea.
       const estrs = window.__koi?.estr?.estructuras || [];
@@ -696,9 +707,56 @@ export class BatiPanel {
     s.fuera = fuera / surfXYZ.length;
   }
 
+  // Muestrea la sección según el modo: CAD (demM métrico) o DEM base (lon/lat).
+  _muestrear(s) { if (this.modo === 'dem' && this.baseDEM) this._muestrearSeccionDEM(s); else this._muestrear(s); }
+
+  // Muestrea el perfil sobre el DEM base (lon/lat) — sin CAD. Métrica local equirect.
+  _muestrearSeccionDEM(s) {
+    const g = this.baseDEM, line = s.linea;
+    const lo0 = line[0][0], la0 = line[0][1], mx = 111320 * Math.cos(la0 * Math.PI / 180), my = 110540;
+    const V = line.map(([lo, la]) => ({ x: (lo - lo0) * mx, y: (la - la0) * my }));
+    const seg = [0];
+    for (let i = 1; i < V.length; i++) seg.push(seg[i - 1] + Math.hypot(V[i].x - V[i - 1].x, V[i].y - V[i - 1].y));
+    const largo = seg[seg.length - 1] || 1;
+    const N = Math.max(60, Math.min(400, Math.round(largo / 1.5)));
+    const pts = [], surfXYZ = [];
+    for (let k = 0; k < N; k++) {
+      const sd = (k / (N - 1)) * largo; let j = 1; while (j < seg.length - 1 && seg[j] < sd) j++;
+      const t = (sd - seg[j - 1]) / ((seg[j] - seg[j - 1]) || 1);
+      const x = V[j - 1].x + t * (V[j].x - V[j - 1].x), y = V[j - 1].y + t * (V[j].y - V[j - 1].y);
+      const z = elevAt(g, lo0 + x / mx, la0 + y / my);
+      pts.push({ s: sd, z }); surfXYZ.push({ x, y, z });
+    }
+    const b = g.bbox; let fuera = 0;
+    for (const [lo, la] of line) if (lo < b.west || lo > b.east || la < b.south || la > b.north) fuera++;
+    s.pts = pts; s.surface = pts; s.surfXYZ = surfXYZ;
+    s.cutXY = V.map((v) => ({ x: v.x, y: v.y }));
+    s.fuera = fuera / line.length;
+  }
+
+  async _usarDEMbase() {
+    const st = this.body.querySelector('#bp-demst'); if (st) st.textContent = ' bajando relieve…';
+    try {
+      let bbox;
+      if (this.tramo) {
+        const cs = this.tramo.feature.geometry.coordinates;
+        let w = 180, s = 90, e = -180, n = -90;
+        for (const [lo, la] of cs) { w = Math.min(w, lo); e = Math.max(e, lo); s = Math.min(s, la); n = Math.max(n, la); }
+        const mLon = Math.max((e - w) * 0.3, 0.006), mLat = Math.max((n - s) * 0.3, 0.006);
+        bbox = { west: w - mLon, east: e + mLon, south: s - mLat, north: n + mLat };
+      } else { const b = this.map.map.getBounds(); bbox = { west: b.getWest(), east: b.getEast(), south: b.getSouth(), north: b.getNorth() }; }
+      this.baseDEM = await fetchDEM(bbox, { maxDim: 512 });
+      if (this.baseDEM.zmin == null) { let mn = Infinity, mx = -Infinity; for (const v of this.baseDEM.data) { if (v < mn) mn = v; if (v > mx) mx = v; } this.baseDEM.zmin = mn; this.baseDEM.zmax = mx; }
+      this.modo = 'dem';
+      if (st) st.textContent = '';
+      this.map?.map.fitBounds([[bbox.south, bbox.west], [bbox.north, bbox.east]]);
+      this._render(); this.open(); this._syncCapas();
+    } catch (err) { if (st) st.textContent = ' ✗ ' + err.message; console.error(err); }
+  }
+
   _crearSeccion(lineaLonLat) {
     const s = { nombre: `Sección ${this.secciones.length + 1}`, linea: lineaLonLat };
-    this._muestrearSeccion(s);
+    this._muestrear(s);
     this.secciones.push(s);
     this._actualizarFlujo();            // dirección del flujo + pendiente media desde el terreno
     this._calcSeccionEje(s);
@@ -821,8 +879,8 @@ export class BatiPanel {
 
   _dibujarSecciones() {
     if (!this.map) return;
-    // footprint + overlay + ancla (sin las secciones: éstas se dibujan editables abajo)
-    this.map.showBati({ footprint: footprint(this.demM, this.anchor), anchor: this.anchor, overlay: this._overlay() }, (a, d) => this._onMove(a, d));
+    // footprint + overlay + ancla del DEM CAD (en modo DEM base no hay footprint que mostrar)
+    if (this.demM && this.anchor) this.map.showBati({ footprint: footprint(this.demM, this.anchor), anchor: this.anchor, overlay: this._overlay() }, (a, d) => this._onMove(a, d));
     this._dibujarEje();
     this._dibujarDominioEdit();
     this._dibujarSeccionesEdit();
@@ -843,7 +901,7 @@ export class BatiPanel {
         const mk = L.marker([pt[1], pt[0]], { icon, draggable: true, zIndexOffset: 600 })
           .bindTooltip(`${s.nombre} · vértice ${v + 1} (arrastra)`, { direction: 'top' });
         mk.on('drag', () => { const ll = mk.getLatLng(); s.linea[v] = [ll.lng, ll.lat]; this._redibujarLinea(i); });
-        mk.on('dragend', () => { const ll = mk.getLatLng(); s.linea[v] = [ll.lng, ll.lat]; this._muestrearSeccion(s); this._actualizarFlujo(); this._calcSeccionEje(s); this._render(); this._dibujarSecciones(); });
+        mk.on('dragend', () => { const ll = mk.getLatLng(); s.linea[v] = [ll.lng, ll.lat]; this._muestrear(s); this._actualizarFlujo(); this._calcSeccionEje(s); this._render(); this._dibujarSecciones(); });
         this._secGroup.addLayer(mk);
       });
     });
