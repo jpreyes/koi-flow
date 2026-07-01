@@ -8,6 +8,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { estacionesCercanas, cargarSerie } from '../datos/dga.js?v=2';
 import { analizar } from '../hidro/frecuencia.js?v=2';
+import { correrPipelinePunto } from '../hidro/pipeline.js?v=2';
 
 const f = (v, d = 2) => (v == null || !isFinite(v) ? '—' : (Math.abs(v) >= 1000 ? v.toFixed(0) : v.toFixed(d)));
 const esc = (s) => String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
@@ -40,9 +41,23 @@ async function reunirDatos(koi) {
     try {
       const cand = await estacionesCercanas(c, { tipo, n: 8, minAnios: 8 });
       for (const e of cand) {
-        try { const s = serieVals(await cargarSerie(e)); if (s.length >= 5) { out[tipo === 'pluviometrica' ? 'pp' : 'fl'] = { est: e, an: analizar(s), n: s.length, s0: e.periodo }; break; } } catch { /* sin serie */ }
+        try { const raw = await cargarSerie(e); const s = serieVals(raw); if (s.length >= 5) { out[tipo === 'pluviometrica' ? 'pp' : 'fl'] = { est: e, an: analizar(s), n: s.length, raw }; break; } } catch { /* sin serie */ }
       }
     } catch { /* sin catálogo */ }
+  }
+  // Pipeline completo (caudales pluviales + HU + transposición fluviométrica + adoptados)
+  // si hay cuenca delineada y serie pluviométrica.
+  const m = (pts.find((p) => p.cuenca)?.cuenca?.morfometria);
+  if (m && out.pp?.raw) {
+    let Apc = 0;
+    if (out.fl?.est && koi.hydro?.delinearArea) { try { Apc = await koi.hydro.delinearArea(out.fl.est.lon, out.fl.est.lat) || 0; } catch { /* red no disponible */ } }
+    const p0 = pts.find((p) => p.cuenca);
+    const cfg = {
+      nombre: p0?.nombre || 'punto', lat: p0?.lat ?? -20, morfometria: m, CN: 75, region: m.region || 'III', zonaHU: 1,
+      pp: { estacion: out.pp.est.nombre, serie: out.pp.raw },
+      fluvio: (out.fl?.raw && Apc > 0) ? { estacion: out.fl.est.nombre, serie: out.fl.raw, Apc } : null,
+    };
+    try { out.pipe = await correrPipelinePunto(cfg); out.Apc = Apc; } catch (e) { console.warn('pipeline informe:', e.message); }
   }
   return out;
 }
@@ -102,6 +117,7 @@ function capHidrologia(koi, H, datos = {}) {
   const resumenDist = (an) => tabla(['Distribución', 'R²', 'χ²', 'Aceptada'],
     an ? Object.entries(an.resultados).map(([k, r]) => [DIST[k], r.r2.toFixed(3), r.chi2.toFixed(1), r.aceptado ? '✓' : '✗']) : null);
   const cuantiles = (an, uni) => tabla(['T [años]', uni], an ? TS.map((T) => [T, f(an.resultados[an.mejor].quantiles[T])]) : null);
+  const pipe = datos.pipe;
   let b = H(1, 'Análisis Hidrológico');
 
   b += H(2, 'Introducción');
@@ -203,7 +219,11 @@ function capHidrologia(koi, H, datos = {}) {
   b += H(3, 'Hidrograma Unitario Sintético tipo Linsley'); b += EQ('t<sub>p</sub> = C<sub>t</sub>·(L·L<sub>g</sub>/√S)<sup>n</sup> ;&nbsp; q<sub>p</sub> = C<sub>p</sub>·A / t<sub>p</sub>');
 
   b += H(2, 'Resumen de Caudales — Estudio Pluviométrico');
-  b += tabla(['Método', 'Q(T=100) [m³/s]'], [['Racional', '—'], ['Verni-King', '—'], ['DGA', '—'], ['HU Linsley', '—']]);
+  if (pipe?.caudales?.pluvial?.metodos?.length) {
+    const met = pipe.caudales.pluvial.metodos;
+    b += P(`Métodos aplicables: ${esc(pipe.caudales.pluvial.aplicables?.join(', ') || '—')}. En zona árida son <b>referenciales</b> (gobierna la fluviometría).`);
+    b += tabla(['T [años]', ...met.map((x) => x.metodo)], TS.map((T) => [T, ...met.map((x) => f(x.valores?.[T]?.Q))]));
+  } else b += tabla(['Método', 'Q(T=100) [m³/s]'], [['Racional', '—'], ['Verni-King', '—'], ['DGA-AC', '—'], ['HU Linsley', '—']]);
 
   b += H(2, 'Obtención de Caudales por Método Directo — Fluviometría');
   b += H(3, 'Introducción'); b += P('En zona árida <b>gobierna la fluviometría</b>: se analiza la serie de la estación de control y se transpone a la cuenca del tramo.');
@@ -214,13 +234,22 @@ function capHidrologia(koi, H, datos = {}) {
   b += cuantiles(flAn, 'Q [m³/s]');
   b += H(4, 'Test de Bondad de Ajuste'); b += P('χ² y R² por distribución (ver HUD de la estación fluviométrica).');
   b += H(4, 'Resultados de dispersiones probabilísticas'); b += P('Bandas de confianza de los cuantiles fluviométricos.');
-  b += H(3, 'Transposición de Caudales'); b += EQ('Q<sub>c</sub> = Q<sub>p</sub> · (A<sub>c</sub> / A<sub>p</sub>)<sup>n</sup>');
+  b += H(3, 'Transposición de Caudales'); b += EQ('Q<sub>x</sub> = Q<sub>c</sub> · (A<sub>px</sub> / A<sub>pc</sub>)<sup>0.88</sup> · (P<sub>x24</sub>/P<sub>c24</sub>)<sup>1.24</sup>');
+  const tr = pipe?.caudales?.transposicion;
+  if (tr) {
+    b += P(`Estación patrón <b>${esc(tr.estacion)}</b> (A<sub>pc</sub> = ${f(tr.Apc)} km²) → cuenca del tramo (A<sub>px</sub> = ${f(tr.Apx)} km²), distribución <b>${esc(tr.distribucion)}</b>.`);
+    b += tabla(['T [años]', 'Q patrón [m³/s]', 'Factor', 'Q transpuesto [m³/s]'], TS.map((T) => [T, f(tr.Qc?.[T]), f(tr.factor?.[T], 3), f(tr.Qx?.[T])]));
+  } else b += P('Para transponer se requiere la cuenca del tramo y una estación fluviométrica con serie (y el área de su cuenca de control, delineable automáticamente).');
   b += `<h4 class="h3">Estaciones fluviométricas de control</h4>` + tabla(cabEst, fl.length ? fl.map(filaEst) : null);
 
   b += H(2, 'Caudales Adoptados');
-  b += tabla(['T [años]', 'Q adoptado [m³/s]', 'Origen'],
-    flAn ? [10, 100, 200].map((T) => [T, f(flAn.resultados[flAn.mejor].quantiles[T]), 'fluviometría · ' + esc(datos.fl.est.nombre)]) : null);
-  if (flAn && m) b += P(`Para transponer a la cuenca del tramo (A = ${m.A} km²) aplicar Q<sub>c</sub> = Q<sub>p</sub>·(A<sub>c</sub>/A<sub>p</sub>)<sup>n</sup> con el área de la cuenca de control de la estación.`);
+  const adop = pipe?.caudales?.adopcion;
+  if (adop?.tabla) {
+    b += P(`Gobierna: <b>${esc(adop.gobiernaMetodo)}</b>. ${esc(adop.nota || '')}`);
+    b += tabla(['T [años]', 'Q adoptado [m³/s]', 'Método que gobierna'], adop.tabla.map((r) => [r.T, f(r.adoptado), esc(r.gobierna || '—')]));
+  } else if (flAn) {
+    b += tabla(['T [años]', 'Q adoptado [m³/s]', 'Origen'], [10, 100, 200].map((T) => [T, f(flAn.resultados[flAn.mejor].quantiles[T]), 'fluviometría · ' + esc(datos.fl.est.nombre)]));
+  } else b += tabla(['T [años]', 'Q adoptado [m³/s]', 'Origen'], null);
   return b;
 }
 

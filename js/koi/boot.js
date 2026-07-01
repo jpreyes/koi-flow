@@ -120,6 +120,7 @@ async function startBoot() {
   applyGrid();
   wireTreeResize(() => treeW, (w) => { treeW = w; applyGrid(); });
   hydro.setMap(map); hydro.setDock(dock);
+  hydro._renderCuenca(null);   // deja el botón "Agregar punto" visible en la pestaña Cuenca
   const bati = new BatiPanel();
   bati.setMap(map); bati.setScene(scene); bati.setDock(dock);
   bati.onVer3D(() => { if (current) { setMode('3d'); } });

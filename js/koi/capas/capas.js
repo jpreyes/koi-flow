@@ -50,11 +50,15 @@ export class Capas {
     pbar.innerHTML = `
       <span class="cap-ico">${ico('project')}</span>
       <span class="cap-proj-name" title="Proyecto actual">${this.project?.name || 'Proyecto'}</span>
+      <span class="cap-act" id="cap-proj-edit" title="Renombrar / guardar proyecto">${ico('pencil')}</span>
+      <span class="cap-act" id="cap-proj-del" title="Borrar proyecto">${ico('trash')}</span>
       <button class="cap-proj-toggle" id="cap-proj-toggle" title="Proyectos">▾</button>`;
     this.cont.appendChild(pbar);
     const pmenu = el('div', 'cap-proj-menu'); pmenu.id = 'cap-proj-menu'; pmenu.hidden = true;
     this.cont.appendChild(pmenu);
     pbar.querySelector('#cap-proj-toggle').addEventListener('click', () => { pmenu.hidden = !pmenu.hidden; if (!pmenu.hidden) this._renderProyectos(pmenu); });
+    pbar.querySelector('#cap-proj-edit').addEventListener('click', () => this._renombrarProyecto());
+    pbar.querySelector('#cap-proj-del').addEventListener('click', () => this._borrarProyectoActual());
 
     const tools = el('div', 'cap-tools');
     tools.innerHTML = `
@@ -255,6 +259,25 @@ export class Capas {
       removeProject(id); this._renderProyectos(menu);
     }));
   }
+  _renombrarProyecto() {
+    const cur = (this.project?.name || '').replace(/^Demo — /, '');
+    const name = prompt('Nombre del proyecto:', cur);
+    if (name == null || !name.trim()) return;
+    let id = this.project?.id;
+    if (!id || id === 'demo' || id === 'nuevo') id = newProjectId();
+    const state = { id, name: name.trim(), ...this._estadoActual() };
+    saveProject(state); setOpen(id);
+    if (this.project) { this.project.id = id; this.project.name = name.trim(); }
+    const nm = this.cont.querySelector('.cap-proj-name'); if (nm) nm.textContent = name.trim();
+  }
+  _borrarProyectoActual() {
+    const id = this.project?.id;
+    if (!id || id === 'nuevo') { if (confirm('¿Vaciar el proyecto actual (sin guardar)?')) { setOpen(null); location.reload(); } return; }
+    if (!confirm(`¿Borrar el proyecto "${this.project?.name}"? Esta acción no se puede deshacer.`)) return;
+    if (id !== 'demo') removeProject(id);
+    setOpen(null); location.reload();
+  }
+
   _nuevoProyecto() {
     if (!confirm('¿Crear un proyecto nuevo (vacío)? Se cerrará el actual (guarda antes si hace falta).')) return;
     setOpen(null); location.reload();

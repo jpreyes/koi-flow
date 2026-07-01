@@ -194,7 +194,12 @@ export class HydroPanel {
   // ── Pestaña CUENCA (independiente de hidrología) ─────────────────────────────
   _renderCuenca(p) {
     const host = this.hosts.cuenca; host.innerHTML = ''; this.elBody = host;
-    if (!p) { host.innerHTML = '<p class="hp-note">Agrega un punto de análisis (📍) y delinea su cuenca aquí.</p>'; return; }
+    // "Agregar punto" es el consumible que desbloquea el resto → siempre disponible aquí
+    const addBtn = el('button', 'hp-run', '＋ Agregar punto de análisis (clic en el mapa)');
+    addBtn.style.margin = '0 0 8px';
+    addBtn.addEventListener('click', () => { this.map?.setPickMode(true); });
+    host.appendChild(addBtn);
+    if (!p) { host.appendChild(el('p', 'hp-note', 'Sin punto seleccionado. Pulsa el botón y haz clic en el cauce; luego delinea la cuenca. Cada punto habilita hidrología, hidráulica y socavación.')); return; }
     // control de SNAP (ajustable): distancia de enganche al cauce. 0 = punto exacto.
     const snapForm = el('div', 'hp-form');
     snapForm.innerHTML = `<label class="hp-f"><span>Snap al cauce [m] (0 = exacto)</span><input id="cu-snap" type="number" value="${this._snapM ?? 60}"></label>`;
