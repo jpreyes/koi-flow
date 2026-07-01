@@ -60,9 +60,22 @@ export function resolver2D(mesh, opts = {}) {
   const piso = (isFinite(mmin) ? mmin : 1) * 1e-6;
   for (let i = 0; i < n; i++) if (M[i] <= 0) M[i] = piso;
 
-  // caudal de entrada distribuido por masa de los nodos de entrada
+  // caudal de entrada distribuido por masa de los nodos de entrada.
+  // Transiente: opts.hidrograma = [{t,Q}] (Q variable en el tiempo) → se anima.
+  const hidro = opts.hidrograma && opts.hidrograma.length ? opts.hidrograma : null;
+  const guardarCada = opts.guardarCada || 0;   // >0 → guarda frames cada N pasos
+  const frames = [];
+  let mtEnt = 0; for (const i of entrada) mtEnt += M[i]; mtEnt = mtEnt || 1;
+  const Qen = (t) => {
+    if (!hidro) return Q;
+    if (t <= hidro[0].t) return hidro[0].Q;
+    if (t >= hidro[hidro.length - 1].t) return hidro[hidro.length - 1].Q;
+    for (let i = 1; i < hidro.length; i++) if (t <= hidro[i].t) { const a = hidro[i - 1], b = hidro[i], fr = (t - a.t) / ((b.t - a.t) || 1); return a.Q + fr * (b.Q - a.Q); }
+    return hidro[hidro.length - 1].Q;
+  };
   const F0 = new Float64Array(n);
-  if (Q > 0 && entrada.length) { let mt = 0; for (const i of entrada) mt += M[i]; for (const i of entrada) F0[i] += Q * (M[i] / (mt || 1)); }
+  const setF0 = (q) => { F0.fill(0); if (q > 0 && entrada.length) for (const i of entrada) F0[i] = q * (M[i] / mtEnt); };
+  setF0(Q);
 
   // nivel de salida (Dirichlet): por defecto lecho de salida + 2·hmin
   let stageOut = opts.stageSalida;
@@ -79,6 +92,7 @@ export function resolver2D(mesh, opts = {}) {
   let paso = 0, cambio = Infinity;
   for (paso = 0; paso < nPasos; paso++) {
     Hprev.set(H);
+    if (hidro) setF0(Qen(paso * dt));   // caudal de entrada del hidrograma en este paso
     for (let it = 0; it < picard; it++) {
       A.val.fill(0);
       rhs.set(F0);
@@ -109,11 +123,16 @@ export function resolver2D(mesh, opts = {}) {
       const sol = F.solve(Array.from(rhs));
       for (let i = 0; i < n; i++) { H[i] = Math.max(sol[i], z[i]); }   // clamp h≥0
     }
-    // convergencia a permanente
+    // guarda frame h(t) para animar (transiente)
+    if (guardarCada && paso % guardarCada === 0) {
+      const hf = new Float32Array(n); for (let i = 0; i < n; i++) hf[i] = Math.max(0, H[i] - z[i]);
+      frames.push({ t: paso * dt, h: hf });
+    }
+    // convergencia a permanente (en transiente NO se corta: se recorre todo el hidrograma)
     let d = 0; for (let i = 0; i < n; i++) d = Math.max(d, Math.abs(H[i] - Hprev[i]));
     cambio = d;
     if (opts.onProgress && paso % 5 === 0) opts.onProgress(paso, nPasos, d);
-    if (d < tol) { paso++; break; }
+    if (!hidro && d < tol) { paso++; break; }
   }
 
   // profundidad y velocidad por nodo (q=-D∇H por elemento → promedio a nodos)
@@ -136,5 +155,5 @@ export function resolver2D(mesh, opts = {}) {
 
   let hmax = 0, Vmax = 0, nMoj = 0;
   for (let i = 0; i < n; i++) { if (h[i] > hmin) nMoj++; if (h[i] > hmax) hmax = h[i]; if (V[i] > Vmax) Vmax = V[i]; }
-  return { H, h, V, Vx, Vy, pasos: paso, cambio, hmax, Vmax, nMojados: nMoj, convergio: cambio < tol };
+  return { H, h, V, Vx, Vy, pasos: paso, cambio, hmax, Vmax, nMojados: nMoj, convergio: cambio < tol, frames, dt };
 }
