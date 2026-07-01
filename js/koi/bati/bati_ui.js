@@ -15,6 +15,7 @@ import { evaluarSocavacion } from '../hidraulica/socavacion.js?v=2';
 import { ejeRemanso, ejeMixto } from '../hidraulica/remanso.js?v=2';
 import { analisisCompleto, salidaCSV } from '../hidraulica/salida.js?v=2';
 import { wktUTM, demArcASCII, sdfGeometria, csvSecciones } from './hecras.js?v=2';
+import { exportarDXF } from './dxf_export.js?v=2';
 import { fetchDEM } from '../cuenca/dem_tiles.js?v=2';
 import { elevAt } from '../hidraulica/secciones.js?v=2';
 import { zipStore, descargar } from '../cuenca/exportar.js?v=2';
@@ -180,6 +181,7 @@ export class BatiPanel {
           <button class="bp-b" id="bp-exp-terr">🗺️ Terreno .asc + .prj</button>
           <button class="bp-b" id="bp-exp-sdf">📑 Secciones .sdf</button>
           <button class="bp-b" id="bp-exp-csv">📄 Secciones CSV</button>
+          <button class="bp-b" id="bp-exp-dxf">📐 DXF (todo)</button>
         </div>
         <p class="hp-note">El .asc/.sdf salen en UTM con su .prj autoconsistente → HEC-RAS los toma georreferenciados.</p></section>`;
     }
@@ -294,6 +296,7 @@ export class BatiPanel {
     $('#bp-exp-terr')?.addEventListener('click', () => this._expTerreno());
     $('#bp-exp-sdf')?.addEventListener('click', () => this._expSDF());
     $('#bp-exp-csv')?.addEventListener('click', () => this._expCSV());
+    $('#bp-exp-dxf')?.addEventListener('click', () => { try { descargar(`${this.nombre || 'koi-flow'}_estudio.dxf`, exportarDXF(this), 'application/dxf'); } catch (e) { alert(e.message); } });
     this.body.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', () => {
       this.secciones.splice(+b.dataset.del, 1); this._refreshSecciones(); this._dibujarSecciones();
     }));
