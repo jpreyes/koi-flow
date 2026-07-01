@@ -168,6 +168,8 @@ export class BatiPanel {
           </div>
           <button class="hp-run" id="bp-remanso">🌊 Calcular eje por remanso</button>
           <div id="bp-remanso-out"></div>
+          <button class="bp-b" id="bp-inun1d" style="width:100%;margin-top:6px">🌊 Mapa de inundación (desde el 1D)</button>
+          <span class="hp-dl-status" id="bp-inun1d-st"></span>
         </div>` : this._motor2DHTML()}</section>`;
 
       // 6) Exportar
@@ -280,6 +282,7 @@ export class BatiPanel {
     $('#bp-recalc')?.addEventListener('click', () => this._recalcularSecciones());
     $('#bp-inv-flujo')?.addEventListener('click', () => this._invertirFlujo());
     $('#bp-remanso')?.addEventListener('click', () => this._runRemanso());
+    $('#bp-inun1d')?.addEventListener('click', () => this._inundacion1D());
     $('#bp-cauce-sel')?.addEventListener('change', (e) => this._selCauce(+e.target.value));
     $('#bp-cauce-new')?.addEventListener('click', () => this._nuevoCauce());
     this.body.querySelectorAll('[data-motor]').forEach((b) => b.addEventListener('click', () => {
@@ -731,6 +734,43 @@ export class BatiPanel {
       A += (ha + hb) / 2 * (xb - xa); B += (xb - xa); pmax = Math.max(pmax, ha, hb);
     }
     return { A, B, profMax: pmax };
+  }
+
+  // Mancha de inundación a partir del eje 1D (WSE por sección) cruzada con el DEM.
+  async _inundacion1D() {
+    const secs = (this.secciones || []).filter((s) => s.res);
+    if (!secs.length) { alert('Traza y calcula al menos una sección primero.'); return; }
+    const st = this.body.querySelector('#bp-inun1d-st'); if (st) st.textContent = ' preparando…';
+    try {
+      let g = this.fused || this.baseDEM || (this.grid?.data ? this.grid : null);
+      if (!g || !g.data) {
+        let w = 180, e = -180, s = 90, n = -90;
+        for (const sec of secs) for (const [lo, la] of sec.linea) { w = Math.min(w, lo); e = Math.max(e, lo); s = Math.min(s, la); n = Math.max(n, la); }
+        const mLon = (e - w) * 0.4 || 0.005, mLat = (n - s) * 0.4 || 0.005;
+        if (st) st.textContent = ' bajando DEM…';
+        g = await fetchDEM({ west: w - mLon, east: e + mLon, south: s - mLat, north: n + mLat }, { maxDim: 400 });
+      }
+      const midLL = (s) => { const a = s.linea[0], b = s.linea[s.linea.length - 1]; return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; };
+      const ord = [...secs].sort((a, b) => (a.station || 0) - (b.station || 0)).map((s) => ({ WSE: s.res.WSE, mid: midLL(s) }));
+      const la0 = ord[0].mid[1], mx = 111320 * Math.cos(la0 * Math.PI / 180), my = 110540;
+      const M = ord.map((o) => ({ x: o.mid[0] * mx, y: o.mid[1] * my, WSE: o.WSE }));
+      const wseAt = (lon, lat) => {
+        if (M.length === 1) return M[0].WSE;
+        const px = lon * mx, py = lat * my; let best = Infinity, wse = M[0].WSE;
+        for (let i = 0; i < M.length - 1; i++) {
+          const ax = M[i].x, ay = M[i].y, dx = M[i + 1].x - ax, dy = M[i + 1].y - ay, L2 = dx * dx + dy * dy || 1;
+          let t = ((px - ax) * dx + (py - ay) * dy) / L2; t = Math.max(0, Math.min(1, t));
+          const d = Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+          if (d < best) { best = d; wse = M[i].WSE + t * (M[i + 1].WSE - M[i].WSE); }
+        }
+        return wse;
+      };
+      const { nx, ny } = g, b = g.bbox, depth = new Float32Array(nx * ny);
+      for (let r = 0; r < ny; r++) { const lat = b.north - r / (ny - 1) * (b.north - b.south);
+        for (let c = 0; c < nx; c++) { const lon = b.west + c / (nx - 1) * (b.east - b.west); const z = g.data[r * nx + c], w = wseAt(lon, lat); if (w > z) depth[r * nx + c] = w - z; } }
+      const hmax = this.map.showInundacionRaster(g, depth);
+      if (st) st.textContent = ` ✓ calado máx ${hmax.toFixed(2)} m (azul = calado)`;
+    } catch (err) { if (st) st.textContent = ' ✗ ' + err.message; console.error(err); }
   }
 
   // ── Trazado de secciones sobre el mapa ───────────────────────────────────────

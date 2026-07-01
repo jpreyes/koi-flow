@@ -342,6 +342,26 @@ export class MapView {
   }
   clearMalla2D() { this.groups.malla2d.clearLayers(); }
 
+  // Mancha de inundación RASTER (desde el eje 1D): pinta el calado sobre la grilla DEM.
+  //   grid: {nx,ny,bbox,data}  depth: Float32Array(nx*ny) [m]
+  showInundacionRaster(grid, depth, opts = {}) {
+    const L = window.L;
+    if (this._inun1dLayer) { this.map.removeLayer(this._inun1dLayer); this._inun1dLayer = null; }
+    const { nx, ny } = grid, b = grid.bbox;
+    const cv = document.createElement('canvas'); cv.width = nx; cv.height = ny;
+    const ctx = cv.getContext('2d'), img = ctx.createImageData(nx, ny);
+    let hmax = 0; for (const d of depth) if (d > hmax) hmax = d; hmax = hmax || 1;
+    for (let i = 0; i < depth.length; i++) {
+      const o = i * 4, d = depth[i];
+      if (d > 0.02) { const t = Math.min(1, d / hmax); img.data[o] = 20 + (1 - t) * 90; img.data[o + 1] = 120 + (1 - t) * 70; img.data[o + 2] = 200 + t * 40; img.data[o + 3] = 175; }
+      else img.data[o + 3] = 0;
+    }
+    ctx.putImageData(img, 0, 0);
+    this._inun1dLayer = L.imageOverlay(cv.toDataURL(), [[b.south, b.west], [b.north, b.east]], { opacity: opts.opacity ?? 0.6 }).addTo(this.map);
+    return hmax;
+  }
+  clearInun1D() { if (this._inun1dLayer) { this.map.removeLayer(this._inun1dLayer); this._inun1dLayer = null; } }
+
   // Mancha de inundación: rasteriza los triángulos coloreados por profundidad (canvas).
   showInundacion(mesh, h, opts = {}) {
     const L = window.L;
