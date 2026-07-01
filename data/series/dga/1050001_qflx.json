@@ -1,0 +1,29 @@
+{
+ "nombre": "Quebrada Piga En Ojos De Agua",
+ "bna": "1050001",
+ "tipo": "fluviometrica",
+ "variable": "Máximo anual de caudal medio diario",
+ "unidad": "m3/s",
+ "altitud_m": 0.0,
+ "lat": -20.0333,
+ "lon": -68.8333,
+ "cuenca": "Altiplanicas",
+ "subcuenca": "Salar Del Huasco",
+ "fuente": "CR2 (DGA) · cr2_qflxDaily_2020.txt",
+ "n_anios": 13,
+ "serie": {
+  "1959": 0.1,
+  "1960": 0.1,
+  "1961": 0.1,
+  "1962": 0.1,
+  "1963": 0.1,
+  "1964": 0.1,
+  "1966": 0.1,
+  "1967": 0.1,
+  "1988": 1.0,
+  "1989": 0.2,
+  "1991": 0.2,
+  "1992": 1.1,
+  "1995": 2.7
+ }
+}

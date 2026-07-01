@@ -1,0 +1,28 @@
+{
+ "nombre": "Rio Rahue En Chan Chan",
+ "bna": "10344004",
+ "tipo": "fluviometrica",
+ "variable": "Máximo anual de caudal medio diario",
+ "unidad": "m3/s",
+ "altitud_m": 50.0,
+ "lat": -40.7022,
+ "lon": -73.0164,
+ "cuenca": "Rio Bueno",
+ "subcuenca": "Rio Rahue Hasta Antes Junta Rio Negro",
+ "fuente": "CR2 (DGA) · cr2_qflxDaily_2020.txt",
+ "n_anios": 12,
+ "serie": {
+  "2008": 573.0,
+  "2009": 671.0,
+  "2010": 462.0,
+  "2011": 504.0,
+  "2012": 569.0,
+  "2013": 602.0,
+  "2014": 630.0,
+  "2015": 480.0,
+  "2016": 232.0,
+  "2017": 449.0,
+  "2018": 643.0,
+  "2019": 336.0
+ }
+}

@@ -1,0 +1,38 @@
+{
+  "_fuente": "Manual de Carreteras Vol.3 y Manual DGA 1995 (Cálculo de Crecidas en cuencas sin info fluviométrica). Extraído del informe S17.",
+  "idf": {
+    "_desc": "Coeficiente de duración CD(t)=P(t)/P(24h). Estación pluviográfica de referencia.",
+    "estaciones": {
+      "Putre": [
+        [5, 0.128], [10, 0.198], [15, 0.251], [30, 0.348], [60, 0.440],
+        [90, 0.547], [120, 0.620], [240, 0.730], [360, 0.780], [480, 0.810],
+        [600, 0.820], [720, 0.830], [840, 0.830], [1080, 0.870], [1440, 1.000]
+      ]
+    },
+    "factor_varas_sanchez": 1.10
+  },
+  "racional": {
+    "_desc": "Racional Modificado (cuencas <25 km²). Q=C(T)·I(tc)·A/3.6. C(T)=C10·factor.",
+    "C10_por_region": { "III": 0.009 },
+    "factor_frecuencia_C": {
+      "_desc": "C(T)/C(T=10), Tabla 3.26 DGA 1995.",
+      "2": 0.90, "5": 0.95, "10": 1.00, "25": 1.14, "50": 1.23,
+      "100": 1.32, "150": 1.35, "200": 1.37, "300": 1.40
+    }
+  },
+  "verni_king": {
+    "_desc": "Verni-King Modificado (10–10000 km²). Q=C(T)·0.00618·A^0.88·P24^1.24.",
+    "k": 0.00618, "expA": 0.88, "expP": 1.24,
+    "C10_por_region": { "III": 0.027 }
+  },
+  "dga_ac": {
+    "_desc": "DGA-AC análisis regional pluvial. Q10 medio diario; ×curva regional; ×α a instantáneo.",
+    "Q10_formula": { "k": 1.94e-7, "expA": 0.776, "expP": 3.108 },
+    "curva_regional_Dp_exorreica_media": {
+      "_desc": "Q(T)/Q(10), zona homogénea Dp, Gumbel, exorreicas, valor medio (Tabla 3-24).",
+      "2": 0.50, "5": 0.80, "10": 1.00, "20": 1.19, "25": 1.25,
+      "50": 1.44, "75": 1.54, "100": 1.62, "150": 1.76, "200": 1.86, "300": 2.00
+    },
+    "alfa_CMMD_a_CIMD": 1.0
+  }
+}

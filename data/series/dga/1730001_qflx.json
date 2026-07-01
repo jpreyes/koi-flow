@@ -1,0 +1,29 @@
+{
+ "nombre": "Rio Coscaya En Pampa Lirima",
+ "bna": "1730001",
+ "tipo": "fluviometrica",
+ "variable": "Máximo anual de caudal medio diario",
+ "unidad": "m3/s",
+ "altitud_m": 3540.0,
+ "lat": -19.8764,
+ "lon": -68.9592,
+ "cuenca": "Pampa Del Tamarugal",
+ "subcuenca": "Quebrada De Tarapaca",
+ "fuente": "CR2 (DGA) · cr2_qflxDaily_2020.txt",
+ "n_anios": 13,
+ "serie": {
+  "1977": 0.2,
+  "1978": 0.3,
+  "1979": 0.4,
+  "1980": 0.3,
+  "1981": 0.4,
+  "1982": 0.3,
+  "1983": 0.5,
+  "1984": 1.8,
+  "1985": 0.4,
+  "1986": 0.4,
+  "1987": 1.0,
+  "1988": 0.2,
+  "1989": 0.4
+ }
+}

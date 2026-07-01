@@ -1,0 +1,27 @@
+{
+ "nombre": "Rio Futa En Futa",
+ "bna": "10142002",
+ "tipo": "fluviometrica",
+ "variable": "Máximo anual de caudal medio diario",
+ "unidad": "m3/s",
+ "altitud_m": 60.0,
+ "lat": -39.9833,
+ "lon": -73.15,
+ "cuenca": "Rio Valdivia",
+ "subcuenca": "Rio Valdivia Bajo (Entre Rio Angachillas Y Desemb)",
+ "fuente": "CR2 (DGA) · cr2_qflxDaily_2020.txt",
+ "n_anios": 11,
+ "serie": {
+  "1926": 169.0,
+  "1928": 419.0,
+  "1929": 667.0,
+  "1930": 312.0,
+  "1931": 386.0,
+  "1932": 411.0,
+  "1933": 210.0,
+  "1934": 379.0,
+  "1935": 305.0,
+  "1936": 209.0,
+  "1937": 313.0
+ }
+}

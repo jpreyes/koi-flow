@@ -1,0 +1,74 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// dga.js — capa de datos DGA (koi-flow). Consume el catálogo y las series que genera
+// tools/fetch_dga.py (compiladas por el CR2 desde la DGA): selecciona las estaciones
+// pluvio/fluviométricas más cercanas a un tramo y carga su serie de máximos anuales.
+// ─────────────────────────────────────────────────────────────────────────────
+
+let _catalogo = null;
+
+export function resetCatalogo() { _catalogo = null; }
+
+export async function cargarCatalogo() {
+  if (_catalogo) return _catalogo;
+  try {
+    _catalogo = await (await fetch('data/estaciones_dga.json?v=2')).json();
+  } catch {
+    _catalogo = { estaciones: [] };
+  }
+  return _catalogo;
+}
+
+export function haversine(lon1, lat1, lon2, lat2) {
+  const R = 6371, rad = Math.PI / 180;
+  const p1 = lat1 * rad, p2 = lat2 * rad;
+  const dphi = (lat2 - lat1) * rad, dl = (lon2 - lon1) * rad;
+  const a = Math.sin(dphi / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+// Centroide aproximado de un tramo (LineString) en [lon, lat].
+export function centroideTramo(feature) {
+  const c = feature.geometry.coordinates;
+  let x = 0, y = 0;
+  for (const [lon, lat] of c) { x += lon; y += lat; }
+  return [x / c.length, y / c.length];
+}
+
+// Estaciones más cercanas a un punto, opcionalmente filtradas por tipo.
+//   tipo: 'pluviometrica' | 'fluviometrica' | undefined (ambas)
+export async function estacionesCercanas([lon, lat], { tipo, n = 5, minAnios = 0 } = {}) {
+  const cat = await cargarCatalogo();
+  return cat.estaciones
+    .filter((e) => (!tipo || e.tipo === tipo) && (e.n_anios || 0) >= minAnios)
+    .map((e) => ({ ...e, dist: haversine(lon, lat, e.lon, e.lat) }))
+    .sort((a, b) => a.dist - b.dist)
+    .slice(0, n);
+}
+
+// Carga la serie de máximos anuales de una estación. Acepta el objeto de catálogo
+// (con bna/tipo/archivo) o un BNA + tipo. El archivo incluye la variable para no
+// confundir pluvio/fluvio del mismo BNA (p.ej. Q. Tarapacá en Sibaya).
+export async function cargarSerie(est, tipo) {
+  const bna = typeof est === 'object' ? est.bna : est;
+  const t = (typeof est === 'object' ? est.tipo : tipo);
+  const archivo = (typeof est === 'object' && est.archivo)
+    ? est.archivo
+    : `${bna}_${t === 'fluviometrica' ? 'qflx' : 'pr'}.json`;
+  try {
+    return await (await fetch(`data/series/dga/${archivo}?v=2`)).json();
+  } catch {
+    return await (await fetch(`data/series/dga/${bna}.json?v=2`)).json();   // back-compat
+  }
+}
+
+// Estación recomendada para un tramo: la más cercana del tipo con registro suficiente.
+//   Prioriza años de registro sobre distancia pura (un registro largo lejano puede
+//   ser mejor que uno corto cercano), con un ligero castigo por distancia.
+export async function estacionRecomendada(feature, tipo, { minAnios = 15 } = {}) {
+  const cand = await estacionesCercanas(centroideTramo(feature), { tipo, n: 12, minAnios: 0 });
+  const buenas = cand.filter((e) => (e.n_anios || 0) >= minAnios);
+  const pool = buenas.length ? buenas : cand;
+  // score: más años, menos distancia (peso suave a la distancia)
+  pool.sort((a, b) => (b.n_anios - b.dist / 20) - (a.n_anios - a.dist / 20));
+  return pool[0] || null;
+}

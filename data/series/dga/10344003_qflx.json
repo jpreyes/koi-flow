@@ -1,0 +1,29 @@
+{
+ "nombre": "Rio Rahue Antes Junta Rio Negro",
+ "bna": "10344003",
+ "tipo": "fluviometrica",
+ "variable": "Máximo anual de caudal medio diario",
+ "unidad": "m3/s",
+ "altitud_m": 40.0,
+ "lat": -40.63,
+ "lon": -73.1783,
+ "cuenca": "Rio Bueno",
+ "subcuenca": "Rio Rahue Hasta Antes Junta Rio Negro",
+ "fuente": "CR2 (DGA) · cr2_qflxDaily_2020.txt",
+ "n_anios": 13,
+ "serie": {
+  "2008": 972.0,
+  "2009": 923.0,
+  "2010": 664.0,
+  "2011": 669.0,
+  "2012": 458.0,
+  "2013": 737.0,
+  "2014": 948.0,
+  "2015": 731.0,
+  "2016": 231.0,
+  "2017": 659.0,
+  "2018": 867.0,
+  "2019": 470.6,
+  "2020": 136.6
+ }
+}

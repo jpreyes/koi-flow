@@ -1,0 +1,22 @@
+# ── Material de referencia (no se versiona: pesado y de terceros) ──────────────
+referencia/
+
+# ── Caché de descargas DGA/CR2 (zips grandes; se regeneran con tools/fetch_dga.py)
+tools/.cache_dga/
+
+# ── Editor / entorno / herramientas locales ───────────────────────────────────
+.claude/
+.vscode/
+.idea/
+*.log
+*.tmp
+
+# ── Python ────────────────────────────────────────────────────────────────────
+*.pyc
+__pycache__/
+.venv/
+venv/
+
+# ── SO ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db

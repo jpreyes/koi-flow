@@ -1,0 +1,28 @@
+{
+ "nombre": "Rio Calle Calle En Antilhue",
+ "bna": "10122002",
+ "tipo": "fluviometrica",
+ "variable": "Máximo anual de caudal medio diario",
+ "unidad": "m3/s",
+ "altitud_m": 15.0,
+ "lat": -39.8,
+ "lon": -72.9667,
+ "cuenca": "Rio Valdivia",
+ "subcuenca": "Rio Calle Calle",
+ "fuente": "CR2 (DGA) · cr2_qflxDaily_2020.txt",
+ "n_anios": 12,
+ "serie": {
+  "1928": 593.0,
+  "1929": 1228.0,
+  "1930": 1206.0,
+  "1931": 908.0,
+  "1932": 1767.0,
+  "1933": 980.0,
+  "1934": 1298.0,
+  "1935": 1240.0,
+  "1936": 1049.0,
+  "1937": 1328.0,
+  "1938": 1104.0,
+  "1939": 1224.0
+ }
+}
