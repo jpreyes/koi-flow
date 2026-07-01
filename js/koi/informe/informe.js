@@ -138,7 +138,7 @@ function capHidrologia(koi, H, datos = {}) {
 
   b += H(2, 'Cuencas Hidrográficas');
   b += P('La cuenca aportante se delinea por análisis de dirección de flujo <b>D8</b> sobre el DEM (llenado de depresiones → direcciones → acumulación → ajuste del exutorio → parteaguas).');
-  if (m) b += `<div class="fig-row">${svgPoligono(cuencas[0].cuenca.polygonSuave || cuencas[0].cuenca.polygon, '#128aa5', 'rgba(18,138,165,.15)')}
+  if (m) b += `<div class="fig-row">${svgPoligono(cuencas[0].cuenca.polygonSuave || cuencas[0].cuenca.polygon, '#128aa5', 'rgba(18,138,165,.15)', [cuencas[0].lon, cuencas[0].lat])}
     ${tabla(['Parámetro', 'Valor'], [['Área A', m.A + ' km²'], ['Cauce principal L', m.L + ' km'], ['Long. al centroide Lg', m.Lg + ' km'], ['Pendiente media S', f(m.S * 100) + ' %'], ['Desnivel H', m.H + ' m'], ['Perímetro', m.perimetro_km + ' km']])}</div>`;
   else b += ND('Delinea una cuenca para poblar esta sección.');
 
@@ -350,19 +350,22 @@ function tcVal(tc, key) {
 
 // ── Figuras (SVG) y tabla ──────────────────────────────────────────────────────
 function bboxOf(pts) { let w = Infinity, e = -Infinity, s = Infinity, n = -Infinity; for (const [x, y] of pts) { w = Math.min(w, x); e = Math.max(e, x); s = Math.min(s, y); n = Math.max(n, y); } return { w, e, s, n }; }
-function svgPoligono(coords, stroke, fill) {
+function svgPoligono(coords, stroke, fill, pt) {
   if (!coords || coords.length < 3) return '';
-  const W = 300, Hh = 220, pad = 10, bb = bboxOf(coords);
+  const W = 300, Hh = 220, pad = 12, all = pt ? [...coords, pt] : coords, bb = bboxOf(all);
   const k = Math.min((W - 2 * pad) / ((bb.e - bb.w) || 1), (Hh - 2 * pad) / ((bb.n - bb.s) || 1));
   const X = (x) => pad + (x - bb.w) * k, Y = (y) => Hh - pad - (y - bb.s) * k;
-  return `<svg class="fig" viewBox="0 0 ${W} ${Hh}"><polygon points="${coords.map(([x, y]) => `${X(x).toFixed(1)},${Y(y).toFixed(1)}`).join(' ')}" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/></svg>`;
+  const marca = pt ? `<circle cx="${X(pt[0]).toFixed(1)}" cy="${Y(pt[1]).toFixed(1)}" r="4.5" fill="#ef6c5a" stroke="#fff" stroke-width="1.5"/>
+    <text x="${(X(pt[0]) + 7).toFixed(1)}" y="${(Y(pt[1]) + 3).toFixed(1)}" font-size="9" fill="#082a3d">punto</text>` : '';
+  return `<svg class="fig" viewBox="0 0 ${W} ${Hh}"><polygon points="${coords.map(([x, y]) => `${X(x).toFixed(1)},${Y(y).toFixed(1)}`).join(' ')}" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/>${marca}</svg>`;
 }
 function svgSeccion(s) {
   const W = 340, Hh = 150, pad = 22, xs = s.pts.map((p) => p.s), zs = s.pts.map((p) => p.z);
-  const sMax = Math.max(...xs), zMin = Math.min(...zs), fr = s.soc?.franjas?.franjas || [];
-  const zBed = fr.length ? Math.min(...fr.map((p) => p.zFondo)) : zMin;
-  const zTop = Math.max(s.res.WSE, Math.max(...zs)), zLo = Math.min(zMin, zBed) - 0.3, zHi = zTop + 0.3, zR = (zHi - zLo) || 1;
-  const X = (v) => pad + (v / sMax) * (W - 2 * pad), Y = (v) => Hh - pad - ((v - zLo) / zR) * (Hh - 2 * pad);
+  const sMax = Math.max(...xs) || 1, sMin = Math.min(...xs), fr = s.soc?.franjas?.franjas || [];
+  const socZ = fr.length ? fr.map((p) => p.zFondo) : (s.soc?.general?.perfil || []).map((p) => p.zFondo);
+  const allZ = [...zs, s.res.WSE, ...socZ].filter((v) => isFinite(v));
+  const zLo = Math.min(...allZ) - 0.3, zHi = Math.max(...allZ) + 0.3, zR = (zHi - zLo) || 1, sR = (sMax - sMin) || 1;
+  const X = (v) => pad + ((v - sMin) / sR) * (W - 2 * pad), Y = (v) => Hh - pad - ((v - zLo) / zR) * (Hh - 2 * pad);
   const terreno = s.pts.map((p) => `${X(p.s).toFixed(1)},${Y(p.z).toFixed(1)}`).join(' ');
   const wp = s.pts.filter((p) => p.z <= s.res.WSE);
   const agua = wp.length > 1 ? `<polygon points="${X(wp[0].s).toFixed(1)},${Y(s.res.WSE).toFixed(1)} ${X(wp[wp.length - 1].s).toFixed(1)},${Y(s.res.WSE).toFixed(1)} ${wp.map((p) => `${X(p.s).toFixed(1)},${Y(p.z).toFixed(1)}`).reverse().join(' ')}" fill="#38bdf8" fill-opacity="0.5"/>` : '';

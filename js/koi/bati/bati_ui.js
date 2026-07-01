@@ -1076,11 +1076,14 @@ export class BatiPanel {
   _svgSeccion(s) {
     const W = 380, H = 150, pad = 24;
     const xs = s.pts.map((p) => p.s), zs = s.pts.map((p) => p.z);
-    const sMax = Math.max(...xs), zMin = Math.min(...zs);
-    const zBed = s.soc.general.zLechoMin ?? zMin;
-    const zTop = Math.max(s.res.WSE, Math.max(...zs));
-    const zLo = Math.min(zMin, zBed) - 0.3, zHi = zTop + 0.3, zR = (zHi - zLo) || 1;
-    const X = (v) => pad + (v / sMax) * (W - 2 * pad);
+    const sMax = Math.max(...xs) || 1, sMin = Math.min(...xs);
+    // línea de socavación POR FRANJAS (la profundidad varía con la velocidad de cada franja)
+    const fr = s.soc.franjas?.franjas || [];
+    const socZ = fr.length ? fr.map((p) => p.zFondo) : (s.soc.general.perfil || []).map((p) => p.zFondo);
+    // rango vertical que incluye TODO lo dibujado (terreno, WSE y socavación) → sin recortes
+    const allZ = [...zs, s.res.WSE, ...socZ].filter((v) => isFinite(v));
+    const zLo = Math.min(...allZ) - 0.3, zHi = Math.max(...allZ) + 0.3, zR = (zHi - zLo) || 1, sR = (sMax - sMin) || 1;
+    const X = (v) => pad + ((v - sMin) / sR) * (W - 2 * pad);
     const Y = (v) => H - pad - ((v - zLo) / zR) * (H - 2 * pad);
     const terreno = s.pts.map((p) => `${X(p.s).toFixed(1)},${Y(p.z).toFixed(1)}`).join(' ');
     // agua: donde z<WSE
@@ -1092,8 +1095,6 @@ export class BatiPanel {
       const bot = wpts.map((p) => `${X(p.s).toFixed(1)},${Y(p.z).toFixed(1)}`).reverse().join(' ');
       agua = `<polygon points="${top} ${bot}" fill="#38bdf8" fill-opacity="0.5"/>`;
     }
-    // línea de socavación POR FRANJAS (la profundidad varía con la velocidad de cada franja)
-    const fr = s.soc.franjas?.franjas || [];
     const socLine = fr.length ? fr.map((p) => `${X(p.s).toFixed(1)},${Y(p.zFondo).toFixed(1)}`).join(' ')
       : s.soc.general.perfil.map((p) => `${X(p.s).toFixed(1)},${Y(p.zFondo).toFixed(1)}`).join(' ');
     return `<svg class="hp-sec-svg" viewBox="0 0 ${W} ${H}">
