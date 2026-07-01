@@ -183,8 +183,9 @@ export class MapView {
 
   // ── Dibujo interactivo de polígono/polilínea (para el dominio 2D y el cauce) ──
   // modo:'poly'|'line'. Llama onDone([[lon,lat]…]) al terminar (dblclick o Esc).
-  dibujar(modo, color, onDone) {
+  dibujar(modo, color, onDone, opts = {}) {
     const L = window.L;
+    const maxPts = opts.maxPts || 0;                // si >0, termina solo al llegar a ese nº de puntos
     this.cancelarDibujo();
     if (this.pickMode) this.setPickMode(false);   // interactuar con otra entidad apaga el modo Punto
     this._noSelect = true;                          // mientras dibujas no seleccionas lo de abajo
@@ -196,7 +197,12 @@ export class MapView {
       const ll = pts.map(([lo, la]) => [la, lo]);
       linea.setLatLngs(modo === 'poly' && pts.length > 2 ? [...ll, ll[0]] : ll);
     };
-    const onClick = (e) => { pts.push([e.latlng.lng, e.latlng.lat]); verts.addLayer(L.circleMarker(e.latlng, { radius: 4, color, weight: 2, fillOpacity: 1, fillColor: '#fff' })); redraw(); };
+    const onClick = (e) => {
+      pts.push([e.latlng.lng, e.latlng.lat]);
+      verts.addLayer(L.circleMarker(e.latlng, { radius: 4, color, weight: 2, fillOpacity: 1, fillColor: '#fff' }));
+      redraw();
+      if (maxPts && pts.length >= maxPts) finish();   // auto-termina al llegar al nº de puntos
+    };
     const finish = (e) => { if (e) window.L.DomEvent.stop(e); this.cancelarDibujo(); if (pts.length >= (modo === 'poly' ? 3 : 2)) onDone?.(pts); };
     const cont = this.map.getContainer();
     cont.classList.add('dibujando');

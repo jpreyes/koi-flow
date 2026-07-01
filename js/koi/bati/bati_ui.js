@@ -39,6 +39,7 @@ export class BatiPanel {
     this.result2d = null;         // resultado del solver 2D (h, V, H por nodo)
     this.modo = 'cad';            // 'cad' (DXF/curvas) | 'dem' (DEM base Terrarium, sin CAD)
     this.baseDEM = null;          // grilla DEM base (fetchDEM) para trabajar sin CAD
+    this._flujoInvert = false;    // inversión manual de la dirección del flujo
   }
 
   _selCauce(i) { this.iCauce = i; this.secciones = this.cauces[i].secciones; this._render(); this._dibujarSecciones(); }
@@ -216,10 +217,11 @@ export class BatiPanel {
     const f = this._flujo;
     if (!f || !f.Jmedia) return this.secciones.length ? '<p class="hp-note">Dibuja ≥2 secciones para determinar la dirección del flujo y la pendiente.</p>' : '';
     return `<div class="hp-kv" style="margin:6px 0">
-      <div><span>Dirección del flujo (${f.viaEje ? 'según eje dibujado' : 'desde el terreno'})</span><b>${f.arriba.nombre} → ${f.abajo.nombre}</b></div>
+      <div><span>Dirección del flujo (${f.invertido ? 'invertida' : (f.viaEje ? 'según eje' : 'desde el terreno')})</span><b>${f.arriba.nombre} → ${f.abajo.nombre}</b></div>
       <div><span>Lecho arriba → abajo</span><b>${f2(f.arriba._thalweg)} → ${f2(f.abajo._thalweg)} m</b></div>
       <div><span>Pendiente media J</span><b>${(f.Jmedia * 100).toFixed(2)} % (${f.Jmedia.toFixed(4)})</b></div></div>
-      <p class="hp-note">La dirección la fija el descenso del lecho (aguas arriba = lecho más alto); J = caída/longitud. Puedes sobrescribir J en el campo de arriba.</p>`;
+      <button class="bp-b" id="bp-inv-flujo" style="width:100%">⇄ Invertir dirección del flujo</button>
+      <p class="hp-note">La flecha grande (coral) en el mapa marca la dirección; clic en ella o en este botón para invertirla. J = caída/longitud (puedes sobrescribirlo arriba).</p>`;
   }
   _seccionesHTML() {
     if (!this.secciones.length) return '<p class="hp-note">Sin secciones. Traza una con el botón de arriba.</p>';
@@ -274,6 +276,7 @@ export class BatiPanel {
     $('#bp-draw')?.addEventListener('click', () => this._toggleDraw());
     $('#bp-j')?.addEventListener('input', () => { this._jManual = true; });
     $('#bp-recalc')?.addEventListener('click', () => this._recalcularSecciones());
+    $('#bp-inv-flujo')?.addEventListener('click', () => this._invertirFlujo());
     $('#bp-remanso')?.addEventListener('click', () => this._runRemanso());
     $('#bp-cauce-sel')?.addEventListener('change', (e) => this._selCauce(+e.target.value));
     $('#bp-cauce-new')?.addEventListener('click', () => this._nuevoCauce());
@@ -458,25 +461,71 @@ export class BatiPanel {
     });
     this._render();
   }
+  // Inserta un vértice [lon,lat] en el segmento más cercano de arr; devuelve su índice.
+  _insertarVertice(arr, latlng) {
+    const p = [latlng.lng, latlng.lat]; if (arr.length < 2) { arr.push(p); return arr.length - 1; }
+    const mx = 111320 * Math.cos(latlng.lat * Math.PI / 180), my = 110540, px = p[0] * mx, py = p[1] * my;
+    let best = Infinity, bi = 1;
+    for (let i = 0; i < arr.length - 1; i++) {
+      const ax = arr[i][0] * mx, ay = arr[i][1] * my, dx = arr[i + 1][0] * mx - ax, dy = arr[i + 1][1] * my - ay, L2 = dx * dx + dy * dy || 1;
+      let t = ((px - ax) * dx + (py - ay) * dy) / L2; t = Math.max(0, Math.min(1, t));
+      const d = Math.hypot(px - (ax + t * dx), py - (ay + t * dy)); if (d < best) { best = d; bi = i + 1; }
+    }
+    arr.splice(bi, 0, p); return bi;
+  }
+
   _dibujarEje() {
     const L = window.L; if (!L || !this.map?.map) return;
     this._quitarEjeLayer();
     if (!this.eje || this.eje.length < 2) return;
     this._ejeGroup = L.layerGroup().addTo(this.map.map);
     this._ejePoly = L.polyline(this.eje.map(([lo, la]) => [la, lo]), { color: '#a855f7', weight: 3, dashArray: '7 5' })
-      .bindTooltip('Eje del cauce (dirección del flujo)', { sticky: true });
+      .bindTooltip('Eje · doble-clic = agregar vértice; clic-derecho en un vértice = borrar', { sticky: true });
+    // doble-clic sobre el eje → agrega un vértice
+    this._ejePoly.on('dblclick', (e) => { window.L.DomEvent.stop(e); this._insertarVertice(this.eje, e.latlng); this._actualizarFlujo(); this._render(); this._dibujarSecciones(); this._syncCapas(); });
     this._ejeGroup.addLayer(this._ejePoly);
     this.eje.forEach((pt, v) => {
       const icon = L.divIcon({ className: 'koi-sec-vtx', html: '', iconSize: [12, 12], iconAnchor: [6, 6] });
-      const mk = L.marker([pt[1], pt[0]], { icon, draggable: true, zIndexOffset: 650 }).bindTooltip(`Eje · vértice ${v + 1} (arrastra)`, { direction: 'top' });
+      const mk = L.marker([pt[1], pt[0]], { icon, draggable: true, zIndexOffset: 650 }).bindTooltip(`Eje · vértice ${v + 1} (arrastra · clic-derecho borra)`, { direction: 'top' });
       mk.on('drag', () => { const ll = mk.getLatLng(); this.eje[v] = [ll.lng, ll.lat]; this._ejePoly.setLatLngs(this.eje.map(([lo, la]) => [la, lo])); });
       mk.on('dragend', () => { const ll = mk.getLatLng(); this.eje[v] = [ll.lng, ll.lat]; this._actualizarFlujo(); this._render(); this._dibujarSecciones(); this._syncCapas(); });
+      mk.on('contextmenu', (e) => { window.L.DomEvent.stop(e); if (this.eje.length > 2) { this.eje.splice(v, 1); this._actualizarFlujo(); this._render(); this._dibujarSecciones(); this._syncCapas(); } });
       this._ejeGroup.addLayer(mk);
     });
   }
   _quitarEjeLayer() {
     if (this._ejeGroup) { this._ejeGroup.remove(); this._ejeGroup = null; }
     if (this._ejeLayer) { this._ejeLayer.remove(); this._ejeLayer = null; }
+  }
+
+  // Invierte la dirección del flujo (aguas arriba ↔ abajo).
+  _invertirFlujo() {
+    this._flujoInvert = !this._flujoInvert;
+    this._actualizarFlujo();
+    this._render(); this._dibujarSecciones();
+  }
+
+  // Flecha grande (coral) que marca la dirección del flujo; clic = invertir.
+  _dibujarFlecha() {
+    const L = window.L; if (!L || !this.map?.map) return;
+    if (this._flechaLayer) { this._flechaLayer.remove(); this._flechaLayer = null; }
+    const fl = this._flujo; if (!fl || !fl.arriba || !fl.abajo || fl.arriba === fl.abajo || !fl.arriba.linea) return;
+    const midLL = (s) => { const a = s.linea[0], b = s.linea[s.linea.length - 1]; return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; };
+    const from = midLL(fl.arriba), to = midLL(fl.abajo);
+    const la = (from[1] + to[1]) / 2, mx = 111320 * Math.cos(la * Math.PI / 180), my = 110540;
+    const dx = (to[0] - from[0]) * mx, dy = (to[1] - from[1]) * my, len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
+    const hs = Math.min(len * 0.22, 80), px = -uy, py = ux;
+    const b1 = [to[0] - (ux * hs - px * hs * 0.55) / mx, to[1] - (uy * hs - py * hs * 0.55) / my];
+    const b2 = [to[0] - (ux * hs + px * hs * 0.55) / mx, to[1] - (uy * hs + py * hs * 0.55) / my];
+    const g = L.layerGroup().addTo(this.map.map);
+    const shaft = L.polyline([[from[1], from[0]], [to[1], to[0]]], { color: '#ef6c5a', weight: 6, opacity: 0.92 });
+    const head = L.polygon([[to[1], to[0]], [b1[1], b1[0]], [b2[1], b2[0]]], { color: '#ef6c5a', weight: 1, fillColor: '#ef6c5a', fillOpacity: 0.95 });
+    const tip = 'Dirección del flujo (clic para invertir)';
+    shaft.bindTooltip(tip, { sticky: true }); head.bindTooltip(tip, { sticky: true });
+    const inv = (e) => { window.L.DomEvent.stop(e); this._invertirFlujo(); };
+    shaft.on('click', inv); head.on('click', inv);
+    g.addLayer(shaft); g.addLayer(head);
+    this._flechaLayer = g;
   }
 
   // Vértices arrastrables del DOMINIO 2D (el contorno lo dibuja showMalla2D).
@@ -499,7 +548,13 @@ export class BatiPanel {
 
   // ── Borrado de GIS creado (desde la barra izquierda o el panel) ───────────────
   borrarDEM() { this.demM = null; this.grid = null; this.fused = null; this._batiShown = false; this.map?.clearBati?.(); this._quitarEjeLayer(); this._render(); this._syncCapas(); }
-  borrarEje() { this.eje = null; this._quitarEjeLayer(); if (this.secciones?.length) this._actualizarFlujo(); this._render(); this._dibujarSecciones(); this._syncCapas(); }
+  borrarEje() {
+    this.eje = null; this._quitarEjeLayer();
+    // el cauce también se dibuja en la capa 2D (showMalla2D) → refréscala sin cauce
+    if (this.dominio || this.mesh2d) this.map?.showMalla2D?.({ dominio: this.dominio, cauce: null, mesh: this.mesh2d });
+    if (this.secciones?.length) this._actualizarFlujo();
+    this._render(); this._dibujarSecciones(); this._syncCapas();
+  }
   borrarDominio() { this.dominio = null; this.mesh2d = null; this.result2d = null; if (this._domGroup) { this._domGroup.remove(); this._domGroup = null; } this.map?.clearMalla2D?.(); this._render(); this._dibujarSecciones(); this._syncCapas(); }
   borrarMalla() { this.mesh2d = null; this.result2d = null; this.map?.clearMalla2D?.(); if (this.dominio) this.map?.showMalla2D?.({ dominio: this.dominio, cauce: this.eje }); this._render(); this._syncCapas(); }
 
@@ -679,7 +734,8 @@ export class BatiPanel {
   _toggleDraw() {
     if (this.map.enDibujo()) { this.map.cancelarDibujo(); this._render(); return; }
     // N puntos: extremos (bancas) + los bordes del cauce; doble-clic/Esc para terminar.
-    this.map.dibujar('line', '#22d3ee', (pts) => { this._crearSeccion(pts); this._render(); });
+    // 4 clics (extremos + 2 bordes del cauce) → termina solo y persiste la sección.
+    this.map.dibujar('line', '#22d3ee', (pts) => { this._crearSeccion(pts); this._render(); }, { maxPts: 4 });
     this._render();
   }
 
@@ -804,9 +860,12 @@ export class BatiPanel {
         ord[i].station = acc;                          // station a lo largo del flujo
       }
     }
-    const L = ord[ord.length - 1].station || 1;
-    const Jmedia = ord.length > 1 ? Math.max(1e-4, (ord[0]._thalweg - ord[ord.length - 1]._thalweg) / L) : null;
-    this._flujo = { Jmedia, arriba: ord[0], abajo: ord[ord.length - 1], L, n: ord.length, viaEje };
+    if (this._flujoInvert) ord.reverse();   // inversión manual de la dirección del flujo
+    let accS = 0;   // station acumulada a lo largo del flujo (consistente pre/post inversión)
+    for (let i = 0; i < ord.length; i++) { if (i > 0) { const a = midOf(ord[i - 1]), b = midOf(ord[i]); accS += Math.hypot(b.x - a.x, b.y - a.y); } ord[i].station = accS; }
+    const L = accS || 1;
+    const Jmedia = ord.length > 1 ? Math.max(1e-4, Math.abs(ord[0]._thalweg - ord[ord.length - 1]._thalweg) / L) : null;
+    this._flujo = { Jmedia, arriba: ord[0], abajo: ord[ord.length - 1], L, n: ord.length, viaEje, invertido: this._flujoInvert };
     // autocompleta J del formulario con la pendiente media del terreno (si el usuario no lo tocó)
     const jIn = this.body.querySelector('#bp-j');
     if (jIn && Jmedia && !this._jManual) jIn.value = Jmedia.toFixed(4);
@@ -884,6 +943,7 @@ export class BatiPanel {
     this._dibujarEje();
     this._dibujarDominioEdit();
     this._dibujarSeccionesEdit();
+    this._dibujarFlecha();
   }
 
   // Dibuja las secciones con VÉRTICES ARRASTRABLES (extremos + bordes del cauce).
@@ -893,15 +953,18 @@ export class BatiPanel {
     this._secPolys = [];
     this.secciones.forEach((s, i) => {
       const poly = L.polyline(s.linea.map(([lo, la]) => [la, lo]), { color: '#22d3ee', weight: 3 })
-        .bindTooltip(s.nombre + (s.fuera > 0.15 ? ' ⚠ fuera del DEM' : ''), { sticky: true })
+        .bindTooltip(s.nombre + (s.fuera > 0.15 ? ' ⚠ fuera del DEM' : '') + ' · doble-clic agrega vértice', { sticky: true })
         .on('click', (e) => { window.L.DomEvent.stop(e); this._scrollSec(i); });
+      // doble-clic sobre la sección → agrega un vértice (p.ej. un borde intermedio)
+      poly.on('dblclick', (e) => { window.L.DomEvent.stop(e); this._insertarVertice(s.linea, e.latlng); this._muestrear(s); this._actualizarFlujo(); this._calcSeccionEje(s); this._render(); this._dibujarSecciones(); });
       this._secGroup.addLayer(poly); this._secPolys[i] = poly;
       s.linea.forEach((pt, v) => {
         const icon = L.divIcon({ className: 'koi-sec-vtx', html: '', iconSize: [12, 12], iconAnchor: [6, 6] });
         const mk = L.marker([pt[1], pt[0]], { icon, draggable: true, zIndexOffset: 600 })
-          .bindTooltip(`${s.nombre} · vértice ${v + 1} (arrastra)`, { direction: 'top' });
+          .bindTooltip(`${s.nombre} · vértice ${v + 1} (arrastra · clic-derecho borra)`, { direction: 'top' });
         mk.on('drag', () => { const ll = mk.getLatLng(); s.linea[v] = [ll.lng, ll.lat]; this._redibujarLinea(i); });
         mk.on('dragend', () => { const ll = mk.getLatLng(); s.linea[v] = [ll.lng, ll.lat]; this._muestrear(s); this._actualizarFlujo(); this._calcSeccionEje(s); this._render(); this._dibujarSecciones(); });
+        mk.on('contextmenu', (e) => { window.L.DomEvent.stop(e); if (s.linea.length > 2) { s.linea.splice(v, 1); this._muestrear(s); this._actualizarFlujo(); this._calcSeccionEje(s); this._render(); this._dibujarSecciones(); } });
         this._secGroup.addLayer(mk);
       });
     });
