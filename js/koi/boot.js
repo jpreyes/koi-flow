@@ -22,6 +22,7 @@ import { abrirAyudaHUD } from './ui/ayuda.js?v=2';
 import { setupMenubar } from './ui/menubar.js?v=2';
 import { abrirEmbalseHUD } from './hidro/embalse_ui.js?v=2';
 import { abrirAlcantarillaHUD } from './hidraulica/alcantarilla_ui.js?v=2';
+import { abrirPuenteHUD } from './hidraulica/puente_presion_ui.js?v=2';
 import { Flujo2D } from './hidraulica/panel2d.js?v=2';
 import { EstructurasPanel } from './estructuras/panel.js?v=2';
 import { delinearAuto } from './cuenca/cuenca.js?v=2';
@@ -250,6 +251,7 @@ async function startBoot() {
     'tab-estructuras': () => dock.show('estructuras'),
     'embalse': () => abrirEmbalseHUD(window.__koi, huds),
     'alcantarilla': () => abrirAlcantarillaHUD(window.__koi, huds),
+    'puente-presion': () => abrirPuenteHUD(window.__koi, huds),
     'ayuda': () => abrirAyudaHUD(huds),
     'acerca': () => huds.open('acerca', { title: 'Acerca de koi-flow', w: 380, h: 240,
       html: `<p><b>koi-flow</b> — estudios hidrológico-hidráulicos en el navegador (MC-V3 / DGA).</p>
