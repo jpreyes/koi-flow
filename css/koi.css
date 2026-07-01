@@ -403,6 +403,9 @@ body { font: 14px/1.45 system-ui, "Segoe UI", Roboto, sans-serif; background: va
 .bp-sec-del { background: none; border: 0; cursor: pointer; font-size: 13px; opacity: .6; }
 .bp-sec-del:hover { opacity: 1; }
 .bp-hot { color: var(--red); font-weight: 700; }
+.bp-anim { display: flex; align-items: center; gap: 8px; margin: 8px 0 4px; }
+.bp-anim input[type=range] { flex: 1; accent-color: var(--accent); }
+#bp-anim-t { font-size: 11px; color: var(--text2); white-space: nowrap; min-width: 56px; text-align: right; }
 .koi-sec-vtx { background: transparent; }
 .koi-sec-vtx::after { content: ''; display: block; width: 11px; height: 11px; border-radius: 50%;
   background: #fff; border: 2px solid #22d3ee; box-shadow: 0 1px 3px rgba(0,0,0,.4); cursor: move; }

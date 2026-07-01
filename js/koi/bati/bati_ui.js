@@ -326,6 +326,7 @@ export class BatiPanel {
     $('#bp-dom-clr')?.addEventListener('click', () => { this.dominio = null; this.mesh2d = null; this.result2d = null; this.map?.clearMalla2D?.(); this._render(); this._dibujarSecciones(); });
     $('#bp-2d-gen')?.addEventListener('click', () => this._generar2D());
     $('#bp-2d-sim')?.addEventListener('click', () => this._simular2D());
+    $('#bp-2d-trans')?.addEventListener('click', () => this._simularTransiente());
     $('#bp-2d-samp')?.addEventListener('click', () => this._muestrear2DenSecciones());
     $('#bp-exp-terr')?.addEventListener('click', () => this._expTerreno());
     $('#bp-exp-sdf')?.addEventListener('click', () => this._expSDF());
@@ -620,7 +621,18 @@ export class BatiPanel {
       </div>
       <button class="hp-run" id="bp-2d-sim">▶ Simular 2D (Q del formulario)</button>
       <span class="hp-dl-status" id="bp-2d-simst"></span>
-      <div id="bp-2d-res"></div>` : ''}
+      <div id="bp-2d-res"></div>
+      <div class="hp-mini" style="margin-top:10px">Transiente (hidrograma → animación en el tiempo)</div>
+      <div class="bp-form">
+        <label>Q base [m³/s] <input id="bp-t-qb" type="number" value="0"></label>
+        <label>Q pico [m³/s] <input id="bp-t-qp" type="number" value="${cfg.Q}"></label>
+        <label>t al pico [h] <input id="bp-t-tp" type="number" step="0.5" value="1"></label>
+        <label>t base [h] <input id="bp-t-tb" type="number" step="0.5" value="4"></label>
+        <label>Δt [s] <input id="bp-t-dt" type="number" value="60"></label>
+      </div>
+      <button class="hp-run" id="bp-2d-trans">🎞️ Simular transiente</button>
+      <span class="hp-dl-status" id="bp-2d-trans-st"></span>
+      <div id="bp-2d-anim"></div>` : ''}
       ${r ? `<button class="hp-run" id="bp-2d-samp" style="margin-top:8px">📥 Muestrear v en las secciones → socavación</button>
       <p class="hp-note">Toma la profundidad y la velocidad del campo 2D a lo largo de cada sección y recalcula la socavación por franjas con la <b>velocidad real</b> (no el reparto 1D).</p>` : ''}
     </div>`;
@@ -704,6 +716,66 @@ export class BatiPanel {
         <div><span>Nodos mojados</span><b>${r.nMojados} / ${this.mesh2d.nodes.length}</b></div></div>`;
       this._render();
     } catch (e) { if (st) st.textContent = ' ✗ ' + e.message; console.error(e); }
+  }
+
+  // Simulación 2D TRANSIENTE: hidrograma triangular de entrada → guarda h(t) por
+  // paso (frames) → animación de cómo se inunda en el tiempo.
+  async _simularTransiente() {
+    const st = this.body.querySelector('#bp-2d-trans-st');
+    if (!this.mesh2d) { if (st) st.textContent = ' genera la malla primero'; return; }
+    if (!this.eje || this.eje.length < 2) { if (st) st.textContent = ' dibuja el eje (entrada/salida)'; return; }
+    const { entrada, salida } = this._bordes2D(this.mesh2d);
+    if (!entrada.length || !salida.length) { if (st) st.textContent = ' el eje debe tocar el borde del dominio'; return; }
+    const Qb = +this.body.querySelector('#bp-t-qb').value || 0;
+    const Qp = +this.body.querySelector('#bp-t-qp').value || 100;
+    const tp = (+this.body.querySelector('#bp-t-tp').value || 1) * 3600;
+    const tb = (+this.body.querySelector('#bp-t-tb').value || 4) * 3600;
+    const dt = +this.body.querySelector('#bp-t-dt').value || 60;
+    const hidro = [{ t: 0, Q: Qb }, { t: tp, Q: Qp }, { t: tb, Q: Qb }];
+    const nPasos = Math.min(2500, Math.ceil(tb * 1.3 / dt));
+    const guardarCada = Math.max(1, Math.round(nPasos / 40));
+    if (st) st.textContent = ' resolviendo transiente…';
+    await new Promise((r) => setTimeout(r, 20));
+    try {
+      const r = resolver2D(this.mesh2d, { Q: Qp, hidrograma: hidro, guardarCada, entrada, salida, dt, nPasos, onProgress: (p, N) => { if (st) st.textContent = ` paso ${p}/${N}`; } });
+      this.frames2d = r.frames || [];
+      if (st) st.textContent = ` ✓ ${this.frames2d.length} cuadros · ${(tb / 3600).toFixed(1)} h simuladas`;
+      this._renderAnim();
+    } catch (e) { if (st) st.textContent = ' ✗ ' + e.message; console.error(e); }
+  }
+
+  // Controles de animación (slider + play/pausa) sobre los frames h(t).
+  _renderAnim() {
+    const box = this.body.querySelector('#bp-2d-anim'); if (!box) return;
+    const F = this.frames2d || [];
+    if (this._animTimer) { clearInterval(this._animTimer); this._animTimer = null; }
+    if (!F.length) { box.innerHTML = ''; return; }
+    let hg = 0; for (const f of F) for (const v of f.h) if (v > hg) hg = v;
+    this._animHmax = hg || 1;
+    box.innerHTML = `<div class="bp-anim">
+      <button class="bp-b" id="bp-anim-play" style="flex:0 0 auto">▶</button>
+      <input type="range" id="bp-anim-slider" min="0" max="${F.length - 1}" value="0">
+      <span id="bp-anim-t">t=0.0 h</span></div>
+      <div class="hp-kv"><div><span>Calado máx (toda la simulación)</span><b>${f2(hg)} m</b></div></div>`;
+    const slider = box.querySelector('#bp-anim-slider'), play = box.querySelector('#bp-anim-play');
+    slider.addEventListener('input', () => this._showFrame(+slider.value));
+    play.addEventListener('click', () => this._toggleAnim(play));
+    this._showFrame(0);
+  }
+  _showFrame(i) {
+    const F = this.frames2d; if (!F || !F[i]) return;
+    this._animI = i;
+    this.map.showInundacion(this.mesh2d, F[i].h, { cauce: this.eje, hmax: this._animHmax });
+    const t = this.body.querySelector('#bp-anim-t'); if (t) t.textContent = `t=${(F[i].t / 3600).toFixed(2)} h`;
+    const s = this.body.querySelector('#bp-anim-slider'); if (s && +s.value !== i) s.value = i;
+  }
+  _toggleAnim(play) {
+    if (this._animTimer) { clearInterval(this._animTimer); this._animTimer = null; play.textContent = '▶'; return; }
+    play.textContent = '⏸';
+    this._animTimer = setInterval(() => {
+      let i = (this._animI ?? 0) + 1; if (i >= this.frames2d.length) i = 0;
+      this._showFrame(i);
+    }, 250);
   }
 
   // Muestrea (h, |V|) del campo 2D a lo largo de cada sección y recalcula la
