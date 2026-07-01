@@ -14,6 +14,7 @@ import { nivelNormal } from '../hidraulica/manning.js?v=2';
 import { evaluarSocavacion } from '../hidraulica/socavacion.js?v=2';
 import { ejeRemanso, ejeMixto } from '../hidraulica/remanso.js?v=2';
 import { analisisCompleto, salidaCSV } from '../hidraulica/salida.js?v=2';
+import { perfilTransporte } from '../hidro/sedimentos.js?v=2';
 import { wktUTM, demArcASCII, sdfGeometria, csvSecciones } from './hecras.js?v=2';
 import { exportarDXF } from './dxf_export.js?v=2';
 import { fetchDEM } from '../cuenca/dem_tiles.js?v=2';
@@ -25,6 +26,7 @@ import { getConfig } from '../config.js?v=2';
 import { stampTerreno, pilaEnSeccion, puntoEnPoligono } from '../estructuras/estructuras.js?v=2';
 
 const f2 = (v) => (v == null || !isFinite(v) ? '—' : (Math.abs(v) < 10 ? v.toFixed(2) : v.toFixed(1)));
+const f3 = (v) => (v == null || !isFinite(v) ? '—' : (v === 0 ? '0' : v.toExponential(2)));
 
 export class BatiPanel {
   constructor() {
@@ -1164,7 +1166,8 @@ export class BatiPanel {
         + this._svgPerfilLong(r, r.resalto?.station)
         + `<table class="hp-tbl"><thead><tr><th>Sección</th><th>WSE</th><th>Prof</th><th>A</th><th>V</th><th>Fr</th><th>E</th><th>hf/he/hloc</th></tr></thead><tbody>${rows}</tbody></table>`
         + `<p class="hp-note">Filas en azul = supercrítico (Fr≥1). hf fricción · he contr/exp · hloc local. E = energía total. En mixto la última col indica la rama (super/sub).</p>`
-        + this._salidaCompletaHTML(r);
+        + this._salidaCompletaHTML(r)
+        + this._transporteHTML(r);
       this._wireSalida();
     } catch (e) { out.innerHTML = `<p class="hp-note" style="color:var(--red)">${e.message}</p>`; }
   }
@@ -1193,6 +1196,37 @@ export class BatiPanel {
   _wireSalida() {
     const b = this.body.querySelector('#bp-csv-salida');
     if (b) b.addEventListener('click', () => { if (this._salida) descargar(`${this.nombre || 'eje'}_salida.csv`, salidaCSV(this._salida.filas, this._salida.meta), 'text/csv'); });
+    const t = this.body.querySelector('#bp-csv-transp');
+    if (t) t.addEventListener('click', () => {
+      if (!this._transporte) return;
+      const { rows, meta } = this._transporte;
+      const head = 'seccion,station_m,tau0_Nm2,tauc_Nm2,arrastra,Qs_MPM_m3s,Qs_EH_m3s,tendencia,dzdt_ms\n';
+      const csv = head + rows.map((x) => [x.nombre || '', x.station.toFixed(1), x.tau0.toFixed(2), x.tauc.toFixed(2), x.arrastra ? 1 : 0, x.Qs_mpm.toExponential(4), x.Qs_eh.toExponential(4), x.tendencia, x.dzdt.toExponential(4)].join(',')).join('\n');
+      descargar(`${this.nombre || 'eje'}_transporte_D50-${meta.D50mm}mm.csv`, csv, 'text/csv');
+    });
+  }
+
+  // Transporte de sedimentos ACOPLADO al reach: gasto sólido por sección (MPM y
+  // Engelund-Hansen) y tendencia de erosión/depósito por el gradiente de Qs (Exner).
+  _transporteHTML(r) {
+    const D50mm = +this.body.querySelector('#bp-d50').value || 20;
+    const sg = parseFloat(this.body.querySelector('#bp-sg')?.value) || 2.65;
+    const J = r.pendienteMedia || 0.005;
+    const secs = r.perfil.map((p) => ({
+      nombre: p.nombre, station: p.station,
+      res: { A: p.A, B: p.B || (p.A / (p.profMax || 1)), V: p.V, profMax: p.profMax },
+    }));
+    const rows = perfilTransporte(secs, { D50mm, s: sg, J });
+    if (!rows.length) return '';
+    this._transporte = { rows, meta: { D50mm, s: sg, J } };
+    const balance = rows.reduce((a, x) => a + (x.tendencia === 'erosión' ? 1 : x.tendencia === 'depósito' ? -1 : 0), 0);
+    const tag = (t) => t === 'erosión' ? '<b style="color:var(--coral)">▼ erosión</b>' : t === 'depósito' ? '<b style="color:var(--teal)">▲ depósito</b>' : '—';
+    const body = rows.map((x) => `<tr><td>${x.nombre || x.station.toFixed(0)}</td><td>${f2(x.tau0)}</td>
+      <td>${f2(x.tauc)}</td><td>${x.arrastra ? '✓' : '—'}</td><td>${f3(x.Qs_mpm)}</td><td>${f3(x.Qs_eh)}</td><td>${tag(x.tendencia)}</td></tr>`).join('');
+    return `<div class="hp-mini" style="margin-top:10px">Transporte de sedimentos acoplado · lecho móvil (D50 ${D50mm} mm, J ${(J * 100).toFixed(2)} %)</div>
+      <table class="hp-tbl"><thead><tr><th>Sec</th><th>τ₀</th><th>τc</th><th>arr</th><th>Qs MPM</th><th>Qs E-H</th><th>lecho</th></tr></thead><tbody>${body}</tbody></table>
+      <p class="hp-note">Qs = gasto sólido [m³/s] · <b>MPM</b> Meyer-Peter-Müller (fondo) · <b>E-H</b> Engelund-Hansen (total). El "lecho" surge del gradiente ∂Qs/∂x (Exner): si el transporte crece aguas abajo hay déficit → <b>erosión</b>; si decae → <b>depósito</b>. Balance del tramo: ${balance > 0 ? 'degradación neta' : balance < 0 ? 'agradación neta' : 'equilibrio'}.</p>
+      <button class="bp-b" id="bp-csv-transp" style="margin-top:6px">⬇ CSV transporte de sedimentos</button>`;
   }
 
   // Perfil LONGITUDINAL: lecho (mín z por sección) + línea de energía/agua vs estación.

@@ -73,6 +73,36 @@ export function rouse(Vs, Vast, kappa = 0.4) {
   return { z, modo };
 }
 
+// Gasto sólido TOTAL (fondo + suspensión) — Engelund-Hansen:
+//   φ = 0.1·θ^{5/2}/f' ,  f' = 2·g·h·J/V²  (factor de fricción) ;  qst = φ·√((s−1)g D³) [m²/s/m].
+export function engelundHansen(h, V, J, D, { s = S_DEFAULT } = {}) {
+  const tau0 = corteFlujo(h, J), theta = shields(tau0, D, s);
+  const fprime = 2 * G * h * J / (V * V || 1e-6);
+  const phi = 0.1 * Math.pow(Math.max(theta, 0), 2.5) / (fprime || 1e-6);
+  const qst = phi * Math.sqrt((s - 1) * G * Math.pow(D, 3));
+  return { theta, phi, qst };
+}
+
+// Perfil de transporte a lo largo del reach: gasto sólido por sección (MPM y E-H) y
+// tendencia de EROSIÓN/DEPÓSITO por el gradiente de transporte (Exner simplificado):
+//   ∂z/∂t = −1/(1−p)·(1/B)·∂Q_s/∂x  → si Qs crece aguas abajo hay déficit → erosión.
+export function perfilTransporte(secs, { D50mm = 20, s = S_DEFAULT, J = 0.005, poros = 0.4 } = {}) {
+  const D = Math.max(D50mm, 0.1) / 1000;
+  const rows = (secs || []).filter((x) => x.res).map((x) => {
+    const r = x.res, Hm = (r.A > 0 && r.B > 0) ? r.A / r.B : (r.profMax || 1), B = r.B || 1, V = r.V || 0;
+    const mpm = meyerPeterMuller(Hm, J, D, { s }), eh = engelundHansen(Hm, V, J, D, { s });
+    return { nombre: x.nombre, station: x.station || 0, tau0: corteFlujo(Hm, J), tauc: corteCritico(D, { s }), arrastra: mpm.arrastra, Qs_mpm: mpm.qsf * B, Qs_eh: eh.qst * B, B, Hm };
+  }).sort((a, b) => a.station - b.station);
+  for (let i = 0; i < rows.length; i++) {
+    let grad = 0;
+    if (i > 0) { const dS = (rows[i].station - rows[i - 1].station) || 1; grad = (rows[i].Qs_mpm - rows[i - 1].Qs_mpm) / dS; }
+    rows[i].grad = grad;
+    rows[i].dzdt = -1 / (1 - poros) / rows[i].B * grad;   // m/s (tendencia, referencial)
+    rows[i].tendencia = grad > 1e-6 ? 'erosión' : grad < -1e-6 ? 'depósito' : 'equilibrio';
+  }
+  return rows;
+}
+
 // Resumen: dado el flujo de diseño (h, V, J) y el D50, evalúa modo y gasto de fondo.
 export function evaluar({ h, V, J, D50, ancho = 1, s = S_DEFAULT }) {
   const tau0 = corteFlujo(h, J);
