@@ -280,6 +280,36 @@ export class MapView {
   }
   clearEstructuras() { this.groups.estructuras.clearLayers(); }
 
+  // ── Edición de vértices (GIS) — toggle ────────────────────────────────────────
+  // Muestra manejadores arrastrables en los vértices de las capas (polyline/polygon).
+  // Llamar de nuevo (o Esc) para terminar. onChange se dispara al soltar un vértice.
+  editarVertices(layers, onChange) {
+    const L = window.L;
+    if (this._vtxEdit) { this._vtxEdit.grp.remove(); document.removeEventListener('keydown', this._vtxEdit.esc); this._vtxEdit = null; return false; }
+    if (!layers || !layers.length) return false;
+    const grp = L.layerGroup().addTo(this.map);
+    const mkHandle = (arr, i, layer) => {
+      const icon = L.divIcon({ className: 'koi-sec-vtx', html: '', iconSize: [12, 12], iconAnchor: [6, 6] });
+      const mk = L.marker(arr[i], { icon, draggable: true, zIndexOffset: 800 });
+      mk.on('drag', () => { arr[i] = mk.getLatLng(); layer.setLatLngs(layer._koiRoot); });
+      mk.on('dragend', () => { arr[i] = mk.getLatLng(); layer.setLatLngs(layer._koiRoot); onChange?.(); });
+      grp.addLayer(mk);
+    };
+    const walk = (arr, layer) => {
+      if (!Array.isArray(arr)) return;
+      if (arr.length && arr[0] instanceof L.LatLng) { for (let i = 0; i < arr.length; i++) mkHandle(arr, i, layer); }
+      else for (const sub of arr) walk(sub, layer);
+    };
+    let n = 0;
+    for (const layer of layers) { if (!layer?.getLatLngs) continue; layer._koiRoot = layer.getLatLngs(); walk(layer._koiRoot, layer); n++; }
+    if (!n) { grp.remove(); return false; }
+    const esc = (e) => { if (e.key === 'Escape') this.editarVertices([]); };
+    document.addEventListener('keydown', esc);
+    this._vtxEdit = { grp, esc };
+    return true;
+  }
+  enEdicion() { return !!this._vtxEdit; }
+
   // Muestra el dominio, el cauce y la MALLA 2D (aristas de triángulos).
   showMalla2D({ dominio, cauce, mesh } = {}) {
     const L = window.L;

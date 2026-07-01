@@ -25,6 +25,7 @@ const P = {
   locate: '<circle cx="12" cy="12" r="7"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
   trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
   mountain: '<path d="M3 19l6-10 4 6 2-3 6 7z"/>',
+  pencil: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/>',
   rio: '<path d="M3 8c3-3 5 3 8 0s5-3 8 0M3 15c3-3 5 3 8 0s5-3 8 0"/>',
   ciudad: '<path d="M4 21V8l5-2v15M13 21V3l6 2v16M3 21h18"/>',
   camino: '<path d="M8 21L10 3M16 21L14 3M12 6v2M12 11v2M12 16v2"/>',
@@ -111,12 +112,15 @@ export class Capas {
       const has = !!(t.dem || t.demGrid) && !t.relieveOff;
       const li = el('li', 'cap-leaf');
       li.dataset.name = t.name;
+      const editando = this._editTramo === t.name;
       li.innerHTML = `<span class="cap-ico">${ico('wave')}</span><span class="cap-lbl">${t.name}</span>
         <span class="cap-act cap-relieve${has ? ' on' : ''}" data-rel="1" title="${has ? 'Relieve activo — clic para desactivar' : 'Activar/descargar relieve'}">${ico('mountain')}</span>
+        <span class="cap-act${editando ? ' on' : ''}" data-edittramo="${t.name}" title="Editar vértices (arrastra · Esc termina)">${ico('pencil')}</span>
         <span class="cap-act" data-deltramo="${t.name}" title="Quitar tramo">${ico('trash')}</span>
         <span class="cap-meta">${t.npts}p</span>`;
       li.addEventListener('click', (e) => {
         if (e.target.closest('[data-rel]')) { e.stopPropagation(); this.onRelieve?.(t); }
+        else if (e.target.closest('[data-edittramo]')) { e.stopPropagation(); this._editarTramo(t.name); }
         else if (e.target.closest('[data-deltramo]')) { e.stopPropagation(); this._quitarTramo(t.name); }
         else { this._selTramo(t.name); this.onSelectTramo?.(t); }
       });
@@ -200,11 +204,15 @@ export class Capas {
     const ul = el('ul', 'cap-children'); grp.appendChild(ul);
     for (const im of this.imports) {
       const li = el('li', 'cap-leaf imp');
+      const edI = this._editImp === im.id;
       li.innerHTML = `<label><input type="checkbox" checked data-imp="${im.id}"> <span class="cap-ico">${ico('file')}</span>${im.name}</label>
-        <span class="cap-act" data-zoom="${im.id}" title="Centrar">${ico('locate')}</span><span class="cap-act" data-del="${im.id}" title="Quitar">${ico('trash')}</span>`;
+        <span class="cap-act" data-zoom="${im.id}" title="Centrar">${ico('locate')}</span>
+        <span class="cap-act${edI ? ' on' : ''}" data-editimp="${im.id}" title="Editar vértices (arrastra · Esc termina)">${ico('pencil')}</span>
+        <span class="cap-act" data-del="${im.id}" title="Quitar">${ico('trash')}</span>`;
       li.querySelector('input').addEventListener('change', (e) => this.map.toggleImport(im.id, e.target.checked));
       li.querySelector('[data-zoom]').addEventListener('click', () => this.map.zoomImport(im.id));
-      li.querySelector('[data-del]').addEventListener('click', () => { this.map.removeImport(im.id); this.imports = this.imports.filter((x) => x.id !== im.id); this.render(); });
+      li.querySelector('[data-editimp]').addEventListener('click', () => this._editarImport(im.id));
+      li.querySelector('[data-del]').addEventListener('click', () => { if (this._editImp === im.id) { this.map.editarVertices([]); this._editImp = null; } this.map.removeImport(im.id); this.imports = this.imports.filter((x) => x.id !== im.id); this.render(); });
       ul.appendChild(li);
     }
     this.tree.appendChild(grp);
@@ -252,6 +260,28 @@ export class Capas {
     setOpen(null); location.reload();
   }
   _abrirProyecto(id) { setOpen(id); location.reload(); }
+
+  // Editar vértices de un tramo del proyecto (arrastre). Sincroniza la geometría.
+  _editarTramo(name) {
+    // termina cualquier edición en curso
+    if (this._editTramo || this._editImp) { this.map.editarVertices([]); const prev = this._editTramo; this._editTramo = this._editImp = null; if (prev === name) { this.render(); return; } }
+    const ly = this.map.layers?.get(name), t = this.project?.tramos.find((x) => x.name === name);
+    if (!ly) { alert('Este tramo no tiene geometría editable en el mapa.'); return; }
+    const on = this.map.editarVertices([ly], () => {
+      const lls = ly.getLatLngs(), flat = Array.isArray(lls[0]) ? lls[0] : lls;
+      if (t) { t.feature.geometry.coordinates = flat.map((p) => [p.lng, p.lat]); t.npts = flat.length; }
+    });
+    this._editTramo = on ? name : null; this.render();
+  }
+  // Editar vértices de una capa importada (KMZ/KML).
+  _editarImport(id) {
+    if (this._editTramo || this._editImp) { this.map.editarVertices([]); const prev = this._editImp; this._editTramo = this._editImp = null; if (prev === id) { this.render(); return; } }
+    const it = this.map.importLayers.get(id);
+    const subs = it ? it.group.getLayers() : [];
+    const on = this.map.editarVertices(subs);
+    if (!on) alert('Esta capa no tiene líneas/polígonos editables (¿solo puntos?).');
+    this._editImp = on ? id : null; this.render();
+  }
 
   _quitarTramo(name) {
     if (!confirm(`¿Quitar el tramo "${name}" del proyecto?`)) return;

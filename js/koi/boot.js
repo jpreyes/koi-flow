@@ -19,6 +19,7 @@ import { abrirEstacionHUD } from './datos/estacion_hud.js?v=2';
 import { abrirConfigHUD } from './ui/config_ui.js?v=2';
 import { generarInforme } from './informe/informe.js?v=2';
 import { abrirAyudaHUD } from './ui/ayuda.js?v=2';
+import { setupMenubar } from './ui/menubar.js?v=2';
 import { Flujo2D } from './hidraulica/panel2d.js?v=2';
 import { EstructurasPanel } from './estructuras/panel.js?v=2';
 import { delinearAuto } from './cuenca/cuenca.js?v=2';
@@ -140,11 +141,11 @@ async function startBoot() {
     else if (t.dem) await scene.loadSector(t.dem, t.feature);
   }
 
+  const menuItem = (a) => document.querySelector(`.menu-item[data-action="${a}"]`);
   function refreshBtn3D() {
     const t = current; if (!t) return;
-    const has = tieneRelieve(t), b3d = $('btn-3d');
-    b3d.disabled = !has;
-    b3d.title = has ? 'Ver el relieve 3D del sector' : 'Activa el relieve con 🏔️ en el panel izquierdo';
+    const has = tieneRelieve(t);
+    menuItem('ver-3d')?.classList.toggle('disabled', !has);
     if ($('sel-info')) $('sel-info').textContent = `${t.npts} puntos · ${has ? 'relieve activo' : 'sin relieve'}`;
   }
 
@@ -205,8 +206,8 @@ async function startBoot() {
     const is3d = m === '3d';
     scene.setVisible(is3d);
     map.setVisible(!is3d);
-    $('btn-2d').classList.toggle('active', !is3d);
-    $('btn-3d').classList.toggle('active', is3d);
+    menuItem('ver-2d')?.classList.toggle('on', !is3d);
+    menuItem('ver-3d')?.classList.toggle('on', is3d);
   }
 
   async function onTramoSelect(t) {
@@ -215,9 +216,7 @@ async function startBoot() {
     capas.selectTramo(t.name);
     map.select(t.name);
     const has = tieneRelieve(t);
-    const b3d = $('btn-3d');
-    b3d.disabled = !has;
-    b3d.title = has ? 'Ver el relieve 3D del sector' : 'Baja el relieve con el botón 🏔️ del tramo en el panel izquierdo';
+    menuItem('ver-3d')?.classList.toggle('disabled', !has);
     $('sel-name').textContent = t.name;
     $('sel-info').textContent = has ? `${t.npts} puntos · relieve disponible` : `${t.npts} puntos · sin relieve`;
     hydro.setTramo(t);
@@ -226,22 +225,30 @@ async function startBoot() {
     if (has && mode === '3d') await load3D(t);
   }
 
-  $('btn-hidro').addEventListener('click', () => hydro.toggle());
-  $('btn-bati').addEventListener('click', () => bati.toggle());
-  $('btn-config').addEventListener('click', () => abrirConfigHUD(huds));
-  $('btn-informe').addEventListener('click', () => generarInforme(window.__koi));
-  $('btn-ayuda').addEventListener('click', () => abrirAyudaHUD(huds));
-  $('btn-pick').addEventListener('click', () => {
-    const on = !map.pickMode;
-    if (on && mode !== '2d') setMode('2d');   // picking se hace sobre el mapa 2D
-    map.setPickMode(on);
-    $('btn-pick').classList.toggle('active', on);
-  });
-  $('btn-2d').addEventListener('click', () => setMode('2d'));
-  $('btn-3d').addEventListener('click', async () => {
-    if (!current || !tieneRelieve(current)) return;
-    setMode('3d');
-    await load3D(current);
+  const treeQ = (sel) => $('tree')?.querySelector(sel);
+  setupMenubar({
+    'proj-nuevo': () => capas._nuevoProyecto(),
+    'proj-demo': () => capas._abrirProyecto('demo'),
+    'proj-abrir': () => treeQ('#cap-proj')?.click(),
+    'proj-guardar': () => capas.guardarProyecto(),
+    'importar': () => treeQ('#cap-file')?.click(),
+    'bati': () => { dock.show('hidraulica'); setTimeout(() => bati.body?.querySelector('#bp-file')?.click(), 60); },
+    'informe': () => generarInforme(window.__koi),
+    'add-punto': () => { if (mode !== '2d') setMode('2d'); map.setPickMode(!map.pickMode); },
+    'add-etiqueta': () => capas._colocarEtiqueta(),
+    'config': () => abrirConfigHUD(huds),
+    'ver-2d': () => setMode('2d'),
+    'ver-3d': () => { if (current && tieneRelieve(current)) { setMode('3d'); load3D(current); } else setMode('3d'); },
+    'tema': () => window.__koiToggleTheme?.(),
+    'tab-cuenca': () => dock.show('cuenca'),
+    'tab-hidro': () => dock.show('hidro'),
+    'tab-hidraulica': () => dock.show('hidraulica'),
+    'tab-estructuras': () => dock.show('estructuras'),
+    'ayuda': () => abrirAyudaHUD(huds),
+    'acerca': () => huds.open('acerca', { title: 'Acerca de koi-flow', w: 380, h: 240,
+      html: `<p><b>koi-flow</b> — estudios hidrológico-hidráulicos en el navegador (MC-V3 / DGA).</p>
+        <p class="hud-note">Software propiedad de <b>JPReyes / Conmuta.cl</b>. Licencia <b>AGPL-3.0</b>.</p>
+        <p class="hud-note">PWA sin build · JS ES-modules + Three.js + Leaflet.</p>` }),
   });
 
   // Selección inicial: el primer tramo con DEM (Tramo 3) para mostrar algo rico.

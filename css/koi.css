@@ -25,6 +25,22 @@ body { font: 14px/1.45 system-ui, "Segoe UI", Roboto, sans-serif; background: va
 .brand { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 17px; letter-spacing: .2px; }
 .brand-mark { width: 26px; height: 26px; }
 .brand-sub { font-weight: 500; font-size: 13px; color: var(--text2); padding: 2px 8px; background: var(--bg4); border-radius: 999px; }
+
+/* ── Barra de menús tipo software ─────────────────────────────────────────────── */
+#appmenu { display: flex; align-items: stretch; height: 100%; margin-left: 18px; }
+.menu { position: relative; display: flex; align-items: stretch; }
+.menu-btn { background: transparent; border: 0; color: var(--text); font-size: 13.5px; padding: 0 13px; height: 100%; cursor: pointer; }
+.menu-btn:hover, .menu.open .menu-btn { background: var(--bg3); color: var(--accent); }
+.menu-dd { position: absolute; top: 100%; left: 0; min-width: 232px; background: var(--bg2);
+  border: 1px solid var(--border); border-radius: 0 0 10px 10px; box-shadow: 0 12px 30px rgba(0,0,0,.28);
+  padding: 6px; display: none; z-index: 60; }
+.menu.open .menu-dd { display: block; }
+.menu-item { display: block; width: 100%; text-align: left; background: transparent; border: 0; color: var(--text);
+  font-size: 13px; padding: 8px 12px; border-radius: 7px; cursor: pointer; white-space: nowrap; }
+.menu-item:hover { background: var(--bg3); color: var(--accent); }
+.menu-item.disabled { color: var(--text2); opacity: .45; cursor: default; }
+.menu-item.on::after { content: ' ✓'; color: var(--accent); font-weight: 700; }
+.menu-sep { height: 1px; background: var(--border); margin: 5px 8px; }
 .menubar-right { display: flex; align-items: center; gap: 12px; }
 .seg { display: inline-flex; border: 1px solid var(--border2); border-radius: 8px; overflow: hidden; }
 .seg-btn { background: var(--bg2); color: var(--text2); border: 0; padding: 6px 12px; cursor: pointer; font-size: 13px; }

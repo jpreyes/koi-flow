@@ -32,19 +32,46 @@
       </svg>
       koi-flow <span class="brand-sub">Licencia demo</span>
     </div>
-    <div class="menubar-right">
-      <div class="seg">
-        <button id="btn-2d" class="seg-btn active" type="button" title="Mapa 2D">🗺️ Mapa 2D</button>
-        <button id="btn-3d" class="seg-btn" type="button" title="Relieve 3D" disabled>🏔️ Relieve 3D</button>
-      </div>
-      <button id="btn-pick" type="button" title="Elegir puntos de análisis en el mapa">📍 Puntos</button>
-      <button id="btn-hidro" type="button" title="Panel de hidrología">💧 Hidrología</button>
-      <button id="btn-bati" type="button" title="Importar batimetría/CAD (DXF) y eje hidráulico">📐 Batimetría</button>
-      <button id="btn-informe" type="button" title="Generar el informe (PDF)">📄 Informe</button>
-      <button id="btn-ayuda" type="button" title="Ayuda y tutorial">❓ Ayuda</button>
-      <button id="btn-config" type="button" title="Configuración (parámetros por defecto)">⚙</button>
-      <button id="btn-theme" type="button" title="Cambiar tema">🌙</button>
-    </div>
+    <nav id="appmenu" aria-label="Menú principal">
+      <div class="menu" data-menu="archivo"><button class="menu-btn" type="button">Archivo</button>
+        <div class="menu-dd">
+          <button class="menu-item" data-action="proj-nuevo">Nuevo proyecto</button>
+          <button class="menu-item" data-action="proj-demo">Cargar demo (Tarapacá)</button>
+          <button class="menu-item" data-action="proj-abrir">Abrir proyecto…</button>
+          <button class="menu-item" data-action="proj-guardar">Guardar proyecto</button>
+          <div class="menu-sep"></div>
+          <button class="menu-item" data-action="importar">Importar KMZ / KML…</button>
+          <button class="menu-item" data-action="bati">Importar batimetría (DXF)…</button>
+          <div class="menu-sep"></div>
+          <button class="menu-item" data-action="informe">Generar informe (PDF)</button>
+        </div></div>
+      <div class="menu" data-menu="editar"><button class="menu-btn" type="button">Editar</button>
+        <div class="menu-dd">
+          <button class="menu-item" data-action="add-punto">Agregar punto de análisis</button>
+          <button class="menu-item" data-action="add-etiqueta">Agregar etiqueta referencial…</button>
+          <div class="menu-sep"></div>
+          <button class="menu-item" data-action="config">Configuración…</button>
+        </div></div>
+      <div class="menu" data-menu="ver"><button class="menu-btn" type="button">Ver</button>
+        <div class="menu-dd">
+          <button class="menu-item" data-action="ver-2d">Mapa 2D</button>
+          <button class="menu-item" data-action="ver-3d">Relieve 3D</button>
+          <div class="menu-sep"></div>
+          <button class="menu-item" data-action="tema">Cambiar tema (claro / oscuro)</button>
+        </div></div>
+      <div class="menu" data-menu="analisis"><button class="menu-btn" type="button">Análisis</button>
+        <div class="menu-dd">
+          <button class="menu-item" data-action="tab-cuenca">Cuenca y morfometría</button>
+          <button class="menu-item" data-action="tab-hidro">Hidrología</button>
+          <button class="menu-item" data-action="tab-hidraulica">Hidráulica (batimetría · 1D / 2D)</button>
+          <button class="menu-item" data-action="tab-estructuras">Estructuras (puentes / alcantarillas)</button>
+        </div></div>
+      <div class="menu" data-menu="ayuda"><button class="menu-btn" type="button">Ayuda</button>
+        <div class="menu-dd">
+          <button class="menu-item" data-action="ayuda">Ayuda y tutorial</button>
+          <button class="menu-item" data-action="acerca">Acerca de koi-flow</button>
+        </div></div>
+    </nav>
   </header>
 
   <div id="main">
@@ -88,15 +115,10 @@
 
 <script src="lib/leaflet/leaflet.js?v=2"></script>
 <script>
-  (function () {
-    function toggle() {
-      var d = document.documentElement, next = d.dataset.theme === 'dark' ? 'light' : 'dark';
-      d.dataset.theme = next; try { localStorage.setItem('koi_theme', next); } catch (e) {}
-    }
-    addEventListener('DOMContentLoaded', function () {
-      var b = document.getElementById('btn-theme'); if (b) b.addEventListener('click', toggle);
-    });
-  })();
+  window.__koiToggleTheme = function () {
+    var d = document.documentElement, next = d.dataset.theme === 'dark' ? 'light' : 'dark';
+    d.dataset.theme = next; try { localStorage.setItem('koi_theme', next); } catch (e) {}
+  };
 </script>
 <script type="module" src="js/koi/boot.js?v=2"></script>
 <script>
