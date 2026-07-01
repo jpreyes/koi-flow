@@ -29,7 +29,7 @@ const f2 = (v) => (v == null || !isFinite(v) ? '—' : (Math.abs(v) < 10 ? v.toF
 export class BatiPanel {
   constructor() {
     this.state = 'import';        // import | build | placed
-    this.cauces = [{ nombre: 'Cauce 1', secciones: [] }];
+    this.cauces = [{ nombre: 'Cauce 1', secciones: [], eje: null, dominio: null }];   // cada cauce = REACH independiente
     this.iCauce = 0;
     this.secciones = this.cauces[0].secciones;   // siempre apunta al cauce activo
     this._draw = null;
@@ -43,9 +43,21 @@ export class BatiPanel {
     this._flujoInvert = false;    // inversión manual de la dirección del flujo
   }
 
-  _selCauce(i) { this.iCauce = i; this.secciones = this.cauces[i].secciones; this._render(); this._dibujarSecciones(); }
+  // Guarda el estado del reach activo (su eje/dominio) antes de cambiar de cauce.
+  _guardarCauce() { const c = this.cauces[this.iCauce]; if (c) { c.eje = this.eje; c.dominio = this.dominio; } }
+  _selCauce(i) {
+    this._guardarCauce();
+    this.iCauce = i;
+    const c = this.cauces[i];
+    this.secciones = c.secciones;
+    this.eje = c.eje || null; this.dominio = c.dominio || null;
+    this.mesh2d = null; this.result2d = null;   // la malla 2D es de su dominio → se recalcula por reach
+    this.map?.clearMalla2D?.();
+    this._render(); this._dibujarSecciones();
+  }
   _nuevoCauce() {
-    this.cauces.push({ nombre: 'Cauce ' + (this.cauces.length + 1), secciones: [] });
+    this._guardarCauce();
+    this.cauces.push({ nombre: 'Cauce ' + (this.cauces.length + 1), secciones: [], eje: null, dominio: null });
     this._selCauce(this.cauces.length - 1);
   }
 
@@ -321,7 +333,7 @@ export class BatiPanel {
       this._det = detectarSistema(pts.slice(0, 30000));
       this.demM = this.grid = null;
       this.eje = null; this.dominio = null; this.mesh2d = null; this.result2d = null; this._quitarEjeLayer();
-      this.cauces = [{ nombre: 'Cauce 1', secciones: [] }]; this.iCauce = 0; this.secciones = this.cauces[0].secciones;
+      this.cauces = [{ nombre: 'Cauce 1', secciones: [], eje: null, dominio: null }]; this.iCauce = 0; this.secciones = this.cauces[0].secciones;
       this._render();
     } catch (err) { alert('No se pudo leer el DXF: ' + err.message); }
   }
