@@ -44,7 +44,7 @@ export class BatiPanel {
   }
 
   // Guarda el estado del reach activo (su eje/dominio) antes de cambiar de cauce.
-  _guardarCauce() { const c = this.cauces[this.iCauce]; if (c) { c.eje = this.eje; c.dominio = this.dominio; } }
+  _guardarCauce() { const c = this.cauces[this.iCauce]; if (c) { c.eje = this.eje; c.dominio = this.dominio; const q = parseFloat(this.body?.querySelector('#bp-q')?.value); if (isFinite(q)) c.Q = q; } }
   _selCauce(i) {
     this._guardarCauce();
     this.iCauce = i;
@@ -151,7 +151,7 @@ export class BatiPanel {
           <button class="bp-b" id="bp-cauce-new">＋ Nuevo cauce</button>
         </div>
         <div class="bp-form">
-          <label>Q [m³/s] <input id="bp-q" type="number" value="${cfg.Q}"></label>
+          <label>Q [m³/s] (de este reach) <input id="bp-q" type="number" value="${this.cauces[this.iCauce]?.Q ?? cfg.Q}"></label>
           <label>n Manning <input id="bp-n" type="number" step="0.005" value="${cfg.n}"></label>
           <label>J [m/m] <input id="bp-j" type="number" step="0.001" value="${cfg.J}"></label>
           <label>D50 [mm] <input id="bp-d50" type="number" value="${cfg.D50}"></label>
