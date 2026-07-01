@@ -130,8 +130,8 @@ async function startBoot() {
   estr.setMap(map); estr.setScene(scene); estr.setDock(dock);
   estr.onVer3D(() => { if (current && tieneRelieve(current)) { setMode('3d'); load3D(current); } else setMode('3d'); });
   const capas = new Capas($('tree'), { map, project, onSelectTramo: onTramoSelect, onRelieve: relieveTramo, hydro });
-  if (state) capas.aplicarEstado(state);
   window.__koi = { capas, map, scene, hydro, bati, flujo2d, estr, dock, huds, project };   // hook de depuración/automatización
+  if (state) capas.aplicarEstado(state);   // restaura puntos/cuencas/estructuras/eje del proyecto abierto
 
   // Relieve "activo" = disponible (DEM bajado o pre-generado) y no desactivado.
   const tieneRelieve = (t) => !!(t && !t.relieveOff && (t.dem || t.demGrid));

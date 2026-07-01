@@ -349,7 +349,11 @@ export class Capas {
     });
     const etiquetas = this.labels.map(({ name, tipo, lon, lat }) => ({ name, tipo, lon, lat }));
     const tramos = (this.project?.tramos || []).map((t) => ({ name: t.name, feature: t.feature, dem: t.dem || null }));
-    return { puntos, importados, etiquetas, tramos };
+    // resultados/geometría de batimetría-hidráulica (para que persistan si se guarda)
+    const es = window.__koi?.estr?.estructuras || [];
+    const estructuras = es.map((e) => ({ id: e.id, tipo: e.tipo, nombre: e.nombre, forma: e.forma, solido: e.solido, center: e.center, planta: e.planta, params: { ...e.params }, dz: e.dz || 0, zBase: e.zBase ?? null }));
+    const bati = window.__koi?.bati;
+    return { puntos, importados, etiquetas, tramos, estructuras, eje: bati?.eje || null, dominio: bati?.dominio || null };
   }
 
   guardarProyecto() {
@@ -382,6 +386,18 @@ export class Capas {
       if (p.cuenca) this.map.showCuenca(pt.id, p.cuenca.polygonSuave || p.cuenca.polygon);
     }
     for (const lb of data.etiquetas || []) { const id = this.map.addLabel(lb); this.labels.push({ id, ...lb }); }
+    // estructuras
+    const estrP = window.__koi?.estr;
+    if (estrP && data.estructuras?.length) { estrP.estructuras = data.estructuras.map((e) => ({ ...e, params: { ...e.params } })); estrP._render?.(); estrP._draw?.(); }
+    // eje / dominio de batimetría
+    const bati = window.__koi?.bati;
+    if (bati) {
+      if (data.eje) { bati.eje = data.eje; bati._dibujarEje?.(); }
+      if (data.dominio) { bati.dominio = data.dominio; this.map.showMalla2D?.({ dominio: data.dominio, cauce: data.eje }); }
+    }
+    // panel derecho: muestra la cuenca del primer punto restaurado
+    const pts = this.map.getPoints();
+    if (pts.length && this.hydro) { this.hydro.setPuntos?.(pts); this.hydro._renderCuenca?.(pts.find((p) => p.cuenca) || pts[0]); }
     this.render();
   }
 
