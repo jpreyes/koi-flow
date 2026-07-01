@@ -45,6 +45,13 @@ export class BatiPanel {
 
   // Guarda el estado del reach activo (su eje/dominio) antes de cambiar de cauce.
   _guardarCauce() { const c = this.cauces[this.iCauce]; if (c) { c.eje = this.eje; c.dominio = this.dominio; const q = parseFloat(this.body?.querySelector('#bp-q')?.value); if (isFinite(q)) c.Q = q; } }
+  // Caudal EFECTIVO de un reach: si recibe de otros (confluencia), suma sus caudales
+  // efectivos (recursivo, con guarda anti-ciclo); si no, su propio Q.
+  _QefReach(i = this.iCauce, seen = new Set()) {
+    const c = this.cauces[i]; if (!c || seen.has(i)) return 0; seen.add(i);
+    if (c.recibeDe?.length) { let s = 0; for (const j of c.recibeDe) s += this._QefReach(j, seen); return s; }
+    return c.Q ?? getConfig().Q;
+  }
   _selCauce(i) {
     this._guardarCauce();
     this.iCauce = i;
@@ -147,9 +154,14 @@ export class BatiPanel {
           <p class="hp-note">El <b>eje</b> fija la dirección del flujo y ordena las secciones (station a lo largo del cauce).${m2d ? ' En 2D define además dónde se refina la malla; el <b>dominio</b> es el área inundable.' : ' Si no lo dibujas, la dirección se deduce del descenso del lecho.'}</p>
         </div>
         <div class="bp-btns">
-          <label style="flex:1">Cauce <select id="bp-cauce-sel">${this.cauces.map((c, i) => `<option value="${i}"${i === this.iCauce ? ' selected' : ''}>${c.nombre} (${c.secciones.length} sec)</option>`).join('')}</select></label>
-          <button class="bp-b" id="bp-cauce-new">＋ Nuevo cauce</button>
+          <label style="flex:1">Reach / cauce <select id="bp-cauce-sel">${this.cauces.map((c, i) => `<option value="${i}"${i === this.iCauce ? ' selected' : ''}>${c.nombre} (${c.secciones.length} sec)</option>`).join('')}</select></label>
+          <button class="bp-b" id="bp-cauce-new">＋ Nuevo reach</button>
         </div>
+        ${this.cauces.length > 1 ? `<div class="bp-conf">
+          <span class="hp-mini">Confluencia — este reach recibe de (aguas arriba):</span>
+          <div class="bp-chips">${this.cauces.map((c, i) => i === this.iCauce ? '' : `<label class="hp-chip"><input type="checkbox" data-conf="${i}"${(this.cauces[this.iCauce].recibeDe || []).includes(i) ? ' checked' : ''}> ${c.nombre}</label>`).join('')}</div>
+          <p class="hp-note">Q efectivo del reach: <b>${f2(this._QefReach())} m³/s</b>${(this.cauces[this.iCauce].recibeDe || []).length ? ' — suma de los reaches marcados' : ''}</p>
+        </div>` : ''}
         <div class="bp-form">
           <label>Q [m³/s] (de este reach) <input id="bp-q" type="number" value="${this.cauces[this.iCauce]?.Q ?? cfg.Q}"></label>
           <label>n Manning <input id="bp-n" type="number" step="0.005" value="${cfg.n}"></label>
@@ -297,6 +309,13 @@ export class BatiPanel {
     $('#bp-inun1d')?.addEventListener('click', () => this._inundacion1D());
     $('#bp-cauce-sel')?.addEventListener('change', (e) => this._selCauce(+e.target.value));
     $('#bp-cauce-new')?.addEventListener('click', () => this._nuevoCauce());
+    $('#bp-q')?.addEventListener('change', () => { const c = this.cauces[this.iCauce]; if (c) { const q = parseFloat(this.body.querySelector('#bp-q').value); if (isFinite(q)) c.Q = q; } });
+    this.body.querySelectorAll('[data-conf]').forEach((cb) => cb.addEventListener('change', () => {
+      const c = this.cauces[this.iCauce]; c.recibeDe = c.recibeDe || []; const i = +cb.dataset.conf;
+      if (cb.checked) { if (!c.recibeDe.includes(i)) c.recibeDe.push(i); } else c.recibeDe = c.recibeDe.filter((x) => x !== i);
+      this._render(); if (this.secciones.length) this._recalcularSecciones();
+    }));
+    $('#bp-2d-entrada')?.addEventListener('click', () => this.map.pickOnce((lon, lat) => { const c = this.cauces[this.iCauce]; if (c) c.entrada = [lon, lat]; this._render(); }, 'Clic: punto de entrada del caudal (2D)'));
     this.body.querySelectorAll('[data-motor]').forEach((b) => b.addEventListener('click', () => {
       if (this.motor === b.dataset.motor) return;
       this.motor = b.dataset.motor; this._render(); this._dibujarSecciones();
@@ -592,6 +611,7 @@ export class BatiPanel {
       </div>
       <button class="hp-run" id="bp-2d-gen">🌐 Generar malla 2D</button>
       <span class="hp-dl-status" id="bp-2d-st"></span>
+      <div class="bp-btns" style="margin-top:6px"><button class="bp-b" id="bp-2d-entrada">📍 Entrada del caudal${this.cauces[this.iCauce]?.entrada ? ' ✓ (personalizada)' : ' (auto: aguas arriba)'}</button></div>
       ${m ? this._stats2DHTML(m) : ''}
       ${m ? `<div class="bp-form" style="margin-top:8px">
         <label>WSE salida [m] <input id="f2-so" type="number" placeholder="auto"></label>
@@ -651,7 +671,12 @@ export class BatiPanel {
     const c = mesh.cauceXY, R = Math.max(mesh.meta.anchoCauce, 50);
     if (!c || c.length < 2) return { entrada: [], salida: [] };
     const near = (px, py) => mesh.nodes.filter((nd) => nd.borde && Math.hypot(nd.x - px, nd.y - py) <= R).map((nd) => nd.i);
-    return { entrada: near(c[0][0], c[0][1]), salida: near(c[c.length - 1][0], c[c.length - 1][1]) };
+    // entrada: por defecto el extremo aguas arriba del eje; o el punto elegido por el usuario
+    const ent = this.cauces[this.iCauce]?.entrada;
+    let entrada;
+    if (ent && mesh.origin) { const o = mesh.origin; entrada = near((ent[0] - o.lon0) * o.mLon, (ent[1] - o.lat0) * o.mLat); }
+    else entrada = near(c[0][0], c[0][1]);
+    return { entrada, salida: near(c[c.length - 1][0], c[c.length - 1][1]) };
   }
 
   async _simular2D() {
@@ -660,7 +685,8 @@ export class BatiPanel {
     if (!this.eje || this.eje.length < 2) { if (st) st.textContent = ' dibuja el eje (define entrada/salida)'; return; }
     const { entrada, salida } = this._bordes2D(this.mesh2d);
     if (!entrada.length || !salida.length) { if (st) st.textContent = ' el eje debe tocar el borde del dominio (entrada/salida)'; return; }
-    const Q = +this.body.querySelector('#bp-q').value || 100;
+    const _c = this.cauces[this.iCauce];
+    const Q = (_c?.recibeDe?.length) ? this._QefReach() : (+this.body.querySelector('#bp-q').value || 100);
     const so = parseFloat(this.body.querySelector('#f2-so').value);
     const dt = +this.body.querySelector('#f2-dt').value || 60;
     const nPasos = +this.body.querySelector('#f2-steps').value || 300;
@@ -929,7 +955,8 @@ export class BatiPanel {
 
   // (Re)calcula el eje (Manning) + socavación de una sección con los valores del form.
   _calcSeccionEje(s) {
-    const Q = +this.body.querySelector('#bp-q').value || 100;
+    const _c = this.cauces[this.iCauce];
+    const Q = (_c?.recibeDe?.length) ? this._QefReach() : (+this.body.querySelector('#bp-q').value || 100);
     const n = +this.body.querySelector('#bp-n').value || 0.035;
     const J = +this.body.querySelector('#bp-j').value || 0.005;
     const D50mm = +this.body.querySelector('#bp-d50').value || 20;
