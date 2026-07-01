@@ -6,14 +6,45 @@
 // menos las mismas tablas, rellenadas con los datos del proyecto cuando existen.
 // Documento HTML imprimible (→ PDF). Propiedad: JPReyes / Conmuta.cl.
 // ─────────────────────────────────────────────────────────────────────────────
+import { estacionesCercanas, cargarSerie } from '../datos/dga.js?v=2';
+import { analizar } from '../hidro/frecuencia.js?v=2';
+
 const f = (v, d = 2) => (v == null || !isFinite(v) ? '—' : (Math.abs(v) >= 1000 ? v.toFixed(0) : v.toFixed(d)));
 const esc = (s) => String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 const MARCA = { autor: 'JPReyes', empresa: 'Conmuta.cl', logo: 'icons/icon-512.png' };
+const DIST = { normal: 'Normal', lognormal: 'Log-Normal', pearson3: 'Pearson III', logpearson3: 'Log-Pearson III', gumbel: 'Gumbel', gamma: 'Gamma' };
+const TS = [2, 5, 10, 25, 50, 100, 200];
 
-export function generarInforme(koi) {
+// Abre la ventana YA (evita bloqueo de popups), corre el análisis y rellena.
+export async function generarInforme(koi) {
   const w = window.open('', '_blank');
   if (!w) { alert('Permite las ventanas emergentes para ver el informe.'); return; }
-  w.document.open(); w.document.write(construir(koi)); w.document.close();
+  w.document.write('<p style="font:15px system-ui;padding:28px;color:#128aa5">Generando informe… corriendo el análisis de frecuencia.</p>');
+  let datos = {};
+  try { datos = await reunirDatos(koi); } catch (e) { console.warn('informe:', e.message); }
+  w.document.open(); w.document.write(construir(koi, datos)); w.document.close();
+}
+
+function serieVals(raw) {
+  const so = raw?.serie ?? raw;
+  const arr = Array.isArray(so) ? so.map(Number) : Object.values(so || {}).map(Number);
+  return arr.filter((v) => isFinite(v));
+}
+// Busca la estación patrón (pluvio y fluvio) con serie y corre el análisis de frecuencia.
+async function reunirDatos(koi) {
+  const pts = koi.map?.getPoints?.() || [];
+  const c = pts[0] ? [pts[0].lon, pts[0].lat] : (koi.map?.map ? [koi.map.map.getCenter().lng, koi.map.map.getCenter().lat] : null);
+  const out = {};
+  if (!c) return out;
+  for (const tipo of ['pluviometrica', 'fluviometrica']) {
+    try {
+      const cand = await estacionesCercanas(c, { tipo, n: 8, minAnios: 8 });
+      for (const e of cand) {
+        try { const s = serieVals(await cargarSerie(e)); if (s.length >= 5) { out[tipo === 'pluviometrica' ? 'pp' : 'fl'] = { est: e, an: analizar(s), n: s.length, s0: e.periodo }; break; } } catch { /* sin serie */ }
+      }
+    } catch { /* sin catálogo */ }
+  }
+  return out;
 }
 
 // numeración jerárquica compartida (1, 1.1, 1.1.1 …)
@@ -26,12 +57,12 @@ const P = (html) => `<p>${html}</p>`;
 const EQ = (html) => `<div class="formula">${html}</div>`;
 const ND = (t = 'Pendiente de ingreso de datos.') => `<p class="nd">${t}</p>`;
 
-function construir(koi) {
+function construir(koi, datos = {}) {
   const proj = koi.project || {};
   const fecha = new Date().toLocaleDateString('es-CL', { year: 'numeric', month: 'long', day: 'numeric' });
   const H = numerador();
   const cuerpo = [
-    `<section class="cap">${capHidrologia(koi, H)}</section>`,
+    `<section class="cap">${capHidrologia(koi, H, datos)}</section>`,
     `<section class="cap">${capHidraulico(koi, H)}</section>`,
     `<section class="cap">${capSocavacion(koi, H)}</section>`,
   ].join('\n');
@@ -59,13 +90,18 @@ function pieLicencia() {
 }
 
 // ═══ 1 · ANÁLISIS HIDROLÓGICO ═══════════════════════════════════════════════════
-function capHidrologia(koi, H) {
+function capHidrologia(koi, H, datos = {}) {
   const est = koi.map?._stations || [];
   const pl = est.filter((e) => e.tipo === 'pluviometrica'), fl = est.filter((e) => e.tipo === 'fluviometrica');
   const cuencas = (koi.map?.getPoints?.() || []).filter((p) => p.cuenca);
   const m = cuencas[0]?.cuenca?.morfometria;
   const filaEst = (e) => [esc(e.nombre), e.bna, f(e.dist, 1) + ' km', e.n_anios ?? '—', esc(e.periodo || '—')];
   const cabEst = ['Estación', 'BNA', 'Distancia', 'Años', 'Periodo'];
+  // Análisis de frecuencia corrido sobre las estaciones patrón (auto-relleno)
+  const ppAn = datos.pp?.an, flAn = datos.fl?.an;
+  const resumenDist = (an) => tabla(['Distribución', 'R²', 'χ²', 'Aceptada'],
+    an ? Object.entries(an.resultados).map(([k, r]) => [DIST[k], r.r2.toFixed(3), r.chi2.toFixed(1), r.aceptado ? '✓' : '✗']) : null);
+  const cuantiles = (an, uni) => tabla(['T [años]', uni], an ? TS.map((T) => [T, f(an.resultados[an.mejor].quantiles[T])]) : null);
   let b = H(1, 'Análisis Hidrológico');
 
   b += H(2, 'Introducción');
@@ -94,6 +130,7 @@ function capHidrologia(koi, H) {
   b += tabla(cabEst, pl.length ? pl.map(filaEst) : null);
   b += H(3, 'Modelo digital de elevaciones');
   b += P('DEM base tipo Terrarium (y batimetría CAD fusionada cuando existe) para morfometría, secciones y modelación.');
+  { const png = koi.scene?.terrain ? koi.scene.snapshot?.() : null; if (png) b += `<img class="snap" src="${png}" alt="Relieve 3D"><p class="cap">Modelo 3D del sector (relieve + cauce).</p>`; }
 
   b += H(2, 'Elección de la Estación Patrón');
   b += P('Se adopta como estación patrón la de mayor longitud de registro y representatividad, priorizando registro sobre cercanía.');
@@ -123,11 +160,15 @@ function capHidrologia(koi, H) {
 
   b += H(2, 'Resultados del Análisis de Frecuencia');
   b += H(3, 'Parámetros de Distribuciones'); b += tabla(['Distribución', 'Parámetros'], [['Normal', 'μ, σ'], ['Log-Normal', 'μ_ln, σ_ln'], ['Pearson III', 'x̄, s, Cs'], ['Log-Pearson III', 'x̄_log, s_log, Cs_log'], ['Gumbel', 'x̄, s (Yn, Sn)'], ['Gamma', 'α, β']]);
-  b += H(3, 'Resumen de Métodos'); b += tabla(['Distribución', 'R²', 'χ²', 'Aceptada'], null);
-  b += H(3, 'Análisis de Frecuencia Adoptada'); b += P('Se adopta la distribución de mejor ajuste (menor χ² entre las aceptadas). En el HUD de cada estación (clic en el mapa) se muestran R², χ² y los cuantiles por T.');
+  b += H(3, 'Resumen de Métodos');
+  if (datos.pp) b += P(`Estación patrón pluviométrica: <b>${esc(datos.pp.est.nombre)}</b> (BNA ${datos.pp.est.bna}, ${datos.pp.n} años).`);
+  b += resumenDist(ppAn);
+  b += H(3, 'Análisis de Frecuencia Adoptada');
+  b += P(ppAn ? `Se adopta la distribución de mejor ajuste (menor χ² entre las aceptadas): <b>${DIST[ppAn.mejor]}</b>.`
+    : 'Se adopta la distribución de mejor ajuste (menor χ² entre las aceptadas). Coloca un punto de análisis para correr el ajuste automáticamente.');
 
   b += H(2, 'Precipitaciones de Diseño (según Análisis de Frecuencia)');
-  b += tabla(['T [años]', 'PP diseño [mm]'], [2, 5, 10, 25, 50, 100, 200].map((T) => [T, '—']));
+  b += cuantiles(ppAn, 'PP diseño [mm]');
 
   b += H(2, 'Curva de Intensidad – Duración – Frecuencia');
   b += P('IDF por coeficientes de duración/frecuencia (Grunsky) a partir de la PP diaria:');
@@ -168,14 +209,18 @@ function capHidrologia(koi, H) {
   b += H(3, 'Introducción'); b += P('En zona árida <b>gobierna la fluviometría</b>: se analiza la serie de la estación de control y se transpone a la cuenca del tramo.');
   b += H(3, 'Análisis de Datos Dudosos'); b += H(4, 'Relleno de Estadísticas'); b += P('Igual criterio Grubbs-Beck y relleno por correlación aplicado a la serie de caudales.');
   b += H(3, 'Análisis Probabilístico para Estudio Fluviométrico');
-  b += H(4, 'Resultados de análisis de frecuencias'); b += tabla(['T [años]', 'Q [m³/s]'], [2, 5, 10, 25, 50, 100, 200].map((T) => [T, '—']));
+  b += H(4, 'Resultados de análisis de frecuencias');
+  if (datos.fl) b += P(`Estación de control fluviométrica: <b>${esc(datos.fl.est.nombre)}</b> (BNA ${datos.fl.est.bna}, ${datos.fl.n} años) · mejor ajuste: <b>${DIST[flAn.mejor]}</b>.`);
+  b += cuantiles(flAn, 'Q [m³/s]');
   b += H(4, 'Test de Bondad de Ajuste'); b += P('χ² y R² por distribución (ver HUD de la estación fluviométrica).');
   b += H(4, 'Resultados de dispersiones probabilísticas'); b += P('Bandas de confianza de los cuantiles fluviométricos.');
   b += H(3, 'Transposición de Caudales'); b += EQ('Q<sub>c</sub> = Q<sub>p</sub> · (A<sub>c</sub> / A<sub>p</sub>)<sup>n</sup>');
   b += `<h4 class="h3">Estaciones fluviométricas de control</h4>` + tabla(cabEst, fl.length ? fl.map(filaEst) : null);
 
   b += H(2, 'Caudales Adoptados');
-  b += tabla(['T [años]', 'Q adoptado [m³/s]', 'Origen'], [10, 100].map((T) => [T, '—', 'fluviometría']));
+  b += tabla(['T [años]', 'Q adoptado [m³/s]', 'Origen'],
+    flAn ? [10, 100, 200].map((T) => [T, f(flAn.resultados[flAn.mejor].quantiles[T]), 'fluviometría · ' + esc(datos.fl.est.nombre)]) : null);
+  if (flAn && m) b += P(`Para transponer a la cuenca del tramo (A = ${m.A} km²) aplicar Q<sub>c</sub> = Q<sub>p</sub>·(A<sub>c</sub>/A<sub>p</sub>)<sup>n</sup> con el área de la cuenca de control de la estación.`);
   return b;
 }
 
@@ -361,6 +406,7 @@ const CSS = `
   th { background: #eef4f6; } th:first-child, td:first-child { text-align: left; }
   .fig { width: 300px; height: auto; background: #fbfdfe; border: 1px solid #dbe6ec; border-radius: 8px; }
   .fig.wide { width: 100%; max-width: 480px; }
+  .snap { width: 100%; max-width: 520px; border: 1px solid #dbe6ec; border-radius: 8px; }
   .fig-row { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
   .fig-row table { flex: 1; min-width: 240px; }
   .sec-card { border: 1px solid #dbe6ec; border-radius: 8px; padding: 8px 12px; margin: 10px 0; page-break-inside: avoid; }
