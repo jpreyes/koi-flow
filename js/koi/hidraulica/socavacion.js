@@ -277,6 +277,34 @@ export function socavacionLocalPilaMetodos(p) {
   return { ...vals, max: Math.max(...arr), prom: arr.reduce((a, b) => a + b, 0) / arr.length };
 }
 
+// ── Socavación LOCAL en ESTRIBOS — HEC-18 (MC-V3 3.707.4). Dos ecuaciones:
+//   • Froehlich (1989): estribos cortos/medios (L'/ya < 25).
+//       ys/ya = 2.27·K1·K2·(L'/ya)^0.43·Fr^0.61 + 1
+//   • HIRE (HEC-18): estribos que penetran hondo en el cauce (L'/ya ≥ 25).
+//       ys = 4·ya·(K1/0.55)·K2·Fr^0.33
+//   K1 = forma del estribo · K2 = ángulo del terraplén al flujo = (θ/90)^0.13.
+//   ya = calado de aproximación en el estribo · L' = largo del flujo obstruido por el
+//   terraplén · Fr = Froude de aproximación.
+const K1_ESTRIBO = { vertical: 1.0, alas: 0.82, derrame: 0.55, spill: 0.55 };
+
+export function estriboFroehlich({ ya, Fr, Lp, forma = 'derrame', theta = 90 }) {
+  const K1 = K1_ESTRIBO[forma] ?? 0.55, K2 = Math.pow(Math.max(theta, 1) / 90, 0.13);
+  const ratio = 2.27 * K1 * K2 * Math.pow(Math.max(Lp, 0.01) / ya, 0.43) * Math.pow(Math.max(Fr, 1e-3), 0.61) + 1;
+  return { ys: ya * ratio, K1, K2 };
+}
+export function estriboHire({ ya, Fr, forma = 'derrame', theta = 90 }) {
+  const K1 = K1_ESTRIBO[forma] ?? 0.55, K2 = Math.pow(Math.max(theta, 1) / 90, 0.13);
+  return { ys: 4 * ya * (K1 / 0.55) * K2 * Math.pow(Math.max(Fr, 1e-3), 0.33), K1, K2 };
+}
+// Compara ambas y recomienda según L'/ya (HEC-18). Devuelve la adoptada.
+export function socavacionEstribo(p) {
+  const fr = estriboFroehlich(p), hi = estriboHire(p);
+  const ratio = p.Lp / (p.ya || 1);
+  const recomendado = ratio >= 25 ? 'HIRE' : 'Froehlich';
+  const adoptada = recomendado === 'HIRE' ? hi.ys : fr.ys;
+  return { froehlich: fr.ys, hire: hi.ys, K1: fr.K1, K2: fr.K2, ratio, recomendado, adoptada };
+}
+
 // Resumen de socavación para una sección de puente: general + (opcional) local en pila.
 export function evaluarSocavacion(sec, pts, opts = {}) {
   const gen = socavacionGeneral(sec, pts, opts);                 // Lischtvan-Lebediev (por vertical)

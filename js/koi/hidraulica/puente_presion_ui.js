@@ -5,6 +5,7 @@
 // presión/vertedero, velocidad por el vano, afección (remanso) y revancha/gálibo.
 // ─────────────────────────────────────────────────────────────────────────────
 import { puentePresion, curvaPuente } from './puente_presion.js?v=2';
+import { socavacionEstribo } from './socavacion.js?v=2';
 
 const f = (v, d = 2) => (v == null || !isFinite(v) ? '—' : v.toFixed(d));
 
@@ -59,6 +60,18 @@ function form(koi) {
         <label>Cw vertedero<input id="pp-cw" type="number" step="0.05" value="1.66"></label>
       </div>
     </details>
+    <details class="cfg-adv"><summary>Socavación de estribos (HEC-18)</summary>
+      <div class="cfg-form">
+        <label>Calado de aproximación ya [m]<input id="pp-ea-ya" type="number" step="0.1" placeholder="= vano"></label>
+        <label>Froude de aproximación Fr<input id="pp-ea-fr" type="number" step="0.05" placeholder="auto"></label>
+        <label>Largo obstruido L' [m]<input id="pp-ea-l" type="number" step="1" value="15"></label>
+        <label>Forma del estribo<select id="pp-ea-forma">
+          <option value="derrame">Derrame (spill-through)</option>
+          <option value="alas">Vertical con aletas</option>
+          <option value="vertical">Muro vertical</option></select></label>
+        <label>Ángulo terraplén θ [°]<input id="pp-ea-th" type="number" step="5" value="90"></label>
+      </div>
+    </details>
     <button class="hp-run" id="pp-run" style="margin-top:8px">🌉 Analizar puente (HEC-RAS)</button>
     <div id="pp-out"></div>`;
 }
@@ -99,8 +112,27 @@ function wire(hud, koi) {
       </div>
       ${svgPerfil(r)}
       ${svgCurva(o, r)}
+      ${bloqueEstribo($, r)}
       <p class="hud-note">Rutina HEC-RAS de presión/vertedero. La cota de energía aguas arriba se resuelve de Q = Q<sub>presión</sub> + Q<sub>vertedero</sub>. Verifica la revancha contra la exigida por el MC y V&gt;4–5 m/s exige protección de estribos.</p>`;
   });
+}
+
+// Bloque de socavación de estribos (HEC-18), con prefijado desde la hidráulica del puente.
+function bloqueEstribo($, r) {
+  const ya = $('#pp-ea-ya').value ? +$('#pp-ea-ya').value : r.hVano;
+  const Lp = +$('#pp-ea-l').value || 0;
+  if (!(ya > 0) || !(Lp > 0)) return '';
+  const Fr = $('#pp-ea-fr').value ? +$('#pp-ea-fr').value : Math.min(0.9, r.Vvano / Math.sqrt(9.81 * ya));
+  const forma = $('#pp-ea-forma').value, theta = +$('#pp-ea-th').value || 90;
+  const e = socavacionEstribo({ ya, Fr, Lp, forma, theta });
+  return `<div class="hp-mini" style="margin-top:10px">Socavación de estribos (HEC-18)</div>
+    <div class="hp-kv">
+      <div><span>Froehlich / HIRE</span><b>${f(e.froehlich)} / ${f(e.hire)} m</b></div>
+      <div><span>L'/ya · método</span><b>${f(e.ratio, 0)} · ${e.recomendado}</b></div>
+      <div><span>Socavación adoptada</span><b>${f(e.adoptada)} m</b></div>
+      <div><span>ya / Fr aprox · K1·K2</span><b>${f(ya, 1)} / ${f(Fr)} · ${f(e.K1, 2)}·${f(e.K2, 2)}</b></div>
+    </div>
+    <p class="hud-note">Froehlich (L'/ya&lt;25) e HIRE (≥25). Se recomienda el método según L'/ya; ambos son conservadores (MC-V3 3.707.4 exige comparar). ys medida bajo el lecho junto al estribo.</p>`;
 }
 
 // Esquema de la sección del cruce: vano, tablero, rasante, cotas de agua.
