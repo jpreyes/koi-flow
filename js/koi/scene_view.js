@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Terrain } from './terrain.js?v=2';
 import { makeProjection, bboxCenter } from './geo.js?v=2';
+import { tableroSobre } from './estructuras/estructuras.js?v=2';
 
 export class SceneView {
   constructor(container) {
@@ -107,7 +108,12 @@ export class SceneView {
       cxLL /= poly.length; cyLL /= poly.length;
       const cs = this.proj.toScene(cxLL, cyLL);
       const baseY = this.terrain ? this.terrain.heightAt(cs.x, cs.z) : 0;
-      const alto = (e.params.alto || e.params.espesor || 2) * vy;
+      let alto = (e.params.alto || e.params.espesor || 2) * vy;
+      // pilas/estribos/alcantarillas bajo un tablero TOPAN en su cara inferior (luz libre)
+      if (e.tipo !== 'tablero' && e.tipo !== 'viga') {
+        const t = tableroSobre(e, estructuras);
+        if (t) alto = Math.min(alto, (t.params.luzLibre || 2) * vy);
+      }
       const solido = e.solido;
       const color = solido ? 0x9b6bd6 : 0xe0a93f;
       const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.8, metalness: 0.1, transparent: !solido, opacity: solido ? 1 : 0.85 });

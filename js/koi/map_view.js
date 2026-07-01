@@ -99,7 +99,7 @@ export class MapView {
       bounds.push(...latlngs);
       const pl = L.polyline(latlngs, { color: '#e23b5a', weight: 4, opacity: 0.9 })
         .bindTooltip(f.properties.name, { sticky: true });
-      pl.on('click', () => { this.select(f.properties.name); this.onSelect?.(f); });
+      pl.on('click', () => { if (this._noSelect) return; this.select(f.properties.name); this.onSelect?.(f); });
       this.groups.tramos.addLayer(pl);
       this.layers.set(f.properties.name, pl);
     }
@@ -186,6 +186,8 @@ export class MapView {
   dibujar(modo, color, onDone) {
     const L = window.L;
     this.cancelarDibujo();
+    if (this.pickMode) this.setPickMode(false);   // interactuar con otra entidad apaga el modo Punto
+    this._noSelect = true;                          // mientras dibujas no seleccionas lo de abajo
     const pts = [];
     const g = this.groups.malla2d;
     const linea = L.polyline([], { color, weight: 2, dashArray: '4 3' }); g.addLayer(linea);
@@ -216,6 +218,7 @@ export class MapView {
   }
   enDibujo() { return !!this._draw2d; }
   cancelarDibujo() {
+    this._noSelect = false;
     if (this._pick1) this._pick1.done();
     if (!this._draw2d) return;
     this.map.off('click', this._draw2d.onClick); this.map.off('dblclick', this._draw2d.finish); this.map.off('contextmenu', this._draw2d.finish);
@@ -231,11 +234,14 @@ export class MapView {
   // Captura UN solo clic en el mapa → onPick(lon, lat). Cursor de mira + Esc cancela.
   pickOnce(onPick, hintTxt = 'Clic en el mapa para colocar · Esc cancela') {
     this.cancelarDibujo();
+    if (this.pickMode) this.setPickMode(false);   // apaga el modo Punto al colocar otra entidad
+    this._noSelect = true;                          // no seleccionar lo que hay debajo al colocar
     const cont = this.map.getContainer();
     cont.classList.add('dibujando');
     const hint = document.createElement('div'); hint.className = 'draw-hint';
     hint.innerHTML = `🏷 ${hintTxt}`; cont.appendChild(hint);
     const done = () => {
+      this._noSelect = false;
       this.map.off('click', onClick); document.removeEventListener('keydown', esc);
       cont.classList.remove('dibujando'); hint.remove(); this._pick1 = null;
     };
@@ -274,7 +280,9 @@ export class MapView {
         ? L.polyline(ll, { color, weight: 4, opacity: 0.9 })
         : L.polygon(ll, { color, weight: 2, fillColor: color, fillOpacity: e.id === sel ? 0.5 : 0.3 });
       shape.bindTooltip(`${e.nombre}${e.zBase != null ? ' · base ' + e.zBase.toFixed(1) + ' m' : ''}`, { sticky: true });
-      shape.on('click', (ev) => { window.L.DomEvent.stop(ev); onPick?.(e.id); });
+      // Mientras colocas/dibujas (_noSelect) NO interceptes el clic: deja que el mapa
+      // reciba el punto (p.ej. poner una pila bajo un puente existente).
+      shape.on('click', (ev) => { if (this._noSelect) return; window.L.DomEvent.stop(ev); onPick?.(e.id); });
       this.groups.estructuras.addLayer(shape);
     }
   }
@@ -427,6 +435,9 @@ export class MapView {
     this.pickMode = !!on;
     this.el.style.cursor = on ? 'crosshair' : '';
     this.el.classList.toggle('picking', !!on);
+    // refleja el estado en el menú y en el botón de la barra izquierda
+    document.querySelector('.menu-item[data-action="add-punto"]')?.classList.toggle('on', this.pickMode);
+    document.getElementById('cap-pt')?.classList.toggle('active', this.pickMode);
   }
 
   addPoint(lon, lat, nombre) {

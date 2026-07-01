@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 230" role="img" aria-labelledby="title desc">
+  <title id="title">Koi-Flow selected v4 wordmark</title>
+  <desc id="desc">Editable Koi-Flow wordmark with Koi in deep navy and Flow in coral gradient, matching the selected fourth concept.</desc>
+  <defs>
+    <linearGradient id="flow-text" x1="0" y1="0" x2="330" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFAD96"/>
+      <stop offset="1" stop-color="#F76755"/>
+    </linearGradient>
+  </defs>
+  <rect width="860" height="230" fill="#FFFFFF" opacity="0"/>
+  <g id="editable-wordmark" transform="translate(20 113)">
+    <text id="word-koi" x="0" y="0" font-family="Inter, Manrope, Geist, Arial, sans-serif" font-size="104" font-weight="760" letter-spacing="-4" fill="#082A3D">Koi-</text>
+    <text id="word-flow" x="231" y="0" font-family="Inter, Manrope, Geist, Arial, sans-serif" font-size="104" font-weight="760" letter-spacing="-4" fill="url(#flow-text)">Flow</text>
+    <text id="tagline" x="7" y="63" font-family="Inter, Manrope, Geist, Arial, sans-serif" font-size="21" font-weight="560" letter-spacing="4.2" fill="#33596A">HYDRAULICS · HYDROLOGY · SEDIMENTS</text>
+  </g>
+</svg>

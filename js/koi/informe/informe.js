@@ -72,7 +72,7 @@ function seccCuenca(koi) {
     const m = p.cuenca.morfometria || {};
     const rows = Object.entries(m).filter(([, v]) => typeof v === 'number').map(([k, v]) => [k, f(v)]);
     body += `<h4>${esc(p.nombre)}</h4>
-      <div class="fig-row">${svgPoligono(p.cuenca.polygonSuave || p.cuenca.polygon, '#1ea7c5', 'rgba(30,167,197,.15)')}
+      <div class="fig-row">${svgPoligono(p.cuenca.polygonSuave || p.cuenca.polygon, '#128aa5', 'rgba(30,167,197,.15)')}
       ${tabla(['Parámetro', 'Valor'], rows)}</div>`;
   }
   return sección('1', 'Cuenca y morfometría', body);
@@ -274,22 +274,22 @@ const CSS = `
   * { box-sizing: border-box; }
   body { font: 13px/1.5 "Segoe UI", system-ui, sans-serif; color: #1a2230; margin: 0; background: #eef1f6; }
   .toolbar { position: sticky; top: 0; background: #0b1018; color: #cfe; padding: 8px 16px; display: flex; gap: 14px; align-items: center; }
-  .toolbar button { background: #1ea7c5; color: #fff; border: 0; border-radius: 7px; padding: 7px 14px; cursor: pointer; font-size: 13px; }
+  .toolbar button { background: #128aa5; color: #fff; border: 0; border-radius: 7px; padding: 7px 14px; cursor: pointer; font-size: 13px; }
   main { max-width: 820px; margin: 16px auto; background: #fff; padding: 40px 48px; box-shadow: 0 2px 16px rgba(0,0,0,.12); }
-  .portada { text-align: center; padding: 40px 0 30px; border-bottom: 3px solid #1ea7c5; }
+  .portada { text-align: center; padding: 40px 0 30px; border-bottom: 3px solid #128aa5; }
   .portada .logo { width: 90px; height: 90px; }
   .portada h1 { font-size: 26px; margin: 10px 0 2px; }
-  .portada h2 { font-size: 18px; color: #1ea7c5; margin: 0; font-weight: 600; }
+  .portada h2 { font-size: 18px; color: #128aa5; margin: 0; font-weight: 600; }
   .portada .fecha { color: #667; }
   .lic { max-width: 560px; margin: 14px auto; font-size: 12px; color: #445; background: #f4f6f9; border: 1px solid #dde3ec; border-radius: 8px; padding: 10px 14px; }
   .idx-h { font-weight: 700; margin: 20px 0 4px; }
   .idx { display: inline-block; text-align: left; color: #334; }
   .cap-sec { margin: 26px 0; page-break-inside: avoid; }
   h3 { font-size: 17px; border-bottom: 2px solid #e2e8f1; padding-bottom: 5px; }
-  h3 .num { background: #1ea7c5; color: #fff; border-radius: 6px; padding: 1px 9px; margin-right: 8px; font-size: 15px; }
+  h3 .num { background: #128aa5; color: #fff; border-radius: 6px; padding: 1px 9px; margin-right: 8px; font-size: 15px; }
   h4 { font-size: 14px; margin: 16px 0 6px; color: #234; }
   h5 { margin: 4px 0; font-size: 13px; }
-  .formula { background: #f7f9fc; border-left: 3px solid #1ea7c5; padding: 7px 12px; margin: 8px 0; font-family: "Cambria Math", Georgia, serif; }
+  .formula { background: #f7f9fc; border-left: 3px solid #128aa5; padding: 7px 12px; margin: 8px 0; font-family: "Cambria Math", Georgia, serif; }
   table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 12px; }
   th, td { border: 1px solid #d5dce6; padding: 5px 8px; text-align: right; }
   th { background: #f0f4f9; } th:first-child, td:first-child { text-align: left; }

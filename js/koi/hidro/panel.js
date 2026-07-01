@@ -12,6 +12,7 @@ import { caudalesHU } from './hidrograma.js?v=2';
 import { ppDiseno, grunsky } from './idf.js?v=2';
 import { racional, verniKing, dgaAC } from './caudales.js?v=2';
 import { estacionesCercanas, estacionRecomendada, cargarSerie, centroideTramo, resetCatalogo } from '../datos/dga.js?v=2';
+import { calcular as tcCalcular } from './tc.js?v=2';
 import { cuencaGeoJSON, cuencaKMZ, descargar } from '../cuenca/exportar.js?v=2';
 import { cuencaShapefileZip } from '../cuenca/shapefile.js?v=2';
 import { suavizar } from '../cuenca/delineacion.js?v=2';
@@ -245,6 +246,33 @@ export class HydroPanel {
       exp.querySelector('[data-x="kmz"]').addEventListener('click', () => descargar(`${base}.kmz`, cuencaKMZ(polyExp, props)));
       exp.querySelector('[data-x="geojson"]').addEventListener('click', () => descargar(`${base}.geojson`, JSON.stringify(cuencaGeoJSON(polyExp, props), null, 1), 'application/geo+json'));
       exp.querySelector('[data-x="re"]').addEventListener('click', () => { p.cuenca = null; this._calcularCuenca(p); });
+
+      // ── Tiempo de concentración (todos los métodos) ──────────────────────────
+      const sTc = this._section('Tiempo de concentración');
+      const cnForm = el('div', 'hp-form');
+      cnForm.innerHTML = `<label class="hp-f"><span>Curva número CN (SCS, rural)</span><input id="cu-cn" type="number" value="${this._cn ?? 75}"></label>
+        <label class="hp-f"><span>Zona homogénea DGA (I–VI)</span><input id="cu-zona" value="${this._zona ?? 'I'}"></label>
+        <label class="hp-f"><span>Adopción del tc</span><select id="cu-tcad">
+          <option value="max">Máximo (conservador)</option><option value="promedio">Promedio</option><option value="min">Mínimo</option></select></label>`;
+      sTc.appendChild(cnForm);
+      const tcOut = el('div'); sTc.appendChild(tcOut);
+      const renderTc = () => {
+        const CN = parseFloat(this.elPanel.querySelector('#cu-cn').value) || 75; this._cn = CN;
+        this._zona = this.elPanel.querySelector('#cu-zona').value || 'I';
+        const adop = this.elPanel.querySelector('#cu-tcad').value;
+        const r = tcCalcular({ L: m.L, S: m.S, A: m.A, H: m.H, Hm: m.H * 0.5, CN }, { adopcion: adop });
+        const rows = r.metodos.map((x) => `<tr${x.tc === r.adoptado && x.aplica ? ' class="hl"' : ''}>
+          <td>${x.metodo}</td><td>${x.aplica && isFinite(x.tc) ? x.tc.toFixed(2) + ' h' : '—'}</td>
+          <td>${x.aplica ? '✓' : (x.motivo || 'n/a')}</td></tr>`).join('');
+        tcOut.innerHTML = `<table class="hp-tbl"><thead><tr><th>Método</th><th>t<sub>c</sub></th><th>Aplica</th></tr></thead><tbody>${rows}</tbody></table>
+          <div class="hp-kv"><div><span>Promedio de válidos</span><b>${isFinite(r.promedio) ? r.promedio.toFixed(2) + ' h' : '—'}</b></div>
+          <div><span>Adoptado (${adop})</span><b>${isFinite(r.adoptado) ? r.adoptado.toFixed(2) + ' h' : '—'}</b></div></div>
+          <p class="hp-note">Métodos MC-V3/DGA: Kirpich, California (C.C.P.), Giandotti, Normas Españolas, SCS. Hm (Giandotti) ≈ H/2. La <b>CN</b> y la <b>Zona</b> también se usan en los caudales (SCS/HU y método DGA).</p>`;
+      };
+      renderTc();
+      cnForm.querySelector('#cu-cn').addEventListener('change', renderTc);
+      cnForm.querySelector('#cu-zona').addEventListener('change', renderTc);
+      cnForm.querySelector('#cu-tcad').addEventListener('change', renderTc);
     } else {
       const sCu = this._section('Cuenca aportante');
       sCu.appendChild(el('div', 'hp-kv', `<div><span>Punto</span><b>${p.nombre}</b></div>`));
@@ -461,6 +489,7 @@ export class HydroPanel {
   }
 
   async _renderEstacionesPunto(p) {
+    this._sel = this._sel || {};
     const pluvio = await estacionesCercanas([p.lon, p.lat], { tipo: 'pluviometrica', n: 4 });
     const fluvio = await estacionesCercanas([p.lon, p.lat], { tipo: 'fluviometrica', n: 4 });
     this.map?.showStations([...pluvio, ...fluvio]);
@@ -473,16 +502,23 @@ export class HydroPanel {
       s.appendChild(el('div', 'hp-mini', tipo === 'fluvio' ? 'Fluviométricas' : 'Pluviométricas'));
       const t = this._table(['Dist', 'Estación', 'n', 'Periodo'],
         arr.map((e) => [`${e.dist.toFixed(0)}km`, e.nombre, String(e.n_anios), e.periodo]));
+      t.querySelector('thead tr')?.insertAdjacentHTML('beforeend', '<th></th>');
       [...t.querySelectorAll('tbody tr')].forEach((tr, i) => {
         tr.classList.add('hp-row-click');
+        // clic = SELECCIONAR (no vuela); no resalta en el mapa panéandolo
         tr.addEventListener('click', () => {
           if (tipo === 'fluvio') this._sel.ctrl = arr[i]; else this._sel.pluvio = arr[i];
           s.querySelector('#hp-ctrl').textContent = this._sel.ctrl?.nombre || '—';
           s.querySelector('#hp-plu').textContent = this._sel.pluvio?.nombre || '—';
           [...s.querySelectorAll(`tbody tr.sel-${tipo}`)].forEach((x) => x.classList.remove('sel', `sel-${tipo}`));
           tr.classList.add('sel', `sel-${tipo}`);
-          this.map?.highlightStation(arr[i]);
+          this.map?.highlightStation(arr[i], { pan: false });
         });
+        // flechita = IR a la estación (vuela)
+        const go = document.createElement('td');
+        go.className = 'hp-go'; go.textContent = '➤'; go.title = 'Ir a la estación';
+        go.addEventListener('click', (ev) => { ev.stopPropagation(); this.map?.highlightStation(arr[i], { pan: true }); });
+        tr.appendChild(go);
       });
       s.appendChild(t);
     };

@@ -12,7 +12,7 @@ const f2 = (v) => (v == null || !isFinite(v) ? '—' : (Math.abs(v) < 10 ? v.toF
 const ETIQ = { largo: 'Largo [m]', ancho: 'Ancho [m]', espesor: 'Espesor [m]', luzLibre: 'Luz libre [m]', alto: 'Alto [m]', diametro: 'Diámetro [m]', rot: 'Rotación [°]' };
 
 export class EstructurasPanel {
-  constructor() { this.estructuras = []; this.sel = null; }
+  constructor() { this.estructuras = []; this.sel = null; this._tipo = 'tablero'; }
   setDock(dock) { this.dock = dock; this.host = dock.hosts.estructuras; this._render(); }
   setMap(m) { this.map = m; }
   setScene(s) {
@@ -29,7 +29,7 @@ export class EstructurasPanel {
 
   _render() {
     if (!this.host) return;
-    const opts = Object.entries(TIPOS).map(([k, d]) => `<option value="${k}">${d.label}</option>`).join('');
+    const opts = Object.entries(TIPOS).map(([k, d]) => `<option value="${k}"${k === this._tipo ? ' selected' : ''}>${d.label}</option>`).join('');
     this.host.innerHTML = `
       <section class="hp-sec"><h4 class="hp-sec-h">Agregar estructura</h4>
         <div class="bp-btns">
@@ -42,7 +42,10 @@ export class EstructurasPanel {
         ${this.estructuras.length ? this.estructuras.map((e) => this._card(e)).join('') : '<p class="hp-note">Sin estructuras. Agrega una arriba.</p>'}
       </section>
       <section class="hp-sec">
-        <button class="bp-b" id="es-3d" style="width:100%">🏔️ Ver estructuras en 3D</button>
+        <div class="bp-btns">
+          <button class="bp-b" id="es-elev-todas" style="flex:1">⛰️ Elevar todas al terreno</button>
+          <button class="bp-b" id="es-3d" style="flex:1">🏔️ Ver en 3D</button>
+        </div>
         <p class="hp-note">Integración: en <b>2D</b> las piezas sólidas se "queman" en el DEM al generar la malla (el flujo las rodea, como HEC-RAS). En <b>1D</b> una pila que cruza una sección aporta el ancho de pila a la socavación local.</p>
       </section>`;
     this._wire();
@@ -67,8 +70,10 @@ export class EstructurasPanel {
 
   _wire() {
     const $ = (s) => this.host.querySelector(s);
+    $('#es-tipo')?.addEventListener('change', (e) => { this._tipo = e.target.value; });
     $('#es-add')?.addEventListener('click', () => this._agregar($('#es-tipo').value));
     $('#es-3d')?.addEventListener('click', () => this._ver3Dclick());
+    $('#es-elev-todas')?.addEventListener('click', () => this._elevarTodas());
     this.host.querySelectorAll('[data-esdel]').forEach((b) => b.addEventListener('click', () => { this.estructuras = this.estructuras.filter((x) => x.id !== +b.dataset.esdel); this._render(); this._draw(); this._syncCapas(); }));
     this.host.querySelectorAll('[data-eselev]').forEach((b) => b.addEventListener('click', () => this._elevar(+b.dataset.eselev)));
     this.host.querySelectorAll('[data-esmove]').forEach((b) => b.addEventListener('click', () => this._recolocar(+b.dataset.esmove)));
@@ -87,6 +92,7 @@ export class EstructurasPanel {
 
   _agregar(tipo) {
     if (!this.map) return;
+    this._tipo = tipo;   // persiste el tipo elegido para seguir colocando el mismo
     if (TIPOS[tipo].forma === 'linea') {
       this.map.dibujar('line', '#a855f7', (pts) => { if (!pts || pts.length < 2) return; const e = crearEstructura(tipo); e.planta = pts; this.estructuras.push(e); this.sel = e.id; this._render(); this._draw(); });
       return;
@@ -129,7 +135,35 @@ export class EstructurasPanel {
       mk.on('drag', () => { const ll = mk.getLatLng(); e.center = [ll.lng, ll.lat]; e.planta = plantaDe(e); this.map.showEstructuras(this.estructuras, { sel: this.sel }); });
       mk.on('dragend', () => { const ll = mk.getLatLng(); e.center = [ll.lng, ll.lat]; e.planta = plantaDe(e); this._draw(); this._syncCapas(); });
       this._hGroup.addLayer(mk);
+      // manejador de ROTACIÓN (piezas rectangulares) — arrastrar en círculo gira la pieza
+      if (e.forma === 'rect') {
+        const mx = 111320 * Math.cos(e.center[1] * Math.PI / 180), my = 110540;
+        const off = Math.max((e.params.largo || 10), 8) * 0.75, rot = (e.params.rot || 0) * Math.PI / 180;
+        const hx = e.center[0] + off * Math.cos(rot) / mx, hy = e.center[1] + off * Math.sin(rot) / my;
+        const rIcon = L.divIcon({ className: 'koi-rot-vtx', html: '', iconSize: [14, 14], iconAnchor: [7, 7] });
+        const rmk = L.marker([hy, hx], { icon: rIcon, draggable: true, zIndexOffset: 710 }).bindTooltip('Girar', { direction: 'top' });
+        const setRot = () => { const ll = rmk.getLatLng(); const dx = (ll.lng - e.center[0]) * mx, dy = (ll.lat - e.center[1]) * my; e.params.rot = Math.round(Math.atan2(dy, dx) * 180 / Math.PI); e.planta = plantaDe(e); };
+        rmk.on('drag', () => { setRot(); this.map.showEstructuras(this.estructuras, { sel: this.sel }); });
+        rmk.on('dragend', () => { setRot(); this._draw(); this._render(); this._syncCapas(); });
+        this._hGroup.addLayer(rmk);
+      }
     }
+  }
+
+  async _elevarTodas() {
+    if (!this.estructuras.length) return;
+    const st = this.host.querySelector('#es-elev-todas'); if (st) st.textContent = '⛰️ Elevando…';
+    let grid = window.__koi?.bati?.fused || window.__koi?.bati?.grid;
+    try {
+      if (!grid) {
+        let w = 180, e = -180, s = 90, n = -90;
+        for (const es of this.estructuras) for (const [lo, la] of (es.planta || [es.center])) { w = Math.min(w, lo); e = Math.max(e, lo); s = Math.min(s, la); n = Math.max(n, la); }
+        const m = 0.003; grid = await fetchDEM({ west: w - m, east: e + m, south: s - m, north: n + m }, { maxDim: 256 });
+      }
+      for (const es of this.estructuras) elevarAlTerreno(es, grid, elevAt);
+      this._render(); this._draw();
+    } catch (err) { alert('No se pudo bajar el relieve: ' + err.message); }
+    finally { const b = this.host.querySelector('#es-elev-todas'); if (b) b.textContent = '⛰️ Elevar todas al terreno'; }
   }
 
   _ver3Dclick() {

@@ -1,15 +1,18 @@
 /* koi-flow — estilos Fase 0. Tema claro/oscuro vía [data-theme] (como wind-shm). */
+/* Paleta de marca Koi-Flow: azul petróleo · cian/turquesa · coral */
 :root {
-  --bg: #f4f6f9; --bg2: #ffffff; --bg3: #eef1f6; --bg4: #e2e8f1;
-  --text: #1b2533; --text2: #5b6878; --border: #dde3ec; --border2: #c6d0dd;
-  --accent: #1ea7c5; --teal: #2dd4bf; --red: #e23b5a;
-  --shadow: 0 4px 18px rgba(20,30,50,.10);
+  --bg: #f4f7f9; --bg2: #ffffff; --bg3: #eaf1f4; --bg4: #dce8ee;
+  --text: #082a3d; --text2: #33596a; --border: #d3e1e8; --border2: #b8ccd6;
+  --accent: #128aa5; --teal: #31c3ce; --coral: #ef6c5a; --red: #e0503f;
+  --petroleo: #0a526c;
+  --shadow: 0 4px 18px rgba(8,39,56,.12);
 }
 [data-theme="dark"] {
-  --bg: #0b1018; --bg2: #121a26; --bg3: #0f1722; --bg4: #1b2738;
-  --text: #e6edf6; --text2: #93a2b6; --border: #1f2c3e; --border2: #2b3c52;
-  --accent: #38bdf8; --teal: #2dd4bf; --red: #f4647e;
-  --shadow: 0 4px 22px rgba(0,0,0,.45);
+  --bg: #061a24; --bg2: #0b2532; --bg3: #082029; --bg4: #113242;
+  --text: #e3f4f6; --text2: #8bb0bd; --border: #143240; --border2: #1f4a5c;
+  --accent: #35c0d1; --teal: #45d6c9; --coral: #ff9b7d; --red: #ff7a68;
+  --petroleo: #9fdfe6;
+  --shadow: 0 4px 22px rgba(0,0,0,.5);
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
@@ -23,7 +26,11 @@ body { font: 14px/1.45 system-ui, "Segoe UI", Roboto, sans-serif; background: va
   border-bottom: 1px solid var(--border); z-index: 20;
 }
 .brand { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 17px; letter-spacing: .2px; }
-.brand-mark { width: 26px; height: 26px; }
+.brand-mark { width: 26px; height: 26px; display: block; }
+.brand-word { font-weight: 800; letter-spacing: -.3px; }
+.w-koi { color: var(--petroleo); }
+.w-flow { color: var(--coral); }
+[data-theme="dark"] .w-koi { color: #cfeff3; }
 .brand-sub { font-weight: 500; font-size: 13px; color: var(--text2); padding: 2px 8px; background: var(--bg4); border-radius: 999px; }
 
 /* ── Barra de menús tipo software ─────────────────────────────────────────────── */
@@ -204,7 +211,8 @@ body { font: 14px/1.45 system-ui, "Segoe UI", Roboto, sans-serif; background: va
   background: var(--bg); transition: opacity .55s ease; }
 #landing.exit { opacity: 0; pointer-events: none; }
 .landing-card { text-align: center; }
-.hero-title { font-size: 38px; margin: 8px 0 4px; letter-spacing: .5px; }
+.hero-mark { width: 112px; height: 112px; display: block; margin: 0 auto; filter: drop-shadow(0 8px 22px rgba(8,39,56,.25)); }
+.hero-title { font-size: 40px; font-weight: 800; margin: 10px 0 4px; letter-spacing: -.5px; }
 .hero-tag { color: var(--text2); margin: 0 0 22px; }
 #load-wrap { width: 280px; margin: 0 auto; }
 #load-bar-bg { height: 6px; background: var(--bg4); border-radius: 999px; overflow: hidden; }
@@ -299,6 +307,8 @@ body { font: 14px/1.45 system-ui, "Segoe UI", Roboto, sans-serif; background: va
   background: var(--bg4); border: 1px solid var(--border2); font-size: 12px; cursor: pointer; }
 .hp-chip:hover { border-color: var(--accent); }
 .hp-chip.sel { background: color-mix(in srgb, var(--accent) 20%, transparent); border-color: var(--accent); }
+.hp-go { cursor: pointer; color: var(--accent); text-align: center; font-weight: 700; width: 22px; }
+.hp-go:hover { color: var(--teal); }
 .hp-chip b { color: var(--text2); cursor: pointer; font-weight: 700; }
 .hp-chip b:hover { color: var(--red); }
 
@@ -396,6 +406,9 @@ body { font: 14px/1.45 system-ui, "Segoe UI", Roboto, sans-serif; background: va
 .koi-sec-vtx { background: transparent; }
 .koi-sec-vtx::after { content: ''; display: block; width: 11px; height: 11px; border-radius: 50%;
   background: #fff; border: 2px solid #22d3ee; box-shadow: 0 1px 3px rgba(0,0,0,.4); cursor: move; }
+.koi-rot-vtx { background: transparent; }
+.koi-rot-vtx::after { content: '↻'; display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%;
+  background: #22c55e; color: #fff; font-size: 11px; font-weight: 700; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.45); cursor: grab; }
 .koi-bati-anchor { background: transparent; }
 .koi-bati-anchor span { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
   background: #a855f7; color: #fff; font-size: 15px; font-weight: 700; border: 2px solid #fff;

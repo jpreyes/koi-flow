@@ -136,6 +136,19 @@ function bufferLinea(linea, r) {
   return [...izq, ...der.reverse()];
 }
 
+// ¿Hay un TABLERO sobre esta pieza (su huella la cubre)? Devuelve el tablero o null.
+// Sirve para que pilas/estribos/vigas topen en la cara inferior del tablero.
+export function tableroSobre(e, estructuras) {
+  if (e.tipo === 'tablero') return null;
+  const c = e.center || (e.planta && e.planta[0]); if (!c) return null;
+  for (const t of (estructuras || [])) {
+    if (t.tipo !== 'tablero' || t === e) continue;
+    const poly = plantaDe(t);
+    if (poly && puntoEnPoligono(c[0], c[1], poly)) return t;
+  }
+  return null;
+}
+
 // 1D: ¿la pieza (pila) cruza una sección? Devuelve el ancho transversal que bloquea.
 export function pilaEnSeccion(e, seccionLinea) {
   if (!(e.tipo === 'pila_circ' || e.tipo === 'pila_rect') || !e.center) return 0;

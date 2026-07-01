@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 420" role="img" aria-labelledby="title desc">
+  <title id="title">Koi-Flow selected v4 horizontal logo</title>
+  <desc id="desc">Corrected editable horizontal Koi-Flow logo: selected fourth concept, circular two-koi mark, Koi in navy and Flow in coral.</desc>
+
+  <defs>
+    <radialGradient id="water-core" cx="45%" cy="39%" r="65%">
+      <stop offset="0" stop-color="#9FEFF1"/>
+      <stop offset="0.44" stop-color="#168EAA"/>
+      <stop offset="0.76" stop-color="#0A526C"/>
+      <stop offset="1" stop-color="#062538"/>
+    </radialGradient>
+    <linearGradient id="ring-cyan" x1="86" y1="91" x2="410" y2="429" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#C7F6EF"/>
+      <stop offset="0.47" stop-color="#31C3CE"/>
+      <stop offset="1" stop-color="#07546D"/>
+    </linearGradient>
+    <linearGradient id="ring-coral" x1="420" y1="94" x2="118" y2="430" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFE1D3"/>
+      <stop offset="0.54" stop-color="#FF9B7D"/>
+      <stop offset="1" stop-color="#EF6C5A"/>
+    </linearGradient>
+    <linearGradient id="fish-soft" x1="-120" y1="-50" x2="120" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.72" stop-color="#F4FFFF"/>
+      <stop offset="1" stop-color="#DBF4F4"/>
+    </linearGradient>
+    <linearGradient id="fish-shadow" x1="-90" y1="-20" x2="98" y2="40" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0"/>
+      <stop offset="1" stop-color="#91D7DB" stop-opacity="0.38"/>
+    </linearGradient>
+    <linearGradient id="coral-spot" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFC7B2"/>
+      <stop offset="0.55" stop-color="#FF896D"/>
+      <stop offset="1" stop-color="#F15D4B"/>
+    </linearGradient>
+    <linearGradient id="flow-text" x1="0" y1="0" x2="330" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFB099"/>
+      <stop offset="1" stop-color="#F76755"/>
+    </linearGradient>
+    <filter id="soft-shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#082738" flood-opacity="0.18"/>
+    </filter>
+    <filter id="tiny-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="7" stdDeviation="7" flood-color="#062538" flood-opacity="0.16"/>
+    </filter>
+  </defs>
+
+  <rect id="transparent-background" width="1180" height="420" fill="#FFFFFF" opacity="0"/>
+  <g id="selected-v4-symbol-scaled" transform="translate(42 38) scale(.67)">
+
+  <g id="koi-flow-selected-v4-symbol" filter="url(#soft-shadow)">
+    <circle id="deep-water-core" cx="256" cy="256" r="156" fill="url(#water-core)"/>
+    <circle id="soft-inner-highlight" cx="206" cy="182" r="78" fill="#FFFFFF" opacity="0.13"/>
+    <path id="cyan-circular-current" d="M256 54 A202 202 0 0 0 78 352" fill="none" stroke="url(#ring-cyan)" stroke-width="34" stroke-linecap="round"/>
+    <path id="coral-circular-current" d="M256 458 A202 202 0 0 0 434 160" fill="none" stroke="url(#ring-coral)" stroke-width="34" stroke-linecap="round"/>
+    <path id="inner-flow-ribbon" d="M123 292 C180 334 258 334 313 292 C355 259 388 244 421 251 C396 311 340 356 270 367 C205 377 151 350 123 292Z" fill="#E9FFFF" opacity="0.42"/>
+    <path id="sediment-soft-coral-ribbon" d="M103 333 C149 381 234 407 318 375 C360 359 391 332 414 299 C361 329 315 336 262 325 C204 313 158 319 103 333Z" fill="#FFB099" opacity="0.28"/>
+
+    <g id="upper-koi-editable" transform="translate(274 165) rotate(27) scale(1.02)" filter="url(#tiny-shadow)">
+      <path id="upper-tail-left" d="M-104 -3 C-140 -22 -159 -48 -164 -82 C-126 -72 -99 -50 -82 -15 Z" fill="#F3FFFF"/>
+      <path id="upper-tail-right" d="M-103 1 C-140 22 -161 49 -165 83 C-126 73 -98 49 -82 16 Z" fill="#E5FAFA"/>
+      <path id="upper-body" d="M-101 0 C-58 -46 32 -55 98 -20 C125 -5 124 22 95 36 C29 66 -60 48 -103 8 C-112 -1 -112 -7 -101 0 Z" fill="url(#fish-soft)"/>
+      <path id="upper-body-shadow" d="M-91 10 C-36 38 38 38 96 17 C83 42 32 61 -28 52 C-66 47 -95 29 -104 9 Z" fill="url(#fish-shadow)"/>
+      <path id="upper-dorsal-fin" d="M-12 -36 C16 -66 51 -81 88 -79 C73 -45 43 -22 6 -12 Z" fill="#E9FFFF" opacity="0.92"/>
+      <path id="upper-lower-fin" d="M7 31 C31 46 58 51 86 45 C64 67 31 69 2 44 Z" fill="#E4F8F8"/>
+      <ellipse id="upper-spot-large" cx="30" cy="-18" rx="28" ry="16" transform="rotate(-12 30 -18)" fill="url(#coral-spot)"/>
+      <ellipse id="upper-spot-small-1" cx="-30" cy="2" rx="20" ry="11" transform="rotate(17 -30 2)" fill="url(#coral-spot)"/>
+      <ellipse id="upper-spot-small-2" cx="61" cy="17" rx="15" ry="9" transform="rotate(21 61 17)" fill="url(#coral-spot)" opacity="0.92"/>
+      <circle id="upper-eye" cx="91" cy="-6" r="6.2" fill="#062538"/>
+    </g>
+
+    <g id="lower-koi-editable" transform="translate(234 348) rotate(207) scale(1.02)" filter="url(#tiny-shadow)">
+      <path id="lower-tail-left" d="M-104 -3 C-140 -22 -159 -48 -164 -82 C-126 -72 -99 -50 -82 -15 Z" fill="#F3FFFF"/>
+      <path id="lower-tail-right" d="M-103 1 C-140 22 -161 49 -165 83 C-126 73 -98 49 -82 16 Z" fill="#E5FAFA"/>
+      <path id="lower-body" d="M-101 0 C-58 -46 32 -55 98 -20 C125 -5 124 22 95 36 C29 66 -60 48 -103 8 C-112 -1 -112 -7 -101 0 Z" fill="url(#fish-soft)"/>
+      <path id="lower-body-shadow" d="M-91 10 C-36 38 38 38 96 17 C83 42 32 61 -28 52 C-66 47 -95 29 -104 9 Z" fill="url(#fish-shadow)"/>
+      <path id="lower-dorsal-fin" d="M-12 -36 C16 -66 51 -81 88 -79 C73 -45 43 -22 6 -12 Z" fill="#E9FFFF" opacity="0.92"/>
+      <path id="lower-lower-fin" d="M7 31 C31 46 58 51 86 45 C64 67 31 69 2 44 Z" fill="#E4F8F8"/>
+      <ellipse id="lower-spot-large" cx="30" cy="-18" rx="28" ry="16" transform="rotate(-12 30 -18)" fill="url(#coral-spot)"/>
+      <ellipse id="lower-spot-small-1" cx="-30" cy="2" rx="20" ry="11" transform="rotate(17 -30 2)" fill="url(#coral-spot)"/>
+      <ellipse id="lower-spot-small-2" cx="61" cy="17" rx="15" ry="9" transform="rotate(21 61 17)" fill="url(#coral-spot)" opacity="0.92"/>
+      <circle id="lower-eye" cx="91" cy="-6" r="6.2" fill="#062538"/>
+    </g>
+  </g>
+
+  </g>
+  <g id="editable-wordmark" transform="translate(402 205)">
+    <text id="word-koi" x="0" y="0" font-family="Inter, Manrope, Geist, Arial, sans-serif" font-size="108" font-weight="760" letter-spacing="-4" fill="#082A3D">Koi-</text>
+    <text id="word-flow" x="236" y="0" font-family="Inter, Manrope, Geist, Arial, sans-serif" font-size="108" font-weight="760" letter-spacing="-4" fill="url(#flow-text)">Flow</text>
+    <text id="tagline" x="7" y="64" font-family="Inter, Manrope, Geist, Arial, sans-serif" font-size="21" font-weight="560" letter-spacing="4.2" fill="#33596A">HYDRAULICS · HYDROLOGY · SEDIMENTS</text>
+  </g>
+</svg>
