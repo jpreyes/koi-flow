@@ -30,6 +30,7 @@ import { abrirRoutingHUD } from './hidro/routing_ui.js?v=2';
 import { abrirConvolucionHUD } from './hidro/convolucion_ui.js?v=2';
 import { abrirRedHUD } from './hidro/red_ui.js?v=2';
 import { abrirMorfoHUD } from './hidraulica/morfo1d_ui.js?v=2';
+import { abrirContinuoHUD } from './hidro/continuo_ui.js?v=2';
 import { Flujo2D } from './hidraulica/panel2d.js?v=2';
 import { EstructurasPanel } from './estructuras/panel.js?v=2';
 import { delinearAuto } from './cuenca/cuenca.js?v=2';
@@ -265,6 +266,7 @@ async function startBoot() {
     'routing': () => abrirRoutingHUD(window.__koi, huds),
     'convolucion': () => abrirConvolucionHUD(window.__koi, huds),
     'red': () => abrirRedHUD(window.__koi, huds),
+    'continuo': () => abrirContinuoHUD(window.__koi, huds),
     'morfo1d': () => abrirMorfoHUD(window.__koi, huds),
     'ayuda': () => abrirAyudaHUD(huds),
     'acerca': () => huds.open('acerca', { title: 'Acerca de koi-flow', w: 380, h: 240,
