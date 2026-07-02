@@ -106,6 +106,24 @@ export class MapView {
     if (bounds.length) this.map.fitBounds(bounds, { padding: [40, 40] });
   }
 
+  // Agrega UN tramo (LineString feature) sin reconstruir los demás. Usado al
+  // importar KMZ/KML: la línea importada se vuelve un tramo de primera clase
+  // (seleccionable, con relieve/eje/hidrología) igual que los del proyecto.
+  //   opts.zoom: encuadrar al tramo recién añadido.
+  addTramo(feature, opts = {}) {
+    const L = window.L;
+    const name = feature.properties?.name;
+    if (!name || !feature.geometry?.coordinates?.length) return null;
+    const latlngs = feature.geometry.coordinates.map(([lon, lat]) => [lat, lon]);
+    const pl = L.polyline(latlngs, { color: '#e23b5a', weight: 4, opacity: 0.9 })
+      .bindTooltip(name, { sticky: true });
+    pl.on('click', () => { if (this._noSelect) return; this.select(name); this.onSelect?.(feature); });
+    this.groups.tramos.addLayer(pl);
+    this.layers.set(name, pl);
+    if (opts.zoom) { try { this.map.fitBounds(pl.getBounds(), { padding: [60, 60], maxZoom: 15 }); } catch {} }
+    return pl;
+  }
+
   removeTramo(name) {
     const ly = this.layers.get(name);
     if (ly) this.groups.tramos.removeLayer(ly);

@@ -325,15 +325,50 @@ export class Capas {
   }
 
   async _importar(files) {
+    let primerTramo = null, nLineas = 0, nRef = 0;
     for (const f of files || []) {
       try {
         const gj = await leerKMLoKMZ(f);
-        const id = this.map.addImport(f.name, gj);
-        this.imports.push({ id, name: f.name });
-        this.map.zoomImport(id);
+        const base = (f.name || 'importado').replace(/\.(kmz|kml)$/i, '');
+        // Las LÍNEAS del KMZ se promueven a tramos de primera clase (cauces
+        // seleccionables, con hidrología/eje/relieve); puntos y polígonos quedan
+        // como capa de referencia importada.
+        const lineas = (gj.features || []).filter((ft) => ft.geometry?.type === 'LineString' && ft.geometry.coordinates?.length >= 2);
+        const resto = (gj.features || []).filter((ft) => !(ft.geometry?.type === 'LineString' && ft.geometry.coordinates?.length >= 2));
+
+        lineas.forEach((ft, i) => {
+          const nombre = this._nombreTramoUnico(ft.properties?.name || (lineas.length > 1 ? `${base} (${i + 1})` : base));
+          const feature = { type: 'Feature', properties: { name: nombre }, geometry: ft.geometry };
+          const tramo = { name: nombre, feature, npts: ft.geometry.coordinates.length, dem: null };
+          (this.project.tramos = this.project.tramos || []).push(tramo);
+          this.map.addTramo(feature, { zoom: !primerTramo });
+          if (!primerTramo) primerTramo = tramo;
+          nLineas++;
+        });
+
+        if (resto.length) {
+          const id = this.map.addImport(f.name, { type: 'FeatureCollection', features: resto });
+          this.imports.push({ id, name: f.name });
+          if (!lineas.length) this.map.zoomImport(id);
+          nRef += resto.length;
+        }
       } catch (e) { toast('No se pudo importar ' + f.name + ': ' + e.message, 'error'); }
     }
     this.render();
+    if (nLineas) {
+      toast(`Importado: ${nLineas} cauce(s) como tramo${nRef ? ` y ${nRef} referencia(s)` : ''}. Selecciónalo en el árbol para analizarlo.`, 'ok');
+      if (primerTramo) { this._selTramo(primerTramo.name); this.onSelectTramo?.(primerTramo); }
+    } else if (nRef) {
+      toast(`Importadas ${nRef} referencia(s) (puntos/polígonos).`, 'ok');
+    }
+  }
+
+  // Nombre de tramo único dentro del proyecto (evita choques al importar varios).
+  _nombreTramoUnico(base) {
+    const usados = new Set((this.project?.tramos || []).map((t) => t.name));
+    if (!usados.has(base)) return base;
+    let i = 2; while (usados.has(`${base} (${i})`)) i++;
+    return `${base} (${i})`;
   }
 
   // ── Guardar / abrir proyecto (localStorage + archivo) ───────────────────────
