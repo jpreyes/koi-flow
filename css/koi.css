@@ -443,3 +443,22 @@ body { font: 14px/1.45 system-ui, "Segoe UI", Roboto, sans-serif; background: va
 .koi-bati-anchor span { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
   background: #a855f7; color: #fff; font-size: 15px; font-weight: 700; border: 2px solid #fff;
   box-shadow: 0 1px 6px rgba(0,0,0,.5); cursor: move; }
+
+/* ── R5: bloque "Insumos usados", chips de estado y aviso de desfase ─────────── */
+.ins-box { margin: 0 0 8px; border: 1px solid var(--border2, #2a3b47); border-radius: 6px; background: var(--panel2, rgba(255,255,255,.03)); }
+.ins-box > summary { cursor: pointer; padding: 5px 9px; font-size: 11px; font-weight: 600; color: var(--text2, #9fb3c0); user-select: none; }
+.ins-tbl { width: 100%; border-collapse: collapse; font-size: 11px; }
+.ins-tbl td { padding: 2px 9px; border-top: 1px solid var(--border2, #24333d); }
+.ins-tbl td:first-child { color: var(--text2, #9fb3c0); white-space: nowrap; }
+.ins-tbl td:last-child { text-align: right; font-weight: 600; }
+.ins-tbl tr.ins-def td { background: rgba(245,158,11,.12); }
+.ins-tag { display: inline-block; margin-left: 4px; padding: 0 4px; border-radius: 4px; background: #f59e0b; color: #1a1200; font-size: 9px; font-weight: 800; vertical-align: middle; }
+.ins-note { margin: 4px 9px 6px; font-size: 10px; color: #f59e0b; }
+.ins-desfase { margin: 0 0 8px; padding: 5px 9px; border-radius: 6px; font-size: 11px;
+  background: rgba(245,158,11,.14); border: 1px solid rgba(245,158,11,.4); color: var(--text, #dce8ef); }
+
+/* Chips de "Resultados calculados" en el árbol */
+.cap-chip { display: inline-flex; align-items: center; gap: 4px; }
+.cap-chip .cap-ok { color: #22c55e; font-weight: 800; }
+.cap-leaf.chip { cursor: pointer; }
+.cap-leaf.chip:hover { background: var(--hover, rgba(255,255,255,.05)); }

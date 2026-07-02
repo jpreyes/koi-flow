@@ -5,6 +5,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { fetchJSON, fetchJSONopcional, KoiDataError } from './fetch_json.js?v=2';
+import { emit } from '../ui/bus.js?v=2';
 
 let _catalogo = null;
 
@@ -94,6 +95,7 @@ export async function descargarSerieDGA(loc, tipo) {
   const j = await res.json();
   if (!j.ok) throw new KoiDataError(j.error || j.stderr || 'Falló la descarga de la serie DGA.', { url: '/api/fetch_dga', status: res.status });
   resetCatalogo();
+  emit('datos:serie-cargada', { tipo, lon: loc.lon, lat: loc.lat });
   return j;
 }
 

@@ -45,6 +45,7 @@ import { fetchDEM } from './cuenca/dem_tiles.js?v=2';
 import { estacionesCercanas } from './datos/dga.js?v=2';
 import { cargarHydroBasins, cuencaHydroBasins } from './cuenca/hydrobasins.js?v=2';
 import { extraerRed } from './cuenca/red_drenaje.js?v=2';
+import { bus } from './ui/bus.js?v=2';
 
 export const KOI_VER = 'v2';
 
@@ -240,11 +241,12 @@ async function startBoot() {
     hydro.setTramo(t);
     bati.setTramo(t);
     flujo2d.setTramo(t);
+    bus.emit('seleccion:cambio', { tipo: 'tramo', nombre: t.name });
     if (has && mode === '3d') await load3D(t);
   }
 
   const treeQ = (sel) => $('tree')?.querySelector(sel);
-  setupMenubar({
+  const acciones = {
     'proj-nuevo': () => capas._nuevoProyecto(),
     'proj-abrir': () => treeQ('#cap-proj')?.click(),
     'proj-guardar': () => capas.guardarProyecto(),
@@ -283,7 +285,12 @@ async function startBoot() {
       html: `<p><b>koi-flow</b> — estudios hidrológico-hidráulicos en el navegador (MC-V3 / DGA).</p>
         <p class="hud-note">Software propiedad de <b>JPReyes / Conmuta.cl</b>. Licencia <b>AGPL-3.0</b>.</p>
         <p class="hud-note">PWA sin build · JS ES-modules + Three.js + Leaflet.</p>` }),
-  });
+  };
+  setupMenubar(acciones);
+  // Los chips de "Resultados calculados" (árbol) reabren su HUD por el bus.
+  bus.on('abrir:analisis', (a) => acciones[a]?.());
+  // Aviso al proyecto abierto (por si algún panel quiere reaccionar).
+  bus.emit('proyecto:abierto', { id: project.id, name: project.name });
 
   // Atajos de teclado globales: Ctrl+S guarda el proyecto (sin abrir el diálogo del navegador).
   document.addEventListener('keydown', (ev) => {

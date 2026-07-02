@@ -7,7 +7,27 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { leerKMLoKMZ } from './kml.js?v=2';
 import { toast } from '../ui/toast.js?v=2';
+import { bus } from '../ui/bus.js?v=2';
 import { listProjects, saveProject, removeProject, setOpen, newProjectId } from '../proyectos.js?v=2';
+
+// Módulos de koi.reg → acción de menú (para reabrir el HUD) y etiqueta del chip.
+const REG_INFO = {
+  tormenta: ['tormenta', 'Tormenta de diseño'],
+  convolucion: ['convolucion', 'Hidrograma de crecida (HU)'],
+  routing: ['routing', 'Tránsito en cauce'],
+  red: ['red', 'Red de cuencas'],
+  continuo: ['continuo', 'Continua + deshielo'],
+  calibracion: ['calibracion', 'Calibración'],
+  modclark: ['modclark', 'ModClark'],
+  degradacion: ['degradacion', 'Degradación'],
+  morfo1d: ['morfo1d', 'Lecho móvil 1D'],
+  alcantarilla: ['alcantarilla', 'Alcantarilla HDS-5'],
+  puentePresion: ['puente-presion', 'Puente presión/vertedero'],
+  enrocado: ['enrocado', 'Enrocado / defensas'],
+  verificaciones: ['verificaciones', 'Verificaciones'],
+  sismo: ['sismo-estribo', 'Sísmica de estribos'],
+  breach: ['breach', 'Rotura de presa / relaves'],
+};
 
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
 
@@ -41,6 +61,8 @@ export class Capas {
     this.imports = [];   // [{id, name}]
     this.labels = [];    // [{id, name, tipo, lon, lat}]
     this._build();
+    // Refresca los chips de "Resultados calculados" cuando un motor registra algo.
+    bus.on('reg:actualizado', () => { clearTimeout(this._regT); this._regT = setTimeout(() => this.render(), 60); });
   }
 
   _build() {
@@ -201,6 +223,23 @@ export class Capas {
       grpG.appendChild(el('div', 'cap-node', `<span class="cap-caret empty"></span><span class="cap-ico">${ico('project')}</span> GIS creado <span class="cap-meta">${gisLeaves.length}</span>`));
       const ulG = el('ul', 'cap-children'); for (const li of gisLeaves) ulG.appendChild(li); grpG.appendChild(ulG);
       this.tree.appendChild(grpG);
+    }
+
+    // Resultados calculados (chips desde koi.reg) — clic reabre su HUD.
+    const reg = window.__koi?.reg || {};
+    const claves = Object.keys(reg).filter((k) => REG_INFO[k]);
+    if (claves.length) {
+      const chips = claves.map((k) => {
+        const [accion, label] = REG_INFO[k];
+        const li = el('li', 'cap-leaf chip');
+        li.innerHTML = `<span class="cap-ico cap-chip"><span class="cap-ok">✓</span></span><span class="cap-lbl">${label}</span><span class="cap-act" title="Abrir resultado">${ico('open')}</span>`;
+        li.addEventListener('click', () => bus.emit('abrir:analisis', accion));
+        return li;
+      });
+      const grpR = el('div', 'cap-grp');
+      grpR.appendChild(el('div', 'cap-node', `<span class="cap-caret empty"></span><span class="cap-ico">${ico('wave')}</span> Resultados calculados <span class="cap-meta">${chips.length}</span>`));
+      const ulR = el('ul', 'cap-children'); for (const li of chips) ulR.appendChild(li); grpR.appendChild(ulR);
+      this.tree.appendChild(grpR);
     }
 
     // Importados

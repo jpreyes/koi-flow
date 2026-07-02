@@ -11,6 +11,8 @@ import { hidrogramaDesdeHietograma } from './convolucion.js?v=2';
 import { registrar } from '../informe/registro.js?v=2';
 import { fetchJSON } from '../datos/fetch_json.js?v=2';
 import { toast } from '../ui/toast.js?v=2';
+import { bloqueInsumos } from '../ui/insumos.js?v=2';
+import { on as busOn } from '../ui/bus.js?v=2';
 
 const f = (v, d = 1) => (v == null || !isFinite(v) ? '—' : v.toFixed(d));
 
@@ -78,6 +80,7 @@ function form(koi, idf) {
         <option value="3" selected>3 · VIII–X</option></select></label>
     </div>
     <button class="hp-run" id="tw-run" style="margin-top:8px">🌧 Calcular tormenta e hidrograma</button>
+    <div id="tw-sel" class="hud-note" style="color:#f59e0b"></div>
     <div id="tw-out"></div>
     <p class="hud-note" style="margin-top:6px">⚠ Zona árida (norte): la tormenta es <b>referencial</b>; el caudal de diseño lo gobierna la transposición fluviométrica. Sirve para la forma del hidrograma y el tránsito.</p>`;
 }
@@ -87,6 +90,18 @@ function wire(hud, koi, idf) {
   // El campo r solo aplica a bloques alternos.
   const syncMet = () => { $('#tw-r').closest('label').style.opacity = $('#tw-met').value === 'alternos' ? '1' : '0.4'; };
   $('#tw-met').addEventListener('change', syncMet); syncMet();
+
+  // Conversar con la selección: si cambia la cuenca/tramo, re-autocompletar la
+  // morfometría y avisar. (Resuelve "los paneles no conversan entre ellos".)
+  const off = busOn('seleccion:cambio', () => {
+    const m = morfoActiva(koi);
+    const nota = $('#tw-sel');
+    if (m) {
+      if ($('#tw-a')) { $('#tw-a').value = m.A ?? $('#tw-a').value; $('#tw-l').value = m.L ?? $('#tw-l').value; if (m.Lg) $('#tw-lg').value = m.Lg.toFixed(1); $('#tw-s').value = m.S ?? $('#tw-s').value; }
+      if (nota) nota.textContent = 'Morfometría actualizada desde la cuenca seleccionada — recalcula.';
+    } else if (nota) nota.textContent = 'Selección cambió (sin cuenca delineada).';
+  });
+  hud.onClose = (prev => () => { off(); prev?.(); })(hud.onClose);
 
   $('#tw-run').addEventListener('click', () => {
     const out = $('#tw-out');
@@ -99,6 +114,8 @@ function wire(hud, koi, idf) {
       : bloquesAlternos(pp24, coefArr, { TdMin, dtMin, r: Math.min(1, Math.max(0, +$('#tw-r').value)) });
 
     const morfo = { A: +$('#tw-a').value, L: +$('#tw-l').value, Lg: +$('#tw-lg').value, S: +$('#tw-s').value };
+    const mAuto = morfoActiva(koi);   // si null → la morfometría es "por defecto"
+    const morfoDef = !mAuto;
     let hg = null;
     if (morfo.A > 0 && morfo.L > 0 && morfo.S > 0) {
       hg = hidrogramaDesdeHietograma(morfo, hietoIncremental(tor), { CN: +$('#tw-cn').value, zona: +$('#tw-z').value, dtH: dtMin / 60, baseflow: 0 });
@@ -109,7 +126,18 @@ function wire(hud, koi, idf) {
       Ptotal: tor.Ptotal, imax: tor.imax, Qpico: hg?.Qpico ?? null, volMm3: hg ? hg.volumen / 1e6 : null,
     });
 
-    out.innerHTML = `
+    const insumos = bloqueInsumos([
+      { k: 'PP24 de diseño', v: `${f(pp24)} mm (T=${$('#tw-t').value})` },
+      { k: 'Estación coef. IDF', v: est },
+      { k: 'Duración · Δt', v: `${f(TdMin / 60, 0)} h · ${dtMin} min` },
+      { k: 'Método · peak r', v: `${$('#tw-met').value} · ${f(+$('#tw-r').value, 2)}` },
+      { k: 'Área A', v: `${f(morfo.A)} km²`, def: morfoDef },
+      { k: 'Long. L · Lg', v: `${f(morfo.L)} · ${f(morfo.Lg)} km`, def: morfoDef },
+      { k: 'Pendiente S', v: `${f(morfo.S, 3)} m/m`, def: morfoDef },
+      { k: 'CN · Zona HU', v: `${$('#tw-cn').value} · ${$('#tw-z').value}` },
+    ]);
+
+    out.innerHTML = insumos + `
       <div class="hp-kv">
         <div><span>P total (Td)</span><b>${f(tor.Ptotal)} mm</b></div>
         <div><span>Intensidad máx</span><b>${f(tor.imax)} mm/h</b></div>
