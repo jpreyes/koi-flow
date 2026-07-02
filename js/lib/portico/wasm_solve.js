@@ -25,12 +25,33 @@ function loadScript(url) {
   });
 }
 
+// Carga el factory de un glue Emscripten (MODULARIZE, UMD) en un WORKER, donde no hay
+// document para inyectar <script>: se baja el .js por fetch y se evalúa aislado con
+// new Function(module, exports) → el glue hace module.exports = createKoiSolve. El glue
+// detecta el entorno worker por globalThis.WorkerGlobalScope (true en module workers),
+// así que carga el .wasm por fetch; solo hay que pasarle locateFile con su URL.
+async function loadFactoryWorker(jsUrl) {
+  const txt = await (await fetch(jsUrl)).text();
+  const mod = { exports: {} };
+  (new Function('module', 'exports', txt))(mod, mod.exports);
+  if (typeof mod.exports !== 'function') throw new Error('glue WASM no exportó el factory');
+  return mod.exports;
+}
+
 // Carga+instancia el WASM (idempotente). Devuelve el Module de emscripten.
 export async function ensureKoiWasm() {
   if (_mod) return _mod;
   if (_loading) return _loading;
   _loading = (async () => {
-    if (typeof document === 'undefined') throw new Error('WASM shim requiere navegador');
+    if (typeof WebAssembly === 'undefined') throw new Error('WebAssembly no disponible');
+    // WORKER (sin document): single-thread (evita pthreads anidados), glue por fetch+eval.
+    if (typeof document === 'undefined') {
+      const factory = await loadFactoryWorker(new URL('./wasm/koi_solve.js', import.meta.url).href);
+      const wasmUrl = new URL('./wasm/koi_solve.wasm', import.meta.url).href;
+      _mod = await factory({ locateFile: (p) => (p.endsWith('.wasm') ? wasmUrl : p) });
+      _threaded = false;
+      return _mod;
+    }
     const puedeThreads = typeof SharedArrayBuffer !== 'undefined' && self.crossOriginIsolated === true;
     if (puedeThreads) {
       try {

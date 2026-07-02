@@ -107,10 +107,9 @@ export class Flujo2D {
     st.textContent = ' resolviendo…';
     await new Promise((r) => setTimeout(r, 20));
 
-    // Segundo plano: la difusiva corre en un Web Worker (no congela la UI). El WASM
-    // no está disponible en el worker (loader DOM) → se usa PCG-IC0 en JS.
+    // Segundo plano: la difusiva corre en un Web Worker (no congela la UI). El worker
+    // soporta los tres solvers, incl. WASM single-thread (loader worker-safe).
     if (bg) {
-      if (solver === 'wasm') { solver = 'pcg'; }
       try {
         const t0 = performance.now();
         const worker = new Worker(new URL('./solver2d_worker.js', import.meta.url), { type: 'module' });
@@ -118,6 +117,7 @@ export class Flujo2D {
           worker.onmessage = (ev) => {
             const m = ev.data;
             if (m.tipo === 'progreso') st.textContent = ` (2° plano) paso ${m.p}/${m.N} (Δ=${m.d.toExponential(1)})`;
+            else if (m.tipo === 'aviso') st.textContent = ' ' + m.mensaje;
             else if (m.tipo === 'listo') resolve(m.r);
             else if (m.tipo === 'error') reject(new Error(m.mensaje));
           };
