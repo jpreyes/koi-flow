@@ -44,7 +44,8 @@ import { delinearEnGrid, morfometria } from './cuenca/delineacion.js?v=2';
 import { fetchDEM } from './cuenca/dem_tiles.js?v=2';
 import { estacionesCercanas } from './datos/dga.js?v=2';
 import { cargarHydroBasins, cuencaHydroBasins } from './cuenca/hydrobasins.js?v=2';
-import { extraerRed } from './cuenca/red_drenaje.js?v=2';
+import { extraerRed, trazarCauce } from './cuenca/red_drenaje.js?v=2';
+import { routD8 } from './cuenca/delineacion.js?v=2';
 import { bus } from './ui/bus.js?v=2';
 
 export const KOI_VER = 'v2';
@@ -103,6 +104,29 @@ async function startBoot() {
     return fc.meta;
   };
   hydro.limpiarRed = () => { map.clearRed(); };
+  // Cauce del PUNTO pinchado: solo su árbol de afluentes (red ∩ cuenca del punto),
+  // no toda la red de la vista. Reusa el ruteo cacheado si cubre el punto; si no,
+  // baja un DEM alrededor (con holgura) y lo rutea. El umbral se puede re-pasar en
+  // vivo (barato: no re-rutea). Deja la traza en el mapa y devuelve su meta.
+  hydro.cauceEnPunto = async (lon, lat, umbralKm2, onProgress) => {
+    let st = hydro.redState;
+    const dentro = (g) => g && lon >= g.bbox.west && lon <= g.bbox.east && lat >= g.bbox.south && lat <= g.bbox.north;
+    if (!dentro(st?.grid)) {
+      onProgress?.('Descargando DEM alrededor del punto…');
+      // bbox centrado en el punto con holgura (mitiga el corte de cuenca por la vista).
+      const b = map.map.getBounds();
+      const dw = Math.max((b.getEast() - b.getWest()) * 0.75, 0.05), dh = Math.max((b.getNorth() - b.getSouth()) * 0.75, 0.05);
+      const grid = await fetchDEM({ west: lon - dw, east: lon + dw, south: lat - dh, north: lat + dh }, { maxDim: 512 });
+      onProgress?.('Ruteando el flujo (D8)…');
+      st = hydro.redState = { grid, rout: routD8(grid) };
+    }
+    onProgress?.('Trazando el cauce del punto…');
+    const fc = trazarCauce(st.grid, st.rout, lon, lat, { umbralKm2: umbralKm2 || 0.05 });
+    map.showRedDrenaje(fc);
+    hydro._ultimoCauce = { lon, lat };
+    capas.render();
+    return fc.meta;
+  };
   // Cuenca aportante completa (HydroBASINS) a pedido, para cualquier punto.
   hydro.cuencaCompleta = async (p) => {
     await cargarHydroBasins();

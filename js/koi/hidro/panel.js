@@ -343,6 +343,26 @@ export class HydroPanel {
       catch (e) { rst.textContent = ' ✗ ' + e.message; }
     });
     sr.appendChild(brd);
+    // Cauce SOLO del punto pinchado (su árbol de afluentes), no toda la red.
+    const bpt = el('button', 'hp-run', '📍 Cauce en un punto (clic en el mapa)');
+    const pst = el('span', 'hp-dl-status'); bpt.appendChild(pst);
+    const trazar = async (lon, lat) => {
+      if (!this.cauceEnPunto) return;
+      pst.textContent = ' …';
+      try {
+        const um = parseFloat(this.elPanel.querySelector('#rd_umbral').value) || 0.05;
+        const m = await this.cauceEnPunto(lon, lat, um, (msg) => { pst.textContent = ' ' + msg; });
+        pst.textContent = ` ✓ cuenca ${m.areaKm2} km² · ${m.nSeg} tramos (afluentes del punto)`;
+      } catch (e) { pst.textContent = ' ✗ ' + e.message; }
+    };
+    bpt.addEventListener('click', () => {
+      this.map.pickOnce((lon, lat) => trazar(lon, lat), 'Clic sobre el cauce para trazar sus afluentes');
+    });
+    sr.appendChild(bpt);
+    // Mover el umbral re-traza EN VIVO el mismo punto (barato: no re-rutea).
+    fr.querySelector('#rd_umbral')?.addEventListener('change', () => {
+      const c = this._ultimoCauce; if (c) trazar(c.lon, c.lat);
+    });
     const bclr = el('button', 'hp-mini-btn', '✖ Limpiar red');
     bclr.addEventListener('click', () => this.limpiarRed?.());
     sr.appendChild(bclr);
