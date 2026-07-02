@@ -6,9 +6,12 @@
 import { muskingum, muskingumCunge } from './routing.js?v=2';
 import { hidrogramaTriangular } from './embalse.js?v=2';
 
+let _koi = null;
+
 const f = (v, d = 1) => (v == null || !isFinite(v) ? '—' : v.toFixed(d));
 
 export function abrirRoutingHUD(koi, huds) {
+  _koi = koi;
   const hud = huds.open('routing', { title: '🌊 Tránsito en cauce (Muskingum)', w: 460, h: 560 });
   if (hud._rtWired) { hud.focus?.(); return hud; }
   hud.setBody(form());
@@ -26,6 +29,7 @@ function form() {
       <label>t base [h]<input id="rt-tb" type="number" step="0.5" value="8"></label>
       <label>Δt [s]<input id="rt-dt" type="number" value="600"></label>
       <label>Flujo base [m³/s]<input id="rt-qb" type="number" value="0"></label>
+      <label style="grid-column:1/3"><input id="rt-usecrec" type="checkbox"> Usar hidrograma de crecida (convolución) en vez del triangular</label>
     </div>
     <div class="cfg-grp">Método de tránsito</div>
     <div class="cfg-form">
@@ -55,9 +59,15 @@ function wire(hud) {
     $('#rt-musk').style.display = c ? 'none' : '';
   });
   $('#rt-run').addEventListener('click', () => {
-    const dt = +$('#rt-dt').value || 600, qb = +$('#rt-qb').value || 0;
-    const inflow = hidrogramaTriangular(+$('#rt-qp').value || 120, { tpico: (+$('#rt-tp').value || 2) * 3600, tbase: (+$('#rt-tb').value || 8) * 3600 });
+    let dt = +$('#rt-dt').value || 600, qb = +$('#rt-qb').value || 0;
     const out = $('#rt-out');
+    const usarCrec = $('#rt-usecrec').checked && _koi?.hidrogramaCrecida?.length;
+    let inflow;
+    if (usarCrec) {
+      inflow = remuestrear(_koi.hidrogramaCrecida, dt);   // a Δt fino (estabilidad Muskingum)
+    } else {
+      inflow = hidrogramaTriangular(+$('#rt-qp').value || 120, { tpico: (+$('#rt-tp').value || 2) * 3600, tbase: (+$('#rt-tb').value || 8) * 3600 });
+    }
     let r;
     if ($('#rt-metodo').value === 'cunge') {
       r = muskingumCunge(inflow, { L: +$('#rt-l').value, So: +$('#rt-so').value, n: +$('#rt-n').value, B: +$('#rt-b').value, dt });
@@ -79,6 +89,18 @@ function wire(hud) {
       ${svgHidro(r.out)}
       <p class="hud-note">Tránsito hidrológico en cauce. La curva coral es la salida laminada. Muskingum-Cunge deriva K y x de la geometría (sin calibrar); Muskingum usa K y x directos. Requiere 2Kx ≤ Δt ≤ 2K(1−x) para estabilidad.</p>`;
   });
+}
+
+// Remuestrea un hidrograma [{t,Q}] a paso uniforme dt (interpolación lineal).
+function remuestrear(hg, dt) {
+  const tMax = hg[hg.length - 1].t, n = Math.max(2, Math.round(tMax / dt));
+  const interp = (t) => {
+    if (t <= hg[0].t) return hg[0].Q;
+    if (t >= tMax) return hg[hg.length - 1].Q;
+    for (let i = 1; i < hg.length; i++) if (t <= hg[i].t) { const a = hg[i - 1], b = hg[i], r = (t - a.t) / ((b.t - a.t) || 1); return a.Q + r * (b.Q - a.Q); }
+    return hg[hg.length - 1].Q;
+  };
+  return Array.from({ length: n + 1 }, (_, i) => ({ t: i * dt, Q: interp(i * dt) }));
 }
 
 function svgHidro(o) {
