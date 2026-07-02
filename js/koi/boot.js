@@ -245,7 +245,6 @@ async function startBoot() {
   const treeQ = (sel) => $('tree')?.querySelector(sel);
   setupMenubar({
     'proj-nuevo': () => capas._nuevoProyecto(),
-    'proj-demo': () => capas._abrirProyecto('demo'),
     'proj-abrir': () => treeQ('#cap-proj')?.click(),
     'proj-guardar': () => capas.guardarProyecto(),
     'importar': () => treeQ('#cap-file')?.click(),

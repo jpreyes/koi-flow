@@ -246,13 +246,11 @@ export class Capas {
     const saved = listProjects().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
     menu.innerHTML = `
       <button class="cap-proj-item" id="pm-new">${ico('file')} Nuevo proyecto (vacío)</button>
-      <button class="cap-proj-item" id="pm-demo">${ico('basin')} Cargar demo (Tarapacá)</button>
       ${saved.length ? '<div class="cap-proj-hd">Guardados</div>' : '<div class="cap-proj-hd">Sin proyectos guardados</div>'}
       ${saved.map((p) => `<div class="cap-proj-row">
         <button class="cap-proj-open" data-open="${p.id}" title="Abrir">${ico('open')}<span>${p.name}</span></button>
         <span class="cap-act" data-delproj="${p.id}" title="Borrar proyecto">${ico('trash')}</span></div>`).join('')}`;
     menu.querySelector('#pm-new').addEventListener('click', () => this._nuevoProyecto());
-    menu.querySelector('#pm-demo').addEventListener('click', () => this._abrirProyecto('demo'));
     menu.querySelectorAll('[data-open]').forEach((b) => b.addEventListener('click', () => this._abrirProyecto(b.dataset.open)));
     menu.querySelectorAll('[data-delproj]').forEach((b) => b.addEventListener('click', () => {
       const id = b.dataset.delproj;
@@ -261,11 +259,11 @@ export class Capas {
     }));
   }
   _renombrarProyecto() {
-    const cur = (this.project?.name || '').replace(/^Demo — /, '');
+    const cur = this.project?.name || '';
     const name = prompt('Nombre del proyecto:', cur);
     if (name == null || !name.trim()) return;
     let id = this.project?.id;
-    if (!id || id === 'demo' || id === 'nuevo') id = newProjectId();
+    if (!id || id === 'nuevo') id = newProjectId();
     const state = { id, name: name.trim(), ...this._estadoActual() };
     saveProject(state); setOpen(id);
     if (this.project) { this.project.id = id; this.project.name = name.trim(); }
@@ -275,7 +273,7 @@ export class Capas {
     const id = this.project?.id;
     if (!id || id === 'nuevo') { if (confirm('¿Vaciar el proyecto actual (sin guardar)?')) { setOpen(null); location.reload(); } return; }
     if (!confirm(`¿Borrar el proyecto "${this.project?.name}"? Esta acción no se puede deshacer.`)) return;
-    if (id !== 'demo') removeProject(id);
+    removeProject(id);
     setOpen(null); location.reload();
   }
 
@@ -359,10 +357,10 @@ export class Capas {
 
   guardarProyecto() {
     const cur = this.project?.name;
-    const name = prompt('Nombre del proyecto:', (cur && cur !== 'Proyecto nuevo') ? cur.replace(/^Demo — /, '') : '');
+    const name = prompt('Nombre del proyecto:', (cur && cur !== 'Proyecto nuevo') ? cur : '');
     if (name == null) return;
     let id = this.project?.id;
-    if (!id || id === 'demo' || id === 'nuevo') id = newProjectId();
+    if (!id || id === 'nuevo') id = newProjectId();
     const st = this._estadoActual();
     const state = { id, name: name || id, ...st };
     saveProject(state); setOpen(id);

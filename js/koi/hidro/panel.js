@@ -4,8 +4,7 @@
 // → PP diseño → IDF → Tc → caudales (pluviales REFERENCIALES + transposición que
 // GOBIERNA) → adoptados. Look & feel koi (variables de css/koi.css).
 // ─────────────────────────────────────────────────────────────────────────────
-import { correrHidrologia, correrPipelinePunto } from './pipeline.js?v=2';
-import { casoDeTramo } from './casos.js?v=2';
+import { correrPipelinePunto } from './pipeline.js?v=2';
 import { analizar } from './frecuencia.js?v=2';
 import { transponer, transponerRegional } from './transposicion.js?v=2';
 import { caudalesHU } from './hidrograma.js?v=2';
@@ -76,12 +75,8 @@ export class HydroPanel {
       const datos = el('div'); this.hosts.hidro.appendChild(datos);
       this.elBody = datos;
       await this._renderDatos(this.tramo);
-      const caso = casoDeTramo(this.tramo.name);
-      if (caso) {
-        this._pipeHost = el('div'); this.hosts.hidro.appendChild(this._pipeHost);
-        const r = await correrHidrologia(caso);
-        this._render(r);
-      }
+      // La hidrología se corre desde la cuenca delineada + estaciones elegidas
+      // (correrPipelinePunto), NO por un caso hardcodeado atado al nombre del tramo.
     } catch (e) {
       this.hosts.hidro.innerHTML = `<div class="hp-err">Error: ${e.message}</div>`;
       console.error(e);

@@ -5,7 +5,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 const COMO = [
-  ['Proyectos', 'Barra izquierda ▸ botón <b>▾</b> junto al nombre: <b>Nuevo</b> (vacío), <b>Cargar demo</b> (Tarapacá S17), abrir/borrar guardados. <b>Guardar</b> persiste el proyecto (localStorage + .json).'],
+  ['Proyectos', 'Barra izquierda ▸ botón <b>▾</b> junto al nombre: <b>Nuevo</b> (vacío), abrir/borrar guardados. Importa tus tramos (KMZ/KML) y <b>Guarda</b>: persiste el proyecto (localStorage + .json).'],
   ['Cuenca', 'Barra izquierda ▸ <b>Punto</b> → clic en el mapa. En la pestaña <b>Cuenca</b> pulsa delinear: traza la cuenca (D8) y su morfometría. Ajusta el <b>snap</b> y el suavizado.'],
   ['Estaciones DGA', 'Se cargan solas alrededor de donde miras. <b>Clic en una estación</b> → HUD flotante con su serie de máximos anuales, estadísticos y el ajuste de distribuciones.'],
   ['Batimetría / DEM', 'Pestaña <b>Hidráulica</b> ▸ importar <b>DXF</b> → elegir capas → construir DEM → colocarlo (arrastrar ✛) y <b>auto-elevar</b>. Fusiónalo con el relieve para el 3D.'],

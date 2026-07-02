@@ -3,10 +3,10 @@
 // Reemplaza el proyecto hardcodeado: la app arranca vacía o abre el proyecto
 // marcado como "abierto". Permite crear, guardar, listar, abrir y BORRAR proyectos.
 // El cambio de proyecto se hace recargando la página (arranque limpio y robusto):
-// se marca el id abierto y boot lo lee. 'demo' = proyecto de muestra (Tarapacá).
+// se marca el id abierto y boot lo lee.
 // ─────────────────────────────────────────────────────────────────────────────
 const LKEY = 'koi_projects';       // índice: [{id,name,fecha}]
-const OKEY = 'koi_open';           // id abierto ('demo' | <id> | null)
+const OKEY = 'koi_open';           // id abierto (<id> | null)
 const PKEY = (id) => 'koi_proj_' + id;
 
 export function listProjects() { try { return JSON.parse(localStorage.getItem(LKEY)) || []; } catch { return []; } }

@@ -1,8 +1,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// casos.js — casos hidrológicos con datos reales para correr el pipeline.
-// Por ahora un caso validado: Sector 17 (Quebrada Retamilla, STR análoga), que
-// reproduce el informe S17. Cuando existan los conectores DGA/CR2MET, cada tramo
-// del proyecto armará su propio caso automáticamente (estación + serie + morfometría).
+// casos.js — caso hidrológico validado, SOLO como REFERENCIA (ya NO se cablea a la
+// UI: la hidrología corre desde la cuenca delineada + estaciones elegidas del
+// proyecto, no por un caso atado al nombre del tramo). Se conserva el Sector 17
+// (Quebrada Retamilla) con sus valores publicados porque reproduce el informe S17
+// y sirve de banco de pruebas (futuro CLI/tests, R6). No lo importa ningún módulo.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const CASO_S17 = {
