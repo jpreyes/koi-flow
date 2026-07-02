@@ -4,6 +4,9 @@ referencia/
 # ── Caché de descargas DGA/CR2 (zips grandes; se regeneran con tools/fetch_dga.py)
 tools/.cache_dga/
 
+# ── Auditoría interna (notas de trabajo, no se versiona) ──────────────────────
+auditoria/
+
 # ── Editor / entorno / herramientas locales ───────────────────────────────────
 .claude/
 .vscode/

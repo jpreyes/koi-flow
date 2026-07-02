@@ -48,6 +48,14 @@ class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
         self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate')
         self.send_header('Pragma', 'no-cache')
+        # Cross-origin isolation (SharedArrayBuffer / WASM threads, Fase 1 del solver 2D
+        # grande). 'credentialless' en vez de 'require-corp': los tiles de mapa/DEM
+        # (ArcGIS, OpenTopoMap, S3 terrarium) son de otro origen y no traen cabecera
+        # Cross-Origin-Resource-Policy propia; 'require-corp' los bloquearía,
+        # 'credentialless' los deja pasar (sin credenciales) y de todos modos aísla
+        # el origen. Ver js/lib/portico/wasm_solve_mt.js (feature-detect antes de usar).
+        self.send_header('Cross-Origin-Opener-Policy', 'same-origin')
+        self.send_header('Cross-Origin-Embedder-Policy', 'credentialless')
         super().end_headers()
 
     def log_message(self, fmt, *args):

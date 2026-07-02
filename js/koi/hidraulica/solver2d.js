@@ -9,6 +9,7 @@
 // Wetting/drying por profundidad mínima; salida por nivel fijo (Dirichlet, penalti).
 // ─────────────────────────────────────────────────────────────────────────────
 import { makeFactorCSR } from '../../lib/portico/linsolve.js?v=2';
+import { makeSolverPCG } from '../../lib/portico/pcg.js?v=2';
 
 // Geometría P1 por triángulo: área y gradientes de las funciones de forma (b,c).
 function geomTris(nodes, tris) {
@@ -47,6 +48,15 @@ function buildCSR(n, tris) {
 export function resolver2D(mesh, opts = {}) {
   const nodes = mesh.nodes, tris = mesh.tris, n = nodes.length;
   const { Q = 0, entrada = [], salida = [], hmin = 0.005, smin = 1e-4, picard = 3, dt = 30, nPasos = 200, tol = 1e-4 } = opts;
+  // solver lineal: 'banda' (Cholesky directo, def), 'pcg' (IC0 en JS), 'wasm' (IC0 en C++).
+  // Auto (sin especificar): 'pcg' si la malla es grande. 'wasm' requiere opts.wasmSolve (shim listo).
+  let solverKind = opts.solver;
+  if (solverKind !== 'banda' && solverKind !== 'pcg' && solverKind !== 'wasm')
+    solverKind = (n > (opts.pcgDesde || 20000)) ? 'pcg' : 'banda';
+  const wasmSolve = opts.wasmSolve;
+  if (solverKind === 'wasm' && typeof wasmSolve !== 'function') solverKind = 'pcg';   // sin WASM listo → JS
+  const perfNow = (typeof performance !== 'undefined') ? () => performance.now() : () => Date.now();
+  let tSolve = 0, nSolves = 0;
   const z = Float64Array.from(nodes, (nd) => nd.z);
   const nMan = Float64Array.from(nodes, (nd) => nd.n || 0.04);
   const G = geomTris(nodes, tris);
@@ -117,10 +127,14 @@ export function resolver2D(mesh, opts = {}) {
       // Dirichlet en salida por penalti (mantiene simetría/SPD)
       const BIG = 1e12;
       for (let i = 0; i < n; i++) if (esSalida[i]) { A.val[A.pos(i, i)] += BIG; rhs[i] += BIG * stageOut; }
-      // resolver SPD
-      const F = makeFactorCSR(A);
+      // resolver SPD: banda (Cholesky directo), PCG-IC0 (JS) o WASM-IC0 (C++)
+      const F = solverKind === 'wasm' ? wasmSolve(A, { tol: 1e-8 })
+        : solverKind === 'pcg' ? makeSolverPCG(A, { pre: 'ic0', tol: 1e-8 })
+          : makeFactorCSR(A);
       if (!F.ok) throw new Error('sistema no SPD (revisa la malla/parámetros)');
+      const _t0 = perfNow();
       const sol = F.solve(Array.from(rhs));
+      tSolve += perfNow() - _t0; nSolves++;
       for (let i = 0; i < n; i++) { H[i] = Math.max(sol[i], z[i]); }   // clamp h≥0
     }
     // guarda frame h(t) para animar (transiente)
@@ -155,5 +169,6 @@ export function resolver2D(mesh, opts = {}) {
 
   let hmax = 0, Vmax = 0, nMoj = 0;
   for (let i = 0; i < n; i++) { if (h[i] > hmin) nMoj++; if (h[i] > hmax) hmax = h[i]; if (V[i] > Vmax) Vmax = V[i]; }
-  return { H, h, V, Vx, Vy, pasos: paso, cambio, hmax, Vmax, nMojados: nMoj, convergio: cambio < tol, frames, dt };
+  return { H, h, V, Vx, Vy, pasos: paso, cambio, hmax, Vmax, nMojados: nMoj, convergio: cambio < tol, frames, dt,
+    solver: solverKind, tSolveMs: tSolve, nSolves, tSolvePromMs: nSolves ? tSolve / nSolves : 0 };
 }
