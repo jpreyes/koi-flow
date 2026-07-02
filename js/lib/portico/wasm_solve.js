@@ -75,3 +75,36 @@ export function makeSolverWasm(csr, opts = {}) {
     }
   };
 }
+
+// Solver WASM PERSISTENTE: reserva la memoria UNA vez y copia rowPtr/colIdx UNA vez
+// (el patrón CSR no cambia en una simulación); en cada solve solo se actualizan los
+// valores (updateValues) y el término independiente. Evita el malloc + 4 copias +
+// free por cada solve de cada iteración Picard. Reutiliza el buffer de salida `out`.
+//   const S = makePersistentSolverWasm(csr, {tol});
+//   S.updateValues(csr.val);  S.solve(rhs, out);  … ; S.free();
+// Compatibilidad: expone también solve(b,out) como makeSolverWasm. csr fija n/nnz.
+export function makePersistentSolverWasm(csr, opts = {}) {
+  const M = _mod;
+  if (!M) throw new Error('WASM no listo: llama ensureKoiWasm() antes');
+  const n = csr.n, nnz = csr.rowPtr[n];
+  const tol = opts.tol != null ? opts.tol : 1e-8, maxIter = opts.maxIter || 0;
+  // reserva única (5 bloques). Con ALLOW_MEMORY_GROWTH los offsets siguen válidos
+  // tras un crecimiento; solo hay que re-leer M.HEAP* (no cachearlos) en cada uso.
+  const rp = M._malloc((n + 1) * 4), ci = M._malloc(nnz * 4), va = M._malloc(nnz * 8), rh = M._malloc(n * 8), xx = M._malloc(n * 8);
+  M.HEAP32.set(csr.rowPtr, rp >> 2);      // patrón: se copia UNA sola vez
+  M.HEAP32.set(csr.colIdx, ci >> 2);
+  let liberado = false;
+  return {
+    ok: true, kind: _threaded ? 'wasm-mt' : 'wasm', n,
+    updateValues(val) { M.HEAPF64.set(val, va >> 3); },
+    solve(b, out) {
+      M.HEAPF64.set(b instanceof Float64Array ? b : Float64Array.from(b), rh >> 3);
+      const iters = M._solveSPD(n, nnz, rp, ci, va, rh, xx, tol, maxIter);
+      const o = out || new Float64Array(n);
+      o.set(new Float64Array(M.HEAPF64.buffer, xx, n));   // buffer fresco tras el solve
+      o._iters = iters;
+      return o;
+    },
+    free() { if (liberado) return; liberado = true; M._free(rp); M._free(ci); M._free(va); M._free(rh); M._free(xx); },
+  };
+}

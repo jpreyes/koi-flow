@@ -22,7 +22,7 @@ import { elevAt } from '../hidraulica/secciones.js?v=2';
 import { zipStore, descargar } from '../cuenca/exportar.js?v=2';
 import { construirMalla2D } from '../hidraulica/malla2d.js?v=2';
 import { resolver2D } from '../hidraulica/solver2d.js?v=2';
-import { ensureKoiWasm, makeSolverWasm } from '../../lib/portico/wasm_solve.js?v=2';
+import { ensureKoiWasm, makeSolverWasm, makePersistentSolverWasm } from '../../lib/portico/wasm_solve.js?v=2';
 import { resumenPeligrosidad, exportarCSV, exportarGeoJSON } from '../hidraulica/peligrosidad2d.js?v=2';
 import { getConfig } from '../config.js?v=2';
 import { toast, busyStart, busyEnd } from '../ui/toast.js?v=2';
@@ -770,14 +770,14 @@ export class BatiPanel {
     if (st) st.textContent = ' resolviendo…';
     await new Promise((r) => setTimeout(r, 20));
     try {
-      let wasmSolve;
+      let wasmSolve, wasmPersist;
       if (solver === 'wasm') {
         if (st) st.textContent = ' cargando WASM…';
-        try { await ensureKoiWasm(); wasmSolve = makeSolverWasm; }
+        try { await ensureKoiWasm(); wasmSolve = makeSolverWasm; wasmPersist = makePersistentSolverWasm; }
         catch (e) { if (st) st.textContent = ' ✗ WASM: ' + e.message + ' (usando JS)'; }
       }
       const t0 = performance.now();
-      const r = resolver2D(this.mesh2d, { Q, entrada, salida, stageSalida: isFinite(so) ? so : undefined, dt, nPasos, solver, wasmSolve, onProgress: (p, N, d) => { if (st) st.textContent = ` paso ${p}/${N} (Δ=${d.toExponential(1)})`; } });
+      const r = resolver2D(this.mesh2d, { Q, entrada, salida, stageSalida: isFinite(so) ? so : undefined, dt, nPasos, solver, wasmSolve, wasmPersist, onProgress: (p, N, d) => { if (st) st.textContent = ` paso ${p}/${N} (Δ=${d.toExponential(1)})`; } });
       r._tTotalMs = performance.now() - t0;
       r.mesh = this.mesh2d; this.result2d = r; this._ultimoResultado2D = 'difusiva';
       r._pel = resumenPeligrosidad(r.h, r.V);

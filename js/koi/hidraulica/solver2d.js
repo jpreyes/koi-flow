@@ -54,9 +54,13 @@ export function resolver2D(mesh, opts = {}) {
   if (solverKind !== 'banda' && solverKind !== 'pcg' && solverKind !== 'wasm')
     solverKind = (n > (opts.pcgDesde || 20000)) ? 'pcg' : 'banda';
   const wasmSolve = opts.wasmSolve;
-  if (solverKind === 'wasm' && typeof wasmSolve !== 'function') solverKind = 'pcg';   // sin WASM listo → JS
+  // wasmPersist: factory del solver WASM PERSISTENTE (reserva/copia el patrón CSR una
+  // vez; por iteración solo actualiza valores). Preferido sobre wasmSolve (por-solve).
+  const wasmPersistFactory = opts.wasmPersist;
+  if (solverKind === 'wasm' && typeof wasmSolve !== 'function' && typeof wasmPersistFactory !== 'function') solverKind = 'pcg';   // sin WASM listo → JS
   const perfNow = (typeof performance !== 'undefined') ? () => performance.now() : () => Date.now();
-  let tSolve = 0, nSolves = 0;
+  let tSolve = 0, nSolves = 0, tAssembly = 0;
+  const tTotal0 = perfNow();
   const z = Float64Array.from(nodes, (nd) => nd.z);
   const nMan = Float64Array.from(nodes, (nd) => nd.n || 0.04);
   const G = geomTris(nodes, tris);
@@ -93,17 +97,28 @@ export function resolver2D(mesh, opts = {}) {
   const esSalida = new Uint8Array(n); for (const i of salida) esSalida[i] = 1;
 
   const A = buildCSR(n, tris);
+  // Solver WASM PERSISTENTE creado UNA vez (el patrón CSR no cambia en la simulación).
+  // Si la instanciación falla, se cae a PCG-IC0 en JS (no rompe la corrida).
+  let wasmPersist = null, usePersist = false;
+  if (solverKind === 'wasm' && typeof wasmPersistFactory === 'function') {
+    try { wasmPersist = wasmPersistFactory(A, { tol: 1e-8 }); usePersist = !!(wasmPersist && wasmPersist.ok); }
+    catch (e) { console.warn('WASM persistente no disponible, uso PCG:', e.message); solverKind = 'pcg'; }
+  }
+  const solverLabel = usePersist ? wasmPersist.kind : solverKind;
+  const solOut = new Float64Array(n);                // buffer de salida reutilizado
   const H = Float64Array.from(z);                    // seco: H=z (h=0)
   for (const i of salida) H[i] = Math.max(H[i], stageOut);
   const Hprev = new Float64Array(n);
   const rhs = new Float64Array(n);
   const grad = (g, Hv) => ({ gx: g.b[0] * Hv[g.i] + g.b[1] * Hv[g.j] + g.b[2] * Hv[g.k], gy: g.c[0] * Hv[g.i] + g.c[1] * Hv[g.j] + g.c[2] * Hv[g.k] });
+  try {
 
   let paso = 0, cambio = Infinity;
   for (paso = 0; paso < nPasos; paso++) {
     Hprev.set(H);
     if (hidro) setF0(Qen(paso * dt));   // caudal de entrada del hidrograma en este paso
     for (let it = 0; it < picard; it++) {
+      const _ta0 = perfNow();
       A.val.fill(0);
       rhs.set(F0);
       // M/Δt en la diagonal + M/Δt·H^n en rhs
@@ -127,13 +142,19 @@ export function resolver2D(mesh, opts = {}) {
       // Dirichlet en salida por penalti (mantiene simetría/SPD)
       const BIG = 1e12;
       for (let i = 0; i < n; i++) if (esSalida[i]) { A.val[A.pos(i, i)] += BIG; rhs[i] += BIG * stageOut; }
-      // resolver SPD: banda (Cholesky directo), PCG-IC0 (JS) o WASM-IC0 (C++)
-      const F = solverKind === 'wasm' ? wasmSolve(A, { tol: 1e-8 })
-        : solverKind === 'pcg' ? makeSolverPCG(A, { pre: 'ic0', tol: 1e-8 })
-          : makeFactorCSR(A);
-      if (!F.ok) throw new Error('sistema no SPD (revisa la malla/parámetros)');
+      tAssembly += perfNow() - _ta0;
+      // resolver SPD: WASM persistente (preferido; solo updateValues+solve), WASM por-solve,
+      // PCG-IC0 (JS) o banda (Cholesky directo). rhs se pasa como Float64Array (sin copiar).
       const _t0 = perfNow();
-      const sol = F.solve(Array.from(rhs));
+      let sol;
+      if (usePersist) { wasmPersist.updateValues(A.val); sol = wasmPersist.solve(rhs, solOut); }
+      else {
+        const F = solverKind === 'wasm' ? wasmSolve(A, { tol: 1e-8 })
+          : solverKind === 'pcg' ? makeSolverPCG(A, { pre: 'ic0', tol: 1e-8 })
+            : makeFactorCSR(A);
+        if (!F.ok) throw new Error('sistema no SPD (revisa la malla/parámetros)');
+        sol = F.solve(rhs);
+      }
       tSolve += perfNow() - _t0; nSolves++;
       for (let i = 0; i < n; i++) { H[i] = Math.max(sol[i], z[i]); }   // clamp h≥0
     }
@@ -170,5 +191,9 @@ export function resolver2D(mesh, opts = {}) {
   let hmax = 0, Vmax = 0, nMoj = 0;
   for (let i = 0; i < n; i++) { if (h[i] > hmin) nMoj++; if (h[i] > hmax) hmax = h[i]; if (V[i] > Vmax) Vmax = V[i]; }
   return { H, h, V, Vx, Vy, pasos: paso, cambio, hmax, Vmax, nMojados: nMoj, convergio: cambio < tol, frames, dt,
-    solver: solverKind, tSolveMs: tSolve, nSolves, tSolvePromMs: nSolves ? tSolve / nSolves : 0 };
+    solver: solverLabel, tSolveMs: tSolve, nSolves, tSolvePromMs: nSolves ? tSolve / nSolves : 0,
+    tAssemblyMs: tAssembly, tTotalMs: perfNow() - tTotal0, wasmPersistente: usePersist };
+  } finally {
+    if (wasmPersist) wasmPersist.free();   // libera la memoria WASM reservada una vez
+  }
 }

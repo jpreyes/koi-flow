@@ -8,7 +8,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { construirMalla2D } from './malla2d.js?v=2';
 import { resolver2D } from './solver2d.js?v=2';
-import { ensureKoiWasm, makeSolverWasm } from '../../lib/portico/wasm_solve.js?v=2';
+import { ensureKoiWasm, makeSolverWasm, makePersistentSolverWasm } from '../../lib/portico/wasm_solve.js?v=2';
 import { fetchDEM } from '../cuenca/dem_tiles.js?v=2';
 
 const f1 = (v) => (v == null || !isFinite(v) ? '—' : Math.abs(v) < 10 ? (+v).toFixed(2) : (+v).toFixed(0));
@@ -105,19 +105,19 @@ export class Flujo2D {
     await new Promise((r) => setTimeout(r, 20));
     try {
       // WASM: cargar/instanciar el módulo una vez antes del solve síncrono
-      let wasmSolve;
+      let wasmSolve, wasmPersist;
       if (solver === 'wasm') {
         st.textContent = ' cargando WASM…';
-        try { await ensureKoiWasm(); wasmSolve = makeSolverWasm; }
+        try { await ensureKoiWasm(); wasmSolve = makeSolverWasm; wasmPersist = makePersistentSolverWasm; }
         catch (e) { st.textContent = ' ✗ WASM: ' + e.message + ' (usando JS)'; }
       }
       const t0 = performance.now();
-      const r = resolver2D(this.mesh, { Q, entrada, salida, stageSalida: isFinite(so) ? so : undefined, dt, nPasos, solver, wasmSolve, onProgress: (p, N, d) => { st.textContent = ` paso ${p}/${N} (Δ=${d.toExponential(1)})`; } });
+      const r = resolver2D(this.mesh, { Q, entrada, salida, stageSalida: isFinite(so) ? so : undefined, dt, nPasos, solver, wasmSolve, wasmPersist, onProgress: (p, N, d) => { st.textContent = ` paso ${p}/${N} (Δ=${d.toExponential(1)})`; } });
       r._tTotalMs = performance.now() - t0;
       this.result = r;
       this.map.showInundacion(this.mesh, r.h, { cauce: this.cauce });
       st.textContent = r.convergio ? ` ✓ permanente en ${r.pasos} pasos` : ` ${r.pasos} pasos (Δ=${r.cambio.toExponential(1)})`;
-      const solverTxt = { banda: 'Cholesky banda', pcg: 'PCG IC0 (JS)', wasm: 'PCG IC0 (WASM)' }[r.solver] || r.solver;
+      const solverTxt = { banda: 'Cholesky banda', pcg: 'PCG IC0 (JS)', wasm: 'PCG IC0 (WASM)', 'wasm-mt': 'PCG IC0 (WASM · multihilo)' }[r.solver] || r.solver;
       this.host.querySelector('#f2-res').innerHTML = `<div class="hp-kv" style="margin-top:8px">
         <div><span>Entrada / salida (nodos)</span><b>${entrada.length} / ${salida.length}</b></div>
         <div><span>Calado máximo</span><b>${r.hmax.toFixed(2)} m</b></div>
