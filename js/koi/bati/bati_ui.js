@@ -22,7 +22,10 @@ import { elevAt } from '../hidraulica/secciones.js?v=2';
 import { zipStore, descargar } from '../cuenca/exportar.js?v=2';
 import { construirMalla2D } from '../hidraulica/malla2d.js?v=2';
 import { resolver2D } from '../hidraulica/solver2d.js?v=2';
+import { ensureKoiWasm, makeSolverWasm } from '../../lib/portico/wasm_solve.js?v=2';
+import { resumenPeligrosidad, exportarCSV, exportarGeoJSON } from '../hidraulica/peligrosidad2d.js?v=2';
 import { getConfig } from '../config.js?v=2';
+import { toast, busyStart, busyEnd } from '../ui/toast.js?v=2';
 import { stampTerreno, pilaEnSeccion, puntoEnPoligono } from '../estructuras/estructuras.js?v=2';
 
 const f2 = (v) => (v == null || !isFinite(v) ? '—' : (Math.abs(v) < 10 ? v.toFixed(2) : v.toFixed(1)));
@@ -292,6 +295,7 @@ export class BatiPanel {
   // ── Wiring de eventos ────────────────────────────────────────────────────────
   _wire() {
     const $ = (id) => this.body.querySelector(id);
+    this._wireDetalles();
     $('#bp-file')?.addEventListener('change', (e) => this._onFile(e.target.files[0]));
     this.body.querySelectorAll('[data-capa]').forEach((cb) => cb.addEventListener('change', () => {
       this.capasSel = [...this.body.querySelectorAll('[data-capa]:checked')].map((x) => x.dataset.capa);
@@ -329,11 +333,20 @@ export class BatiPanel {
     $('#bp-2d-gen')?.addEventListener('click', () => this._generar2D());
     $('#bp-2d-sim')?.addEventListener('click', () => this._simular2D());
     $('#bp-2d-trans')?.addEventListener('click', () => this._simularTransiente());
+    $('#bp-2d-mom')?.addEventListener('click', () => this._simularMomentum2D());
+    $('#bp-2d-mf')?.addEventListener('click', () => this._simularMorfo2D());
+    $('#bp-mf-csv')?.addEventListener('click', () => this._exportMorfo2D());
+    $('#bp-mf-dz')?.addEventListener('click', () => { const r = this.resultMorfo2d; if (r) this.map?.showDzMap?.(r.mesh, r.dz, { cauce: this.eje }); });
+    $('#bp-mf-h')?.addEventListener('click', () => { const r = this.resultMorfo2d; if (r) this.map?.showInundacion?.(r.mesh, r.h, { cauce: this.eje }); });
     $('#bp-2d-samp')?.addEventListener('click', () => this._muestrear2DenSecciones());
+    $('#bp-2d-csv')?.addEventListener('click', () => this._export2D('csv'));
+    $('#bp-2d-geojson')?.addEventListener('click', () => this._export2D('geojson'));
+    $('#bp-mom-csv')?.addEventListener('click', () => this._exportMom2D('csv'));
+    $('#bp-mom-geojson')?.addEventListener('click', () => this._exportMom2D('geojson'));
     $('#bp-exp-terr')?.addEventListener('click', () => this._expTerreno());
     $('#bp-exp-sdf')?.addEventListener('click', () => this._expSDF());
     $('#bp-exp-csv')?.addEventListener('click', () => this._expCSV());
-    $('#bp-exp-dxf')?.addEventListener('click', () => { try { descargar(`${this.nombre || 'koi-flow'}_estudio.dxf`, exportarDXF(this), 'application/dxf'); } catch (e) { alert(e.message); } });
+    $('#bp-exp-dxf')?.addEventListener('click', () => { try { descargar(`${this.nombre || 'koi-flow'}_estudio.dxf`, exportarDXF(this), 'application/dxf'); } catch (e) { toast(e.message, 'error'); } });
     this.body.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', () => {
       this.secciones.splice(+b.dataset.del, 1); this._refreshSecciones(); this._dibujarSecciones();
     }));
@@ -357,17 +370,17 @@ export class BatiPanel {
       this.eje = null; this.dominio = null; this.mesh2d = null; this.result2d = null; this._quitarEjeLayer();
       this.cauces = [{ nombre: 'Cauce 1', secciones: [], eje: null, dominio: null }]; this.iCauce = 0; this.secciones = this.cauces[0].secciones;
       this._render();
-    } catch (err) { alert('No se pudo leer el DXF: ' + err.message); }
+    } catch (err) { toast('No se pudo leer el DXF: ' + err.message, 'error'); }
   }
 
   _construir() {
-    if (!this.capasSel?.length) { alert('Elige al menos una capa de terreno.'); return; }
+    if (!this.capasSel?.length) { toast('Elige al menos una capa de terreno.', 'warn'); return; }
     const metodo = this.body.querySelector('#bp-metodo').value;
     const paso = parseFloat(this.body.querySelector('#bp-paso').value) || undefined;
     try {
       this.demM = construirDEMmetrico(this.res, this.capasSel, { metodo, paso, usarCotasTexto: true });
       this.modo = 'cad';
-    } catch (err) { alert(err.message); return; }
+    } catch (err) { toast(err.message, 'error'); return; }
     // ancla inicial: centro del tramo activo, o centro del mapa
     const c = this.tramo ? this._centroTramo(this.tramo) : this._centroMapa();
     this.anchor = anclaInicial(c);
@@ -417,7 +430,7 @@ export class BatiPanel {
       const base = await fetchDEM(bbox, { maxDim: 128 });
       this.dz = autoElevar(this.demM, this.anchor, (lon, lat) => elevAt(base, lon, lat));
       this._recolocar(); this._render();
-    } catch (err) { alert('No se pudo bajar el relieve base para auto-elevar: ' + err.message); }
+    } catch (err) { toast('No se pudo bajar el relieve base para auto-elevar: ' + err.message, 'error'); }
     finally { if (btn) { btn.disabled = false; btn.textContent = '⛰️ Auto-elevar'; } }
   }
 
@@ -600,7 +613,7 @@ export class BatiPanel {
 
   // ── Motor 2D (onda difusiva) integrado en el lienzo ──────────────────────────
   _motor2DHTML() {
-    const m = this.mesh2d, r = this.result2d, cfg = getConfig();
+    const m = this.mesh2d, r = this.result2d || this.resultMom2d, cfg = getConfig();
     return `<div class="bp-2d">
       <div class="hp-mini">Malla y simulación 2D (onda difusiva · usa el eje como cauce)</div>
       ${this.dominio ? '' : '<p class="hp-note" style="color:var(--red)">Dibuja el <b>dominio 2D</b> (arriba) para poder mallar.</p>'}
@@ -616,15 +629,21 @@ export class BatiPanel {
       <span class="hp-dl-status" id="bp-2d-st"></span>
       <div class="bp-btns" style="margin-top:6px"><button class="bp-b" id="bp-2d-entrada">📍 Entrada del caudal${this.cauces[this.iCauce]?.entrada ? ' ✓ (personalizada)' : ' (auto: aguas arriba)'}</button></div>
       ${m ? this._stats2DHTML(m) : ''}
-      ${m ? `<div class="bp-form" style="margin-top:8px">
-        <label>WSE salida [m] <input id="f2-so" type="number" placeholder="auto"></label>
-        <label>Δt [s] <input id="f2-dt" type="number" value="60"></label>
-        <label>Pasos máx <input id="f2-steps" type="number" value="300"></label>
+      ${m ? this._det('difusiva', '💧 Onda difusiva (permanente — flujo lento/subcrítico)', `
+      <div class="bp-form" style="margin-top:8px">
+        <label title="Nivel de agua fijo en la salida; vacío = automático (lecho + 2 cm)">WSE salida [m] <input id="f2-so" type="number" placeholder="auto"></label>
+        <label title="Paso de tiempo del esquema implícito (30–120 s típico)">Δt [s] <input id="f2-dt" type="number" value="60"></label>
+        <label title="Corta al converger a permanente o al llegar a este máximo">Pasos máx <input id="f2-steps" type="number" value="300"></label>
+        <label title="Banda: directo exacto (malla chica/media) · PCG IC0: iterativo con memoria O(n) (malla grande) · WASM: PCG en C++, 12–16× más rápido que el JS">Solver <select id="f2-solver">
+          <option value="banda">Cholesky banda (directo)</option>
+          <option value="pcg">PCG IC0 (JS)</option>
+          <option value="wasm">PCG IC0 (WASM · C++)</option>
+        </select></label>
       </div>
-      <button class="hp-run" id="bp-2d-sim">▶ Simular 2D (Q del formulario)</button>
+      <button class="hp-run" id="bp-2d-sim" title="Usa el Q del formulario 1D de este reach (o el Q efectivo si recibe de otros reaches)">▶ Simular 2D (Q del formulario)</button>
       <span class="hp-dl-status" id="bp-2d-simst"></span>
-      <div id="bp-2d-res"></div>
-      <div class="hp-mini" style="margin-top:10px">Transiente (hidrograma → animación en el tiempo)</div>
+      <div id="bp-2d-res">${this._result2DHTML()}</div>`, true)
+      + this._det('transiente', '🎞️ Transiente difusiva (hidrograma → animación)', `
       <div class="bp-form">
         <label>Q base [m³/s] <input id="bp-t-qb" type="number" value="0"></label>
         <label>Q pico [m³/s] <input id="bp-t-qp" type="number" value="${cfg.Q}"></label>
@@ -632,13 +651,56 @@ export class BatiPanel {
         <label>t base [h] <input id="bp-t-tb" type="number" step="0.5" value="4"></label>
         <label>Δt [s] <input id="bp-t-dt" type="number" value="60"></label>
       </div>
+      <label class="hp-check" style="display:block;margin:4px 0" title="Reemplaza el hidrograma triangular por la crecida generada en Análisis → Hidrograma de crecida (HU)"><input type="checkbox" id="bp-t-crec"> Usar la crecida del pipeline hidrológico (Hidrograma HU)${window.__koi?.hidrogramaCrecida?.length ? ' ✓' : ' — genera uno primero'}</label>
       <button class="hp-run" id="bp-2d-trans">🎞️ Simular transiente</button>
       <span class="hp-dl-status" id="bp-2d-trans-st"></span>
-      <div id="bp-2d-anim"></div>` : ''}
+      <div id="bp-2d-anim"></div>`)
+      + this._det('momentum', '🌊 Momentum 2D (aguas someras completas)', `
+      <div class="bp-form">
+        <label title="Tiempo físico a simular; el paso lo adapta el CFL">Tiempo a simular [s] <input id="bp-m-t" type="number" value="600"></label>
+        <label title="Número de Courant: 0.3–0.5 típico; más bajo = más estable y lento">CFL <input id="bp-m-cfl" type="number" step="0.05" value="0.4" min="0.05" max="0.9"></label>
+        <label title="Nivel fijo aguas abajo; vacío = salida libre (transmisiva)">WSE salida [m] <input id="bp-m-so" type="number" placeholder="libre"></label>
+        <label class="hp-check" style="align-self:end" title="Usa la crecida del pipeline (HU/rotura) como caudal de entrada variable en el tiempo"><input type="checkbox" id="bp-m-crec"> Crecida HU/rotura${window.__koi?.hidrogramaCrecida?.length ? ' ✓' : ''}</label>
+      </div>
+      <button class="hp-run" id="bp-2d-mom" title="Godunov/HLL bien-balanceado — corre en segundo plano (Web Worker)">🌊 Simular Momentum 2D</button>
+      <span class="hp-dl-status" id="bp-2d-momst"></span>
+      <div id="bp-2d-mom-res">${this._resultMomHTML()}</div>
+      <div id="bp-2d-mom-anim"></div>
+      <p class="hp-note">Saint-Venant 2D completo (volúmenes finitos, Godunov/HLL bien-balanceado) — captura resaltos hidráulicos, flujo supercrítico y frentes de onda que la difusiva no puede. Explícito con paso CFL: puede tardar más en mallas grandes o tiempos largos.</p>`)
+      + this._det('morfo', '⛰️ Morfodinámico 2D (flujo + lecho móvil)', `
+      <div class="bp-form">
+        <label title="Diámetro medio del sedimento del lecho">D50 [mm] <input id="bp-mf-d50" type="number" step="0.1" value="1"></label>
+        <label title="ρs/ρ (cuarzo ≈ 2.65)">Densidad relativa s <input id="bp-mf-s" type="number" step="0.05" value="2.65"></label>
+        <label title="Porosidad del depósito (0.35–0.45 típico)">Porosidad <input id="bp-mf-poros" type="number" step="0.02" value="0.4"></label>
+        <label>Tiempo a simular [s] <input id="bp-mf-t" type="number" value="600"></label>
+        <label>CFL <input id="bp-mf-cfl" type="number" step="0.05" value="0.4" min="0.05" max="0.9"></label>
+        <label title="Desacoplado: lecho cada N pasos (estándar) · Acoplado: cada paso (dam-break sobre lecho móvil)">Acople <select id="bp-mf-acople">
+          <option value="desacoplado">Desacoplado (rápido — crecidas normales)</option>
+          <option value="acoplado">Acoplado (cada paso — dam-break/lecho muy rápido)</option>
+        </select></label>
+        <label title="N bajo = más fiel al acoplado (N=1 equivale); N alto = más rápido pero subestima el transporte">Pasos de flujo por act. lecho <input id="bp-mf-npl" type="number" value="3" min="1"></label>
+      </div>
+      <button class="hp-run" id="bp-2d-mf" title="Saint-Venant + Exner (MPM por celda) — corre en segundo plano">⛰️ Simular Morfodinámico 2D</button>
+      <span class="hp-dl-status" id="bp-2d-mfst"></span>
+      <div id="bp-2d-mf-res">${this._resultMorfoHTML()}</div>
+      <p class="hp-note">"Desacoplado" actualiza el lecho cada N pasos (válido si el fondo cambia mucho más lento que el agua); "acoplado" en cada paso. Sin acorazamiento ni aporte de sedimento en los bordes (simplificaciones de esta versión).</p>`)
+      : ''}
       ${r ? `<button class="hp-run" id="bp-2d-samp" style="margin-top:8px">📥 Muestrear v en las secciones → socavación</button>
       <p class="hp-note">Toma la profundidad y la velocidad del campo 2D a lo largo de cada sección y recalcula la socavación por franjas con la <b>velocidad real</b> (no el reparto 1D).</p>` : ''}
     </div>`;
   }
+  // Acordeón <details> con estado persistente entre repintados (this._detOpen).
+  _det(id, titulo, inner, defecto = false) {
+    if (!this._detOpen) this._detOpen = {};
+    const abierto = this._detOpen[id] ?? defecto;
+    return `<details class="bp-det" data-det="${id}"${abierto ? ' open' : ''}><summary>${titulo}</summary><div class="bp-det-body">${inner}</div></details>`;
+  }
+  _wireDetalles() {
+    this.body.querySelectorAll('details.bp-det').forEach((d) => {
+      d.addEventListener('toggle', () => { (this._detOpen = this._detOpen || {})[d.dataset.det] = d.open; });
+    });
+  }
+
   _stats2DHTML(m) {
     return `<div class="hp-kv" style="margin-top:10px">
       <div><span>Nodos · triángulos</span><b>${m.meta.nNodos} · ${m.meta.nTri}</b></div>
@@ -704,20 +766,62 @@ export class BatiPanel {
     const so = parseFloat(this.body.querySelector('#f2-so').value);
     const dt = +this.body.querySelector('#f2-dt').value || 60;
     const nPasos = +this.body.querySelector('#f2-steps').value || 300;
+    const solver = this.body.querySelector('#f2-solver')?.value || 'banda';
     if (st) st.textContent = ' resolviendo…';
     await new Promise((r) => setTimeout(r, 20));
     try {
-      const r = resolver2D(this.mesh2d, { Q, entrada, salida, stageSalida: isFinite(so) ? so : undefined, dt, nPasos, onProgress: (p, N, d) => { if (st) st.textContent = ` paso ${p}/${N} (Δ=${d.toExponential(1)})`; } });
-      r.mesh = this.mesh2d; this.result2d = r;
+      let wasmSolve;
+      if (solver === 'wasm') {
+        if (st) st.textContent = ' cargando WASM…';
+        try { await ensureKoiWasm(); wasmSolve = makeSolverWasm; }
+        catch (e) { if (st) st.textContent = ' ✗ WASM: ' + e.message + ' (usando JS)'; }
+      }
+      const t0 = performance.now();
+      const r = resolver2D(this.mesh2d, { Q, entrada, salida, stageSalida: isFinite(so) ? so : undefined, dt, nPasos, solver, wasmSolve, onProgress: (p, N, d) => { if (st) st.textContent = ` paso ${p}/${N} (Δ=${d.toExponential(1)})`; } });
+      r._tTotalMs = performance.now() - t0;
+      r.mesh = this.mesh2d; this.result2d = r; this._ultimoResultado2D = 'difusiva';
+      r._pel = resumenPeligrosidad(r.h, r.V);
+      r._statusMsg = r.convergio ? ` ✓ permanente en ${r.pasos} pasos` : ` ${r.pasos} pasos (Δ=${r.cambio.toExponential(1)})`;
       this.map?.showInundacion?.(this.mesh2d, r.h, { cauce: this.eje });
-      if (st) st.textContent = r.convergio ? ` ✓ permanente en ${r.pasos} pasos` : ` ${r.pasos} pasos (Δ=${r.cambio.toExponential(1)})`;
-      const res = this.body.querySelector('#bp-2d-res');
-      if (res) res.innerHTML = `<div class="hp-kv" style="margin-top:8px">
-        <div><span>Calado máximo</span><b>${f2(r.hmax)} m</b></div>
-        <div><span>Velocidad máxima</span><b>${f2(r.Vmax)} m/s</b></div>
-        <div><span>Nodos mojados</span><b>${r.nMojados} / ${this.mesh2d.nodes.length}</b></div></div>`;
-      this._render();
+      this._render();   // repinta el panel; _result2DHTML() reinyecta el resultado
+      const st2 = this.body.querySelector('#bp-2d-simst'); if (st2) st2.textContent = r._statusMsg;
     } catch (e) { if (st) st.textContent = ' ✗ ' + e.message; console.error(e); }
+  }
+
+  // HTML del resultado 2D (KV + peligrosidad ARR + export). Reinyectado por _render().
+  _result2DHTML() {
+    const r = this.result2d; if (!r || !r._pel) return '';
+    const pel = r._pel, cc = pel.conteo, tot = pel.mojados || 1;
+    const solT = { banda: 'Cholesky banda', pcg: 'PCG IC0 (JS)', wasm: 'PCG IC0 (WASM)' }[r.solver] || r.solver;
+    const barra = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6'].map((k) => {
+      const col = { H1: '#22c55e', H2: '#a3e635', H3: '#facc15', H4: '#fb923c', H5: '#ef4444', H6: '#7f1d1d' }[k];
+      const pc = (cc[k] / tot) * 100; return pc > 0.3 ? `<span title="${k}: ${cc[k]} nodos (${pc.toFixed(0)}%)" style="display:inline-block;height:12px;width:${pc}%;background:${col}"></span>` : '';
+    }).join('');
+    return `<div class="hp-kv" style="margin-top:8px">
+      <div><span>Calado máximo</span><b>${f2(r.hmax)} m</b></div>
+      <div><span>Velocidad máxima</span><b>${f2(r.Vmax)} m/s</b></div>
+      <div><span>Nodos mojados</span><b>${r.nMojados} / ${(r.mesh?.nodes.length ?? 0)}</b></div>
+      <div><span>Peligrosidad h·V máx</span><b>${f2(pel.hvMax)} m²/s · ${pel.clasePico.clase}</b></div>
+      ${r._tTotalMs != null ? `<div><span>Solver · tiempo</span><b>${solT} · ${r._tTotalMs.toFixed(0)} ms (${(r.tSolveMs || 0).toFixed(0)} ms solver)</b></div>` : ''}</div>
+      <div style="margin-top:6px;font-size:11px;color:var(--text2)">Peligrosidad (ARR/Australian): <span style="display:inline-flex;width:100%;border-radius:3px;overflow:hidden;margin-top:2px">${barra}</span>
+        <div style="margin-top:3px">${pel.clasePico.clase} · ${pel.clasePico.desc}</div></div>
+      <div class="bp-btns" style="margin-top:8px">
+        <button class="bp-b" id="bp-2d-csv">📄 Export CSV</button>
+        <button class="bp-b" id="bp-2d-geojson">🗺️ Export GeoJSON</button></div>`;
+  }
+
+  // Descarga del campo 2D (CSV por nodo o GeoJSON de puntos con h/V/h·V/clase).
+  // Nombre de archivo de export: <proyecto>_<reach>_<base>_<stamp>.<ext>
+  _nombreExport(base, ext) {
+    const proj = (window.__koi?.project?.name || 'koi').replace(/[^w-]+/g, '_');
+    const reach = (this.cauces?.[this.iCauce]?.nombre || this.nombre || '').replace(/[^w-]+/g, '_');
+    return [proj, reach, base, stamp].filter(Boolean).join('_') + '.' + ext;
+  }
+
+  _export2D(fmt) {
+    const r = this.result2d; if (!r || !r.mesh) return;
+    if (fmt === 'csv') descargar(this._nombreExport('inundacion2d', 'csv'), exportarCSV(r.mesh, r), 'text/csv');
+    else descargar(this._nombreExport('inundacion2d', 'geojson'), JSON.stringify(exportarGeoJSON(r.mesh, r), null, 1), 'application/geo+json');
   }
 
   // Simulación 2D TRANSIENTE: hidrograma triangular de entrada → guarda h(t) por
@@ -733,57 +837,231 @@ export class BatiPanel {
     const tp = (+this.body.querySelector('#bp-t-tp').value || 1) * 3600;
     const tb = (+this.body.querySelector('#bp-t-tb').value || 4) * 3600;
     const dt = +this.body.querySelector('#bp-t-dt').value || 60;
-    const hidro = [{ t: 0, Q: Qb }, { t: tp, Q: Qp }, { t: tb, Q: Qb }];
-    const nPasos = Math.min(2500, Math.ceil(tb * 1.3 / dt));
+    // hidrograma: la crecida del pipeline (HU) si se pide y existe; si no, triangular del form
+    const usarCrec = this.body.querySelector('#bp-t-crec')?.checked && window.__koi?.hidrogramaCrecida?.length;
+    let hidro, tEnd;
+    if (usarCrec) { hidro = window.__koi.hidrogramaCrecida.map((p) => ({ t: p.t, Q: p.Q })); tEnd = hidro[hidro.length - 1].t; }
+    else { hidro = [{ t: 0, Q: Qb }, { t: tp, Q: Qp }, { t: tb, Q: Qb }]; tEnd = tb; }
+    const nPasos = Math.min(4000, Math.ceil(tEnd * 1.3 / dt));
     const guardarCada = Math.max(1, Math.round(nPasos / 40));
     if (st) st.textContent = ' resolviendo transiente…';
     await new Promise((r) => setTimeout(r, 20));
     try {
       const r = resolver2D(this.mesh2d, { Q: Qp, hidrograma: hidro, guardarCada, entrada, salida, dt, nPasos, onProgress: (p, N) => { if (st) st.textContent = ` paso ${p}/${N}`; } });
       this.frames2d = r.frames || [];
-      if (st) st.textContent = ` ✓ ${this.frames2d.length} cuadros · ${(tb / 3600).toFixed(1)} h simuladas`;
+      if (st) st.textContent = ` ✓ ${this.frames2d.length} cuadros · ${(tEnd / 3600).toFixed(1)} h simuladas${usarCrec ? ' (crecida HU)' : ''}`;
       this._renderAnim();
     } catch (e) { if (st) st.textContent = ' ✗ ' + e.message; console.error(e); }
   }
 
-  // Controles de animación (slider + play/pausa) sobre los frames h(t).
-  _renderAnim() {
-    const box = this.body.querySelector('#bp-2d-anim'); if (!box) return;
-    const F = this.frames2d || [];
-    if (this._animTimer) { clearInterval(this._animTimer); this._animTimer = null; }
-    if (!F.length) { box.innerHTML = ''; return; }
+  // Controles de animación (slider + play/pausa) sobre los frames h(t). Sirve a
+  // AMBOS 2D transientes (difusiva 'trans' y Momentum 'mom') — cada uno con su
+  // propio contenedor/estado (framesKey/boxId/prefijo de ids), para que se puedan
+  // tener corridas de ambos guardadas a la vez sin pisarse.
+  _animCfg(cual) {
+    return cual === 'mom'
+      ? { frames: this.framesMom2d, boxId: '#bp-2d-mom-anim', pfx: 'bp-anim-mom' }
+      : { frames: this.frames2d, boxId: '#bp-2d-anim', pfx: 'bp-anim' };
+  }
+  _renderAnim(cual = 'trans') {
+    const { frames: F, boxId, pfx } = this._animCfg(cual);
+    const box = this.body.querySelector(boxId); if (!box) return;
+    const timerKey = '_animTimer_' + cual;
+    if (this[timerKey]) { clearInterval(this[timerKey]); this[timerKey] = null; }
+    if (!F || !F.length) { box.innerHTML = ''; return; }
     let hg = 0; for (const f of F) for (const v of f.h) if (v > hg) hg = v;
-    this._animHmax = hg || 1;
+    this['_animHmax_' + cual] = hg || 1;
     box.innerHTML = `<div class="bp-anim">
-      <button class="bp-b" id="bp-anim-play" style="flex:0 0 auto">▶</button>
-      <input type="range" id="bp-anim-slider" min="0" max="${F.length - 1}" value="0">
-      <span id="bp-anim-t">t=0.0 h</span></div>
+      <button class="bp-b" id="${pfx}-play" style="flex:0 0 auto">▶</button>
+      <input type="range" id="${pfx}-slider" min="0" max="${F.length - 1}" value="0">
+      <span id="${pfx}-t">t=0.0 h</span></div>
       <div class="hp-kv"><div><span>Calado máx (toda la simulación)</span><b>${f2(hg)} m</b></div></div>`;
-    const slider = box.querySelector('#bp-anim-slider'), play = box.querySelector('#bp-anim-play');
-    slider.addEventListener('input', () => this._showFrame(+slider.value));
-    play.addEventListener('click', () => this._toggleAnim(play));
-    this._showFrame(0);
+    const slider = box.querySelector(`#${pfx}-slider`), play = box.querySelector(`#${pfx}-play`);
+    slider.addEventListener('input', () => this._showFrame(+slider.value, cual));
+    play.addEventListener('click', () => this._toggleAnim(play, cual));
+    this._showFrame(0, cual);
   }
-  _showFrame(i) {
-    const F = this.frames2d; if (!F || !F[i]) return;
-    this._animI = i;
-    this.map.showInundacion(this.mesh2d, F[i].h, { cauce: this.eje, hmax: this._animHmax });
-    const t = this.body.querySelector('#bp-anim-t'); if (t) t.textContent = `t=${(F[i].t / 3600).toFixed(2)} h`;
-    const s = this.body.querySelector('#bp-anim-slider'); if (s && +s.value !== i) s.value = i;
+  _showFrame(i, cual = 'trans') {
+    const { frames: F, pfx } = this._animCfg(cual);
+    if (!F || !F[i]) return;
+    this['_animI_' + cual] = i;
+    this.map.showInundacion(this.mesh2d, F[i].h, { cauce: this.eje, hmax: this['_animHmax_' + cual] });
+    const t = this.body.querySelector(`#${pfx}-t`); if (t) t.textContent = `t=${(F[i].t / 3600).toFixed(2)} h`;
+    const s = this.body.querySelector(`#${pfx}-slider`); if (s && +s.value !== i) s.value = i;
   }
-  _toggleAnim(play) {
-    if (this._animTimer) { clearInterval(this._animTimer); this._animTimer = null; play.textContent = '▶'; return; }
+  _toggleAnim(play, cual = 'trans') {
+    const timerKey = '_animTimer_' + cual;
+    if (this[timerKey]) { clearInterval(this[timerKey]); this[timerKey] = null; play.textContent = '▶'; return; }
     play.textContent = '⏸';
-    this._animTimer = setInterval(() => {
-      let i = (this._animI ?? 0) + 1; if (i >= this.frames2d.length) i = 0;
-      this._showFrame(i);
+    const { frames: F } = this._animCfg(cual);
+    this[timerKey] = setInterval(() => {
+      let i = (this['_animI_' + cual] ?? 0) + 1; if (i >= F.length) i = 0;
+      this._showFrame(i, cual);
     }, 250);
   }
 
+  // Simulación 2D por MOMENTUM completo (Saint-Venant, volúmenes finitos, HLL) —
+  // a diferencia de _simular2D (difusiva, sin inercia), captura resaltos y flujo
+  // supercrítico. Corre en un WEB WORKER (worker_momentum2d.js): es explícito y
+  // CFL-adaptativo, puede necesitar muchos pasos en mallas grandes/tSim largo — sin
+  // worker eso congelaría la pestaña. El worker ya devuelve h/V/H/frames por NODO
+  // (celdaANodo corrida allá adentro), listos para el mismo pipeline de siempre.
+  async _simularMomentum2D() {
+    const st = this.body.querySelector('#bp-2d-momst');
+    if (!this.mesh2d) { if (st) st.textContent = ' genera la malla primero'; return; }
+    if (!this.eje || this.eje.length < 2) { if (st) st.textContent = ' dibuja el eje (define entrada/salida)'; return; }
+    const { entrada, salida } = this._bordes2D(this.mesh2d);
+    if (!entrada.length || !salida.length) { if (st) st.textContent = ' el eje debe tocar el borde del dominio'; return; }
+    const _c = this.cauces[this.iCauce];
+    const Q = (_c?.recibeDe?.length) ? this._QefReach() : (+this.body.querySelector('#bp-q').value || 100);
+    const tSim = +this.body.querySelector('#bp-m-t').value || 600;
+    const CFL = +this.body.querySelector('#bp-m-cfl').value || 0.4;
+    const so = parseFloat(this.body.querySelector('#bp-m-so').value);
+    // caudal variable en el tiempo: la crecida del pipeline (HU / rotura de presa)
+    const usarCrec = this.body.querySelector('#bp-m-crec')?.checked && window.__koi?.hidrogramaCrecida?.length;
+    const hidrograma = usarCrec ? window.__koi.hidrogramaCrecida.map((p) => ({ t: p.t, Q: p.Q })) : undefined;
+    const tSimEf = usarCrec ? Math.max(tSim, hidrograma[hidrograma.length - 1].t) : tSim;
+    if (st) st.textContent = ' resolviendo (Saint-Venant 2D, en segundo plano)…';
+    await new Promise((r) => setTimeout(r, 20));
+    const t0 = performance.now();
+    const busy = busyStart('Momentum 2D…');
+    const worker = new Worker(new URL('../hidraulica/worker_momentum2d.js', import.meta.url), { type: 'module' });
+    try {
+      const r = await new Promise((resolve, reject) => {
+        worker.onmessage = (ev) => {
+          const m = ev.data;
+          if (m.tipo === 'progreso') { if (st) st.textContent = ` t=${m.t.toFixed(0)}/${m.tSim} s (paso ${m.paso})`; }
+          else if (m.tipo === 'listo') resolve(m);
+          else if (m.tipo === 'error') reject(new Error(m.mensaje));
+        };
+        worker.onerror = (ev) => reject(new Error(ev.message || 'error en el worker'));
+        worker.postMessage({
+          mesh: this.mesh2d,
+          opts: { Q, entrada, salida, tSim: tSimEf, CFL, stageSalida: isFinite(so) ? so : undefined, dtGuardar: tSimEf / 30, hidrograma,
+            reologia: (usarCrec && window.__koi?.reologia) || undefined },   // relave (breach) → O'Brien
+        });
+      });
+      const tTotalMs = performance.now() - t0;
+      this.framesMom2d = r.frames;
+      this.resultMom2d = { ...r, mesh: this.mesh2d, _pel: resumenPeligrosidad(r.h, r.V), _tTotalMs: tTotalMs };
+      this._ultimoResultado2D = 'momentum';
+      this.map?.showInundacion?.(this.mesh2d, r.h, { cauce: this.eje });
+      const msg = ` ✓ ${r.pasos} pasos · t=${r.t.toFixed(0)} s (${(tTotalMs / 1000).toFixed(1)} s de cómputo)${usarCrec ? ' · crecida' : ''}`;
+      this._render();   // repinta; _resultMomHTML() reinyecta el resultado
+      const st2 = this.body.querySelector('#bp-2d-momst'); if (st2) st2.textContent = msg;
+      this._renderAnim('mom');   // repuebla #bp-2d-mom-anim (el repintado lo deja vacío)
+    } catch (e) { if (st) st.textContent = ' ✗ ' + e.message; console.error(e); }
+    finally { worker.terminate(); busyEnd(busy); }
+  }
+
+  _resultMomHTML() {
+    const r = this.resultMom2d; if (!r || !r._pel) return '';
+    const pel = r._pel, cc = pel.conteo, tot = pel.mojados || 1;
+    const barra = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6'].map((k) => {
+      const col = { H1: '#22c55e', H2: '#a3e635', H3: '#facc15', H4: '#fb923c', H5: '#ef4444', H6: '#7f1d1d' }[k];
+      const pc = (cc[k] / tot) * 100; return pc > 0.3 ? `<span title="${k}: ${cc[k]} nodos (${pc.toFixed(0)}%)" style="display:inline-block;height:12px;width:${pc}%;background:${col}"></span>` : '';
+    }).join('');
+    return `<div class="hp-kv" style="margin-top:8px">
+      <div><span>Calado máximo</span><b>${f2(r.hmax)} m</b></div>
+      <div><span>Velocidad máxima</span><b>${f2(r.Vmax)} m/s</b></div>
+      <div><span>Celdas mojadas</span><b>${r.nMojados} / ${r.nCeldas}</b></div>
+      <div><span>Peligrosidad h·V máx</span><b>${f2(pel.hvMax)} m²/s · ${pel.clasePico.clase}</b></div>
+      ${r.tArrMin != null ? `<div><span>Primer arribo de la onda (h&gt;5 cm)</span><b>${f2(r.tArrMin / 60)} min</b></div>` : ''}</div>
+      <div style="margin-top:6px;font-size:11px;color:var(--text2)">Peligrosidad (ARR/Australian): <span style="display:inline-flex;width:100%;border-radius:3px;overflow:hidden;margin-top:2px">${barra}</span>
+        <div style="margin-top:3px">${pel.clasePico.clase} · ${pel.clasePico.desc}</div></div>
+      <div class="bp-btns" style="margin-top:8px">
+        <button class="bp-b" id="bp-mom-csv">📄 Export CSV</button>
+        <button class="bp-b" id="bp-mom-geojson">🗺️ Export GeoJSON</button></div>`;
+  }
+
+  _exportMom2D(fmt) {
+    const r = this.resultMom2d; if (!r || !r.mesh) return;
+    if (fmt === 'csv') descargar(this._nombreExport('momentum2d', 'csv'), exportarCSV(r.mesh, r), 'text/csv');
+    else descargar(this._nombreExport('momentum2d', 'geojson'), JSON.stringify(exportarGeoJSON(r.mesh, r), null, 1), 'application/geo+json');
+  }
+
+  // Morfodinámico 2D (Tier4-Fase4: Saint-Venant + Exner acoplados) — corre en
+  // Web Worker (worker_morfo2d.js), mismo patrón que _simularMomentum2D.
+  async _simularMorfo2D() {
+    const st = this.body.querySelector('#bp-2d-mfst');
+    if (!this.mesh2d) { if (st) st.textContent = ' genera la malla primero'; return; }
+    if (!this.eje || this.eje.length < 2) { if (st) st.textContent = ' dibuja el eje (define entrada/salida)'; return; }
+    const { entrada, salida } = this._bordes2D(this.mesh2d);
+    if (!entrada.length || !salida.length) { if (st) st.textContent = ' el eje debe tocar el borde del dominio'; return; }
+    const _c = this.cauces[this.iCauce];
+    const Q = (_c?.recibeDe?.length) ? this._QefReach() : (+this.body.querySelector('#bp-q').value || 100);
+    const tSim = +this.body.querySelector('#bp-mf-t').value || 600;
+    const CFL = +this.body.querySelector('#bp-mf-cfl').value || 0.4;
+    const D50mm = +this.body.querySelector('#bp-mf-d50').value || 1;
+    const s = +this.body.querySelector('#bp-mf-s').value || 2.65;
+    const poros = +this.body.querySelector('#bp-mf-poros').value || 0.4;
+    const acople = this.body.querySelector('#bp-mf-acople')?.value || 'desacoplado';
+    const nPasosLecho = +this.body.querySelector('#bp-mf-npl').value || 3;
+    if (st) st.textContent = ' resolviendo (Saint-Venant + Exner, en segundo plano)…';
+    await new Promise((r) => setTimeout(r, 20));
+    const t0 = performance.now();
+    const busy = busyStart('Morfodinámico 2D…');
+    const worker = new Worker(new URL('../hidraulica/worker_morfo2d.js', import.meta.url), { type: 'module' });
+    try {
+      const r = await new Promise((resolve, reject) => {
+        worker.onmessage = (ev) => {
+          const m = ev.data;
+          if (m.tipo === 'progreso') { if (st) st.textContent = ` t=${m.t.toFixed(0)}/${m.tSim} s (paso ${m.paso})`; }
+          else if (m.tipo === 'listo') resolve(m);
+          else if (m.tipo === 'error') reject(new Error(m.mensaje));
+        };
+        worker.onerror = (ev) => reject(new Error(ev.message || 'error en el worker'));
+        worker.postMessage({
+          mesh: this.mesh2d,
+          opts: { Q, entrada, salida, tSim, CFL, D50mm, s, poros, acople, nPasosLecho, dtGuardar: tSim / 30 },
+        });
+      });
+      const tTotalMs = performance.now() - t0;
+      this.framesMorfo2d = r.frames;
+      this.resultMorfo2d = { ...r, mesh: this.mesh2d, _tTotalMs: tTotalMs };
+      this.map?.showInundacion?.(this.mesh2d, r.h, { cauce: this.eje });
+      const msg = ` ✓ ${r.pasos} pasos · t=${r.t.toFixed(0)} s (${(tTotalMs / 1000).toFixed(1)} s de cómputo)`;
+      this._render();
+      const st2 = this.body.querySelector('#bp-2d-mfst'); if (st2) st2.textContent = msg;
+    } catch (e) { if (st) st.textContent = ' ✗ ' + e.message; console.error(e); }
+    finally { worker.terminate(); busyEnd(busy); }
+  }
+
+  _resultMorfoHTML() {
+    const r = this.resultMorfo2d; if (!r) return '';
+    return `<div class="hp-kv" style="margin-top:8px">
+      <div><span>Calado máximo</span><b>${f2(r.hmax)} m</b></div>
+      <div><span>Velocidad máxima</span><b>${f2(r.Vmax)} m/s</b></div>
+      <div><span>Volumen erosionado</span><b>${f2(r.volErosion)} m³</b></div>
+      <div><span>Volumen depositado</span><b>${f2(r.volDeposito)} m³</b></div>
+      <div><span>|Δz| máximo (por actualización)</span><b>${f2(r.dzMax)} m</b></div>
+      <div><span>Acople</span><b>${r.acople === 'acoplado' ? 'Acoplado (cada paso)' : 'Desacoplado'}</b></div>
+      <div><span>Tiempo de cómputo</span><b>${(r._tTotalMs / 1000).toFixed(1)} s</b></div></div>
+      <div class="bp-btns" style="margin-top:8px"><button class="bp-b" id="bp-mf-csv">📄 Export CSV (Δz por nodo)</button><button class="bp-b" id="bp-mf-dz" title="Rojo = erosión · azul = depósito">🗺️ Ver Δz en el mapa</button><button class="bp-b" id="bp-mf-h">💧 Ver calado</button></div>`;
+  }
+
+  _exportMorfo2D() {
+    const r = this.resultMorfo2d; if (!r || !r.mesh) return;
+    const { nodes, origin } = r.mesh;
+    const rows = ['i,x_m,y_m,lon,lat,z0_m,dz_m,zFinal_m,h_m,V_ms'];
+    for (let i = 0; i < nodes.length; i++) {
+      const nd = nodes[i];
+      const lon = origin ? origin.lon0 + nd.x / origin.mLon : '', lat = origin ? origin.lat0 + nd.y / origin.mLat : '';
+      const z0 = nd.z ?? 0, dz = r.dz[i] ?? 0;
+      rows.push([i, nd.x.toFixed(2), nd.y.toFixed(2), lon === '' ? '' : lon.toFixed(7), lat === '' ? '' : lat.toFixed(7),
+        z0.toFixed(3), dz.toFixed(4), (z0 + dz).toFixed(3), (r.h[i] ?? 0).toFixed(3), (r.V[i] ?? 0).toFixed(3)].join(','));
+    }
+    descargar(this._nombreExport('morfo2d', 'csv'), rows.join('\n'), 'text/csv');
+  }
+
   // Muestrea (h, |V|) del campo 2D a lo largo de cada sección y recalcula la
-  // socavación por franjas con la VELOCIDAD REAL (acople 2D→socavación).
+  // socavación por franjas con la VELOCIDAD REAL (acople 2D→socavación). Usa el
+  // resultado 2D MÁS RECIENTE (difusiva o momentum — this._ultimoResultado2D),
+  // así el botón funciona con cualquiera de los dos solvers.
   _muestrear2DenSecciones() {
-    const R = this.result2d; if (!R || !this.secciones.length) return;
+    const usarMom = this._ultimoResultado2D === 'momentum' && this.resultMom2d;
+    const R = usarMom ? this.resultMom2d : this.result2d;
+    if (!R || !this.secciones.length) return;
     let nOk = 0;
     for (const s of this.secciones) {
       const prof = this._perfilVelocidad2D(s, R);
@@ -794,8 +1072,8 @@ export class BatiPanel {
       s._wse2d = wet.length ? Math.max(...wet.map((p) => p.H)) : null;
       this._calcSeccionEje(s);
     }
-    const st = this.body.querySelector('#bp-2d-simst');
-    if (st) st.textContent = ` ✓ ${nOk}/${this.secciones.length} secciones con velocidad 2D`;
+    const st = this.body.querySelector(usarMom ? '#bp-2d-momst' : '#bp-2d-simst');
+    if (st) st.textContent = ` ✓ ${nOk}/${this.secciones.length} secciones con velocidad 2D (${usarMom ? 'momentum' : 'difusiva'})`;
     this._render(); this._dibujarSecciones();
   }
 
@@ -851,7 +1129,7 @@ export class BatiPanel {
   // Mancha de inundación a partir del eje 1D (WSE por sección) cruzada con el DEM.
   async _inundacion1D() {
     const secs = (this.secciones || []).filter((s) => s.res);
-    if (!secs.length) { alert('Traza y calcula al menos una sección primero.'); return; }
+    if (!secs.length) { toast('Traza y calcula al menos una sección primero.', 'warn'); return; }
     const st = this.body.querySelector('#bp-inun1d-st'); if (st) st.textContent = ' preparando…';
     try {
       let g = this.fused || this.baseDEM || (this.grid?.data ? this.grid : null);
@@ -1323,7 +1601,7 @@ export class BatiPanel {
     descargar(`${this.nombre}_terreno_HECRAS.zip`, blob);
   }
   _expSDF() {
-    if (!this.secciones.length) { alert('Traza al menos una sección.'); return; }
+    if (!this.secciones.length) { toast('Traza al menos una sección.', 'warn'); return; }
     const { zona, sur } = this._zonaSel();
     const rio = this.body.querySelector('#bp-rio').value || 'Rio';
     const reach = this.body.querySelector('#bp-reach').value || 'Tramo';
@@ -1335,7 +1613,7 @@ export class BatiPanel {
     descargar(`${this.nombre}_geometria_HECRAS.zip`, blob);
   }
   _expCSV() {
-    if (!this.secciones.length) { alert('Traza al menos una sección.'); return; }
+    if (!this.secciones.length) { toast('Traza al menos una sección.', 'warn'); return; }
     descargar(`${this.nombre}_secciones.csv`, csvSecciones(this.secciones), 'text/csv');
   }
 

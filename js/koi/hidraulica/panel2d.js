@@ -8,6 +8,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { construirMalla2D } from './malla2d.js?v=2';
 import { resolver2D } from './solver2d.js?v=2';
+import { ensureKoiWasm, makeSolverWasm } from '../../lib/portico/wasm_solve.js?v=2';
 import { fetchDEM } from '../cuenca/dem_tiles.js?v=2';
 
 const f1 = (v) => (v == null || !isFinite(v) ? '—' : Math.abs(v) < 10 ? (+v).toFixed(2) : (+v).toFixed(0));
@@ -50,6 +51,11 @@ export class Flujo2D {
           <label>WSE salida [m] <input id="f2-so" type="number" placeholder="auto"></label>
           <label>Δt [s] <input id="f2-dt" type="number" value="60"></label>
           <label>Pasos máx <input id="f2-steps" type="number" value="300"></label>
+          <label>Solver lineal <select id="f2-solver">
+            <option value="banda">Cholesky banda (directo)</option>
+            <option value="pcg">PCG IC0 (JS)</option>
+            <option value="wasm">PCG IC0 (WASM · C++)</option>
+          </select></label>
         </div>
         <button class="hp-run" id="f2-sim">▶ Simular 2D</button>
         <span class="hp-dl-status" id="f2-simst"></span>
@@ -94,19 +100,33 @@ export class Flujo2D {
     const so = parseFloat(this.host.querySelector('#f2-so').value);
     const dt = +this.host.querySelector('#f2-dt').value || 60;
     const nPasos = +this.host.querySelector('#f2-steps').value || 300;
+    const solver = this.host.querySelector('#f2-solver')?.value || 'banda';
     st.textContent = ' resolviendo…';
     await new Promise((r) => setTimeout(r, 20));
     try {
-      const r = resolver2D(this.mesh, { Q, entrada, salida, stageSalida: isFinite(so) ? so : undefined, dt, nPasos, onProgress: (p, N, d) => { st.textContent = ` paso ${p}/${N} (Δ=${d.toExponential(1)})`; } });
+      // WASM: cargar/instanciar el módulo una vez antes del solve síncrono
+      let wasmSolve;
+      if (solver === 'wasm') {
+        st.textContent = ' cargando WASM…';
+        try { await ensureKoiWasm(); wasmSolve = makeSolverWasm; }
+        catch (e) { st.textContent = ' ✗ WASM: ' + e.message + ' (usando JS)'; }
+      }
+      const t0 = performance.now();
+      const r = resolver2D(this.mesh, { Q, entrada, salida, stageSalida: isFinite(so) ? so : undefined, dt, nPasos, solver, wasmSolve, onProgress: (p, N, d) => { st.textContent = ` paso ${p}/${N} (Δ=${d.toExponential(1)})`; } });
+      r._tTotalMs = performance.now() - t0;
       this.result = r;
       this.map.showInundacion(this.mesh, r.h, { cauce: this.cauce });
       st.textContent = r.convergio ? ` ✓ permanente en ${r.pasos} pasos` : ` ${r.pasos} pasos (Δ=${r.cambio.toExponential(1)})`;
+      const solverTxt = { banda: 'Cholesky banda', pcg: 'PCG IC0 (JS)', wasm: 'PCG IC0 (WASM)' }[r.solver] || r.solver;
       this.host.querySelector('#f2-res').innerHTML = `<div class="hp-kv" style="margin-top:8px">
         <div><span>Entrada / salida (nodos)</span><b>${entrada.length} / ${salida.length}</b></div>
         <div><span>Calado máximo</span><b>${r.hmax.toFixed(2)} m</b></div>
         <div><span>Velocidad máxima</span><b>${r.Vmax.toFixed(2)} m/s</b></div>
-        <div><span>Nodos mojados</span><b>${r.nMojados} / ${this.mesh.nodes.length}</b></div></div>
-        <p class="hp-note">Mancha de inundación por profundidad (azul = calado). Onda difusiva permanente. Peligrosidad h·V y export vienen en la Fase C.</p>`;
+        <div><span>Nodos mojados</span><b>${r.nMojados} / ${this.mesh.nodes.length}</b></div>
+        <div><span>Solver lineal</span><b>${solverTxt}</b></div>
+        <div><span>Tiempo total</span><b>${r._tTotalMs.toFixed(0)} ms</b></div>
+        <div><span>Tiempo solver (${r.nSolves} solves)</span><b>${r.tSolveMs.toFixed(0)} ms · ${r.tSolvePromMs.toFixed(1)} ms/solve</b></div></div>
+        <p class="hp-note">Mancha de inundación por profundidad (azul = calado). Onda difusiva permanente. El “tiempo solver” es el gasto en resolver el sistema lineal (banda vs PCG IC0). Peligrosidad h·V y export vienen en la Fase C.</p>`;
     } catch (e) { st.textContent = ' ✗ ' + e.message; console.error(e); }
   }
 

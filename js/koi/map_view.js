@@ -387,6 +387,59 @@ export class MapView {
     this._inunLayer = L.imageOverlay(cv.toDataURL(), [[s, w], [n, e]], { opacity: opts.opacity ?? 0.75 });
     this.groups.malla2d.addLayer(this._inunLayer);
     if (opts.cauce) this.groups.malla2d.addLayer(L.polyline(opts.cauce.map(([lo, la]) => [la, lo]), { color: '#0369a1', weight: 1.5 }));
+    this._leyenda('Calado h [m]', [[0, 'rgba(180,215,255,.75)'], [hmax / 2, 'rgba(105,155,255,.85)'], [hmax, 'rgba(30,95,255,.9)']], (v) => v.toFixed(2));
+  }
+
+  // Leyenda flotante del campo 2D (calado o Δz). Un solo control reutilizado.
+  _leyenda(titulo, tramos, fmt) {
+    const L = window.L;
+    if (!this._legendCtl) {
+      this._legendCtl = L.control({ position: 'bottomright' });
+      this._legendCtl.onAdd = () => { const d = L.DomUtil.create('div', 'koi-leyenda'); this._legendEl = d; return d; };
+      this._legendCtl.addTo(this.map);
+    }
+    if (this._legendEl) {
+      this._legendEl.innerHTML = `<div class="kl-t">${titulo}</div>` +
+        tramos.map(([v, c]) => `<div class="kl-fila"><span class="kl-c" style="background:${c}"></span>${fmt(v)}</div>`).join('');
+      this._legendEl.style.display = '';
+    }
+  }
+  clearLeyenda() { if (this._legendEl) this._legendEl.style.display = 'none'; }
+
+  // Mapa de cambio de lecho Δz del morfodinámico 2D: paleta divergente
+  // (rojo = erosión Δz<0, blanco ≈ 0, azul = depósito Δz>0), rasterizado igual
+  // que la mancha de inundación.
+  showDzMap(mesh, dz, opts = {}) {
+    const L = window.L;
+    this.groups.malla2d.clearLayers();
+    const N = mesh.nodes;
+    let w = 180, s = 90, e = -180, n = -90;
+    for (const nd of N) { w = Math.min(w, nd.lon); e = Math.max(e, nd.lon); s = Math.min(s, nd.lat); n = Math.max(n, nd.lat); }
+    let lim = opts.lim || 0;
+    if (!lim) for (const v of dz) lim = Math.max(lim, Math.abs(v));
+    lim = lim || 1e-6;
+    const W = 900, H = Math.max(1, Math.round(W * (n - s) / (e - w)));
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+    const X = (lon) => (lon - w) / (e - w) * W;
+    const Y = (lat) => (n - lat) / (n - s) * H;
+    const col = (d) => {
+      const t = Math.max(-1, Math.min(1, d / lim));
+      if (t < 0) { const k = -t; return `rgba(${Math.round(180 + 60 * k)},${Math.round(90 - 60 * k)},${Math.round(70 - 40 * k)},${0.25 + 0.6 * k})`; } // erosión → rojo
+      return `rgba(${Math.round(90 - 60 * t)},${Math.round(120 - 30 * t)},${Math.round(200 + 55 * t)},${0.25 + 0.6 * t})`;                                  // depósito → azul
+    };
+    const umbral = opts.umbral ?? lim * 0.02;
+    for (const t of mesh.tris) {
+      const dm = (dz[t[0]] + dz[t[1]] + dz[t[2]]) / 3;
+      if (Math.abs(dm) < umbral) continue;
+      ctx.beginPath();
+      ctx.moveTo(X(N[t[0]].lon), Y(N[t[0]].lat)); ctx.lineTo(X(N[t[1]].lon), Y(N[t[1]].lat)); ctx.lineTo(X(N[t[2]].lon), Y(N[t[2]].lat)); ctx.closePath();
+      ctx.fillStyle = col(dm); ctx.fill();
+    }
+    this._inunLayer = L.imageOverlay(cv.toDataURL(), [[s, w], [n, e]], { opacity: opts.opacity ?? 0.8 });
+    this.groups.malla2d.addLayer(this._inunLayer);
+    if (opts.cauce) this.groups.malla2d.addLayer(L.polyline(opts.cauce.map(([lo, la]) => [la, lo]), { color: '#0369a1', weight: 1.5 }));
+    this._leyenda('Δz lecho [m]', [[-lim, 'rgba(240,30,30,.85)'], [0, 'rgba(255,255,255,.4)'], [lim, 'rgba(30,90,255,.85)']], (v) => (v > 0 ? '+' : '') + v.toFixed(2));
   }
 
   // ── Red de drenaje / afluentes (como el channel network de QGIS) ────────────
