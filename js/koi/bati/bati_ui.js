@@ -1041,13 +1041,15 @@ export class BatiPanel {
     // Interferencia de estructuras en la sección (1D, tipo HEC-RAS): pilas que la
     // cruzan la ANGOSTAN (suma de anchos) y aportan el ancho de pila; un tablero que
     // la cruza fija la cota inferior (soffit) como tope de WSE / flujo inefectivo.
-    let bPila = 0, zSoffit = Infinity, wmax = 0, forma = 'circular';
+    let bPila = 0, zSoffit = Infinity, zCrestDeck = -Infinity, wmax = 0, forma = 'circular';
     if (s.linea) {
       for (const e of (window.__koi?.estr?.estructuras || [])) {
         const w = pilaEnSeccion(e, s.linea);
         if (w > 0) { bPila += w; if (w > wmax) { wmax = w; forma = e.tipo === 'pila_rect' ? 'rectangular' : 'circular'; } }
         if (e.tipo === 'tablero' && e.planta && s.linea.some(([lo, la]) => puntoEnPoligono(lo, la, e.planta))) {
-          zSoffit = Math.min(zSoffit, (e.zBase ?? 0) + (e.dz || 0) + (e.params.luzLibre || 0));
+          const sof = (e.zBase ?? 0) + (e.dz || 0) + (e.params.luzLibre || 0);
+          zSoffit = Math.min(zSoffit, sof);
+          zCrestDeck = Math.max(zCrestDeck, sof + (e.params.espesor || 0.8));
         }
       }
     }
@@ -1064,6 +1066,11 @@ export class BatiPanel {
       s.obstr = { bPila: +bPila.toFixed(2), Bef: +Bef.toFixed(1), Vobs: +(Q / Math.max(Aef, 1e-3)).toFixed(2) };
     }
     if (isFinite(zSoffit)) s.obstrTablero = { zSoffit: +zSoffit.toFixed(2), sumergido: s.res.WSE > zSoffit };
+    // Spec de puente para el eje 1D integrado (presión/vertedero + afección aguas arriba).
+    s._puente = isFinite(zSoffit) ? {
+      Zlow: +zSoffit.toFixed(2), Zcrest: +(zCrestDeck > zSoffit ? zCrestDeck : zSoffit + 0.8).toFixed(2),
+      Bopen: +(s.res.B || 10).toFixed(1), pilas: +bPila.toFixed(2), Lw: +(s.res.B || 10).toFixed(1),
+    } : null;
     // Motor 2D: si hay superficie de agua muestreada, la WSE/calado de la sección vienen
     // del CAMPO 2D (no del calado normal 1D) → recomputa A/B/prof y V media del campo.
     if (this.motor === '2d' && s._wse2d != null) {
@@ -1141,7 +1148,7 @@ export class BatiPanel {
     const Ce = +this.body.querySelector('#bp-ce').value || 0.3;
     const regimen = this.body.querySelector('#bp-reg').value;
     const wse = parseFloat(this.body.querySelector('#bp-wse').value);
-    const secs = this.secciones.map((s) => ({ pts: s.pts, station: s.station, nombre: s.nombre, kLoc: s.kLoc || 0 }));
+    const secs = this.secciones.map((s) => ({ pts: s.pts, station: s.station, nombre: s.nombre, kLoc: s.kLoc || 0, puente: s._puente || undefined }));
     try {
       const bc = { wseAguasAbajo: isFinite(wse) ? wse : undefined, wseAguasArriba: isFinite(wse) ? wse : undefined };
       const r = regimen === 'mixto'
@@ -1153,6 +1160,12 @@ export class BatiPanel {
         const perd = pl ? `${f2(pl.hf)} / ${f2(pl.he)}${p.kLoc ? ' / ' + f2(pl.hloc) : ''}` : (p.rama || '—');
         return `<tr${p.Fr >= 1 ? ' style="color:var(--accent)"' : ''}><td>${p.nombre || (p.station.toFixed(0) + ' m')}</td><td>${f2(p.WSE)}</td><td>${f2(p.profMax)}</td><td>${f2(p.A)}</td><td>${f2(p.V)}</td><td>${f2(p.Fr)}</td><td>${f2(p.E)}</td><td>${perd}</td></tr>`;
       }).join('');
+      const puenteKV = (r.puente && r.puente.gobierna === 'presión/vertedero') ? `<div class="bp-resalto" style="border-color:var(--coral)"><b>🌉 Puente controla (${r.puente.regimen})</b>
+          <div class="hp-kv">
+            <div><span>Cota de energía aguas arriba</span><b>${f2(r.puente.WSE)} m</b></div>
+            <div><span>Afección (remanso del puente)</span><b>${f2(r.puente.afeccion)} m</b></div>
+            <div><span>Q presión / vertedero</span><b>${f2(r.puente.Qpresion)} / ${f2(r.puente.Qvertedero)} m³/s</b></div>
+            <div><span>Velocidad por el vano · revancha</span><b>${f2(r.puente.Vvano)} m/s · ${f2(r.puente.revancha)} m</b></div></div></div>` : '';
       const resaltoKV = r.resalto ? `<div class="bp-resalto"><b>💥 Resalto hidráulico</b> en est. ${r.resalto.station.toFixed(0)} m (entre ${r.resalto.entre.join(' y ')})
           <div class="hp-kv">
             <div><span>Tirante antes / después (conjugados)</span><b>${f2(r.resalto.y1)} → ${f2(r.resalto.y2)} m</b></div>
@@ -1162,6 +1175,7 @@ export class BatiPanel {
           <div><span>Régimen</span><b>${r.mixto ? 'mixto (con resalto)' : r.regimen}</b></div>
           <div><span>Pendiente media</span><b>${(r.pendienteMedia * 100).toFixed(2)} %</b></div>
           <div><span>Contracción / Expansión</span><b>${r.Cc} / ${r.Ce}</b></div></div>`
+        + puenteKV
         + resaltoKV
         + this._svgPerfilLong(r, r.resalto?.station)
         + `<table class="hp-tbl"><thead><tr><th>Sección</th><th>WSE</th><th>Prof</th><th>A</th><th>V</th><th>Fr</th><th>E</th><th>hf/he/hloc</th></tr></thead><tbody>${rows}</tbody></table>`

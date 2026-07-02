@@ -9,13 +9,28 @@
 //   hf = Sf̄·Δx ,  Sf = (Q·n / (A·R^{2/3}))² ,  he = Ce·|V²/2g arriba − abajo|
 // ─────────────────────────────────────────────────────────────────────────────
 import { propiedades, nivelNormal } from './manning.js?v=2';
+import { puentePresion } from './puente_presion.js?v=2';
 
 const G = 9.81;
 const zBed = (pts) => Math.min(...pts.map((p) => p.z));
 
+// ÁREAS INEFECTIVAS (HEC-RAS): bajo la cota gatillo `elev`, solo conduce el tramo
+// [sL,sR] (el resto almacena pero no conduce → se recorta la geometría de conveyance).
+function ptsEfectivos(pts, inef, WSE) {
+  if (!inef) return pts;
+  const { sL, sR, elev } = inef;
+  if (elev != null && WSE >= elev) return pts;               // sobre el gatillo: todo efectivo
+  const zAt = (s) => { for (let i = 1; i < pts.length; i++) if (s <= pts[i].s) { const a = pts[i - 1], b = pts[i], r = (s - a.s) / ((b.s - a.s) || 1); return a.z + r * (b.z - a.z); } return pts[pts.length - 1].z; };
+  const out = [{ s: sL, z: zAt(sL) }];
+  for (const p of pts) if (p.s > sL && p.s < sR) out.push(p);
+  out.push({ s: sR, z: zAt(sR) });
+  return out.length >= 2 ? out : pts;
+}
+
 // Estado hidráulico de una sección a un nivel WSE, para caudal Q y rugosidad n.
-function estado(pts, WSE, Q, n) {
-  const p = propiedades(pts, WSE);
+// `inef` (opcional) recorta la conveyance por áreas inefectivas.
+function estado(pts, WSE, Q, n, inef) {
+  const p = propiedades(ptsEfectivos(pts, inef, WSE), WSE);
   if (p.A <= 0) return null;
   const V = Q / p.A;
   const Sf = Math.pow((Q * n) / (p.A * Math.pow(p.R, 2 / 3)), 2);
@@ -44,9 +59,9 @@ export function fuerzaEspecifica(pts, WSE, Q) {
 }
 
 // Profundidad/nivel CRÍTICO: WSE tal que Fr=1  ⇔  Q²·B/(g·A³)=1.
-export function nivelCritico(pts, Q) {
+export function nivelCritico(pts, Q, inef) {
   const zMin = zBed(pts), zMax = Math.max(...pts.map((p) => p.z));
-  const fr2 = (WSE) => { const p = propiedades(pts, WSE); return (p.A <= 0 || p.B <= 0) ? Infinity : (Q * Q * p.B) / (G * Math.pow(p.A, 3)); };
+  const fr2 = (WSE) => { const p = propiedades(ptsEfectivos(pts, inef, WSE), WSE); return (p.A <= 0 || p.B <= 0) ? Infinity : (Q * Q * p.B) / (G * Math.pow(p.A, 3)); };
   let lo = zMin + 1e-4, hi = zMax;
   const rango = (zMax - zMin) || 1;
   for (let k = 0; k < 50 && fr2(hi) > 1; k++) hi += rango;   // crítico por sobre el borde (Q alto)
@@ -56,8 +71,8 @@ export function nivelCritico(pts, Q) {
 
 // Resuelve WSE en una sección para energía total objetivo H, en la rama pedida
 // (subcrítica: WSE>zc ; supercrítica: zBed<WSE<zc). H es monótona en cada rama.
-function wseParaH(pts, Q, n, Htarget, zc, subcritico) {
-  const Hof = (WSE) => { const s = estado(pts, WSE, Q, n); return s ? s.H : null; };
+function wseParaH(pts, Q, n, Htarget, zc, subcritico, inef) {
+  const Hof = (WSE) => { const s = estado(pts, WSE, Q, n, inef); return s ? s.H : null; };
   if (subcritico) {
     let lo = zc, hi = zc + 1;
     for (let k = 0; k < 60 && (Hof(hi) ?? -Infinity) < Htarget; k++) hi += Math.max(0.5, (Htarget - zc));
@@ -75,11 +90,12 @@ function wseParaH(pts, Q, n, Htarget, zc, subcritico) {
 // desacelere, como HEC-RAS) + pérdida puntual de la sección (kLoc·V²/2g:
 // obstrucciones, pilas, curvas, estructuras). Devuelve el estado + el desglose.
 function paso(secInc, estConoc, dx, { Q, n, Cc, Ce, subcritico }) {
-  const zc = nivelCritico(secInc.pts, Q);
+  const inef = secInc.inef;
+  const zc = nivelCritico(secInc.pts, Q, inef);
   const kLoc = secInc.kLoc || 0;
   let WSE = estConoc.WSE, prev = NaN, desg = null;
   for (let it = 0; it < 40; it++) {
-    const gi = estado(secInc.pts, WSE, Q, n);
+    const gi = estado(secInc.pts, WSE, Q, n, inef);
     const Sf = gi ? gi.Sf : estConoc.Sf;
     const vh = gi ? gi.vh : estConoc.vh;
     // vh aguas arriba/abajo del PAR (dn = aguas abajo del par)
@@ -89,12 +105,12 @@ function paso(secInc, estConoc, dx, { Q, n, Cc, Ce, subcritico }) {
     const he = (vhDn > vhUp ? Cc : Ce) * Math.abs(vhDn - vhUp);   // contracción vs expansión
     const hloc = kLoc * vh;                                        // pérdida puntual local
     const Htarget = subcritico ? estConoc.H + hf + he + hloc : estConoc.H - hf - he - hloc;
-    WSE = wseParaH(secInc.pts, Q, n, Htarget, zc, subcritico);
+    WSE = wseParaH(secInc.pts, Q, n, Htarget, zc, subcritico, inef);
     desg = { hf, he, hloc, tipo: vhDn > vhUp ? 'contracción' : 'expansión' };
     if (Math.abs(WSE - prev) < 1e-4) break;
     prev = WSE;
   }
-  const s = estado(secInc.pts, WSE, Q, n);
+  const s = estado(secInc.pts, WSE, Q, n, inef);
   return { ...s, perdidas: desg };
 }
 
@@ -134,11 +150,20 @@ export function ejeRemanso(secciones, opts = {}) {
 
   if (subcritico) {
     const WSE0 = opts.wseAguasAbajo ?? nivelNormal(secs[N - 1].pts, { Q, n, J }).WSE;
-    let cur = estado(secs[N - 1].pts, WSE0, Q, n);
+    let cur = estado(secs[N - 1].pts, WSE0, Q, n, secs[N - 1].inef);
     perfil[N - 1] = fill(secs[N - 1], cur);
     for (let i = N - 2; i >= 0; i--) {
+      const dn = cur;                                   // estado aguas abajo (tailwater del puente)
       cur = paso(secs[i], cur, secs[i + 1].station - secs[i].station, { Q, n, Cc, Ce, subcritico: true });
-      perfil[i] = fill(secs[i], cur);
+      // PUENTE: si la sección lo lleva, la WSE aguas arriba = máx(energía, presión/vertedero).
+      if (secs[i].puente) {
+        const pr = puentePresion({ ...secs[i].puente, Zinvert: zBed(secs[i].pts), Q, TW: dn.WSE });
+        if (pr.presuriza && pr.Eu > cur.WSE) { const e = estado(secs[i].pts, pr.Eu, Q, n, secs[i].inef); if (e) cur = e; cur._pr = pr; }
+        perfil[i] = fill(secs[i], cur);
+        perfil[i].puente = resumenPuente(secs[i].puente, cur._pr, cur.WSE);
+      } else {
+        perfil[i] = fill(secs[i], cur);
+      }
     }
   } else {
     const WSE0 = opts.wseAguasArriba ?? nivelNormal(secs[0].pts, { Q, n, J }).WSE;
@@ -150,7 +175,18 @@ export function ejeRemanso(secciones, opts = {}) {
     }
   }
 
-  return { perfil, subcritico, regimen: subcritico ? 'subcrítico' : 'supercrítico', Q, n, J, pendienteMedia: J, Cc, Ce };
+  const puente = perfil.find((p) => p.puente)?.puente || null;
+  return { perfil, subcritico, regimen: subcritico ? 'subcrítico' : 'supercrítico', Q, n, J, pendienteMedia: J, Cc, Ce, puente };
+}
+
+// Resumen del estado del puente para la fila del perfil (régimen, reparto, afección).
+function resumenPuente(spec, pr, wse) {
+  if (!pr || !pr.presuriza) return { regimen: 'libre', gobierna: 'energía', WSE: wse };
+  return {
+    regimen: pr.regimen, gobierna: 'presión/vertedero', WSE: pr.Eu,
+    Qpresion: pr.Qpresion, Qvertedero: pr.Qvertedero, afeccion: pr.afeccion,
+    sobreRasante: pr.sobreRasante, revancha: pr.revancha, Vvano: pr.Vvano,
+  };
 }
 
 // Eje hidráulico de FLUJO MIXTO con RESALTO: corre el perfil supercrítico desde
