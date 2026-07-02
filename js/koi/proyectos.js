@@ -20,7 +20,7 @@ export function saveProject(state) {
   const l = listProjects().filter((p) => p.id !== state.id);
   l.push({ id: state.id, name: state.name || state.id, fecha: new Date().toISOString() });
   _writeList(l);
-  try { localStorage.setItem(PKEY(state.id), JSON.stringify(state)); } catch (e) { alert('No se pudo guardar (almacenamiento lleno): ' + e.message); }
+  try { localStorage.setItem(PKEY(state.id), JSON.stringify(state)); } catch (e) { (window.__koiToast || alert)('No se pudo guardar (almacenamiento lleno): ' + e.message, 'error'); }
 }
 export function loadProjectState(id) { try { return JSON.parse(localStorage.getItem(PKEY(id))); } catch { return null; } }
 export function removeProject(id) {

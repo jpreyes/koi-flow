@@ -48,6 +48,33 @@ body { font: 14px/1.45 system-ui, "Segoe UI", Roboto, sans-serif; background: va
 .menu-item.disabled { color: var(--text2); opacity: .45; cursor: default; }
 .menu-item.on::after { content: ' ✓'; color: var(--accent); font-weight: 700; }
 .menu-sep { height: 1px; background: var(--border); margin: 5px 8px; }
+/* menú Análisis agrupado: cabeceras de grupo no clicables + columnas si es muy alto */
+.menu-grp { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--text2);
+  padding: 8px 12px 3px; margin-top: 2px; border-top: 1px solid var(--border); user-select: none; }
+.menu-grp:first-child { border-top: 0; margin-top: 0; }
+.menu-dd-wide { max-height: min(78vh, 620px); overflow-y: auto; }
+/* acordeones de la sección 2D (difusiva / transiente / momentum / morfo) */
+.bp-det { border: 1px solid var(--border); border-radius: 9px; margin: 8px 0; background: var(--bg2); }
+.bp-det > summary { cursor: pointer; padding: 8px 12px; font-size: 12.5px; font-weight: 600; color: var(--text);
+  list-style: none; user-select: none; border-radius: 9px; }
+.bp-det > summary::-webkit-details-marker { display: none; }
+.bp-det > summary::before { content: '▸'; display: inline-block; margin-right: 7px; color: var(--accent); transition: transform .15s; }
+.bp-det[open] > summary::before { transform: rotate(90deg); }
+.bp-det > summary:hover { background: var(--bg3); }
+.bp-det-body { padding: 2px 12px 10px; border-top: 1px solid var(--border); }
+/* leyenda del campo 2D en el mapa (calado / Δz) */
+.koi-leyenda { background: var(--bg2, rgba(10,30,42,.92)); color: var(--text, #e7f0f4); border: 1px solid var(--border2, #29414f);
+  border-radius: 8px; padding: 7px 10px; font: 11px/1.5 system-ui, sans-serif; box-shadow: 0 4px 14px rgba(0,0,0,.25); }
+.koi-leyenda .kl-t { font-weight: 700; margin-bottom: 3px; }
+.koi-leyenda .kl-fila { display: flex; align-items: center; gap: 6px; }
+.koi-leyenda .kl-c { width: 16px; height: 10px; border-radius: 2px; display: inline-block; border: 1px solid rgba(255,255,255,.25); }
+/* aviso de escritorio en pantallas angostas (la edición GIS necesita mouse + espacio) */
+#koi-movil-aviso { display: none; }
+@media (max-width: 760px) {
+  #koi-movil-aviso { display: block; position: fixed; inset: auto 10px 10px 10px; z-index: 5000;
+    background: var(--bg2, #10222e); color: var(--text, #e7f0f4); border: 1px solid var(--border2, #29414f);
+    border-left: 4px solid #fbbf24; border-radius: 10px; padding: 10px 14px; font: 12.5px/1.5 system-ui; }
+}
 .menubar-right { display: flex; align-items: center; gap: 12px; }
 .seg { display: inline-flex; border: 1px solid var(--border2); border-radius: 8px; overflow: hidden; }
 .seg-btn { background: var(--bg2); color: var(--text2); border: 0; padding: 6px 12px; cursor: pointer; font-size: 13px; }

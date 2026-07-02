@@ -43,7 +43,7 @@
           <button class="menu-item" data-action="bati">Importar batimetría (DXF)…</button>
           <div class="menu-sep"></div>
           <button class="menu-item" data-action="informe">Generar informe (PDF)</button>
-          <button class="menu-item" data-action="informe-word">Generar informe (Word)</button>
+          <button class="menu-item" data-action="informe-word">Generar informe (Word .docx)</button>
         </div></div>
       <div class="menu" data-menu="editar"><button class="menu-btn" type="button">Editar</button>
         <div class="menu-dd">
@@ -60,24 +60,32 @@
           <button class="menu-item" data-action="tema">Cambiar tema (claro / oscuro)</button>
         </div></div>
       <div class="menu" data-menu="analisis"><button class="menu-btn" type="button">Análisis</button>
-        <div class="menu-dd">
+        <div class="menu-dd menu-dd-wide">
+          <div class="menu-grp">Espacios de trabajo</div>
           <button class="menu-item" data-action="tab-cuenca">Cuenca y morfometría</button>
           <button class="menu-item" data-action="tab-hidro">Hidrología</button>
           <button class="menu-item" data-action="tab-hidraulica">Hidráulica (batimetría · 1D / 2D)</button>
           <button class="menu-item" data-action="tab-estructuras">Estructuras (puentes / alcantarillas)</button>
-          <button class="menu-item" data-action="embalse">Embalse (laminación de crecida)</button>
+          <div class="menu-grp">Crecidas y tránsito</div>
           <button class="menu-item" data-action="convolucion">Hidrograma de crecida (HU)</button>
+          <button class="menu-item" data-action="routing">Tránsito en cauce (Muskingum)</button>
+          <button class="menu-item" data-action="embalse">Embalse (laminación de crecida)</button>
           <button class="menu-item" data-action="red">Red de cuencas (HMS-lite)</button>
+          <div class="menu-grp">Hidrología continua</div>
           <button class="menu-item" data-action="continuo">Continua + deshielo (HMS-lite)</button>
           <button class="menu-item" data-action="calibracion">Calibración (Nelder-Mead)</button>
           <button class="menu-item" data-action="modclark">ModClark grillado (HMS-lite)</button>
-          <button class="menu-item" data-action="routing">Tránsito en cauce (Muskingum)</button>
+          <div class="menu-grp">Obras hidráulicas</div>
           <button class="menu-item" data-action="alcantarilla">Alcantarilla (FHWA HDS-5)</button>
           <button class="menu-item" data-action="puente-presion">Puente (presión / vertedero)</button>
           <button class="menu-item" data-action="enrocado">Enrocado / defensas (MC 3.708)</button>
           <button class="menu-item" data-action="verificaciones">Verificaciones (período T · revancha)</button>
+          <button class="menu-item" data-action="sismo-estribo">Sísmica de estribos (Mononobe-Okabe)</button>
+          <div class="menu-grp">Sedimentos y lecho</div>
           <button class="menu-item" data-action="degradacion">Degradación a largo plazo</button>
           <button class="menu-item" data-action="morfo1d">Lecho móvil 1D (evolución)</button>
+          <div class="menu-grp">Riesgo y rotura</div>
+          <button class="menu-item" data-action="breach">Rotura de presa / relaves (Froehlich)</button>
         </div></div>
       <div class="menu" data-menu="ayuda"><button class="menu-btn" type="button">Ayuda</button>
         <div class="menu-dd">
@@ -102,6 +110,8 @@
   </div>
 
 </div>
+
+<div id="koi-movil-aviso">📐 <b>koi-flow está pensado para escritorio</b> — la edición GIS (dibujar dominios, mover vértices, colocar estructuras) necesita mouse y espacio de pantalla. En el móvil puedes revisar resultados, pero el flujo completo funciona mejor en un computador.</div>
 
 <!-- Portada / pantalla de carga -->
 <div id="landing">

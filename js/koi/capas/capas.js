@@ -6,6 +6,7 @@
 // mostrar/ocultar (casilla) y sus entidades ir/borrar. Estilo cercano a wind-shm.
 // ─────────────────────────────────────────────────────────────────────────────
 import { leerKMLoKMZ } from './kml.js?v=2';
+import { toast } from '../ui/toast.js?v=2';
 import { listProjects, saveProject, removeProject, setOpen, newProjectId } from '../proyectos.js?v=2';
 
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
@@ -289,7 +290,7 @@ export class Capas {
     // termina cualquier edición en curso
     if (this._editTramo || this._editImp) { this.map.editarVertices([]); const prev = this._editTramo; this._editTramo = this._editImp = null; if (prev === name) { this.render(); return; } }
     const ly = this.map.layers?.get(name), t = this.project?.tramos.find((x) => x.name === name);
-    if (!ly) { alert('Este tramo no tiene geometría editable en el mapa.'); return; }
+    if (!ly) { toast('Este tramo no tiene geometría editable en el mapa.', 'warn'); return; }
     const on = this.map.editarVertices([ly], () => {
       const lls = ly.getLatLngs(), flat = Array.isArray(lls[0]) ? lls[0] : lls;
       if (t) { t.feature.geometry.coordinates = flat.map((p) => [p.lng, p.lat]); t.npts = flat.length; }
@@ -302,7 +303,7 @@ export class Capas {
     const it = this.map.importLayers.get(id);
     const subs = it ? it.group.getLayers() : [];
     const on = this.map.editarVertices(subs);
-    if (!on) alert('Esta capa no tiene líneas/polígonos editables (¿solo puntos?).');
+    if (!on) toast('Esta capa no tiene líneas/polígonos editables (¿solo puntos?).', 'warn');
     this._editImp = on ? id : null; this.render();
   }
 
@@ -332,7 +333,7 @@ export class Capas {
         const id = this.map.addImport(f.name, gj);
         this.imports.push({ id, name: f.name });
         this.map.zoomImport(id);
-      } catch (e) { alert('No se pudo importar ' + f.name + ': ' + e.message); }
+      } catch (e) { toast('No se pudo importar ' + f.name + ': ' + e.message, 'error'); }
     }
     this.render();
   }
@@ -373,7 +374,7 @@ export class Capas {
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
     a.download = `${id}_koi.json`; a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    alert(`Proyecto guardado: ${name || id}`);
+    toast(`Proyecto guardado: ${name || id}`, 'ok');
   }
 
   // Aplica un estado (puntos/cuencas/importados/etiquetas) sobre el mapa. Usado al
@@ -403,9 +404,9 @@ export class Capas {
 
   async _abrir(file) {
     if (!file) return;
-    let data; try { data = JSON.parse(await file.text()); } catch { return alert('Archivo de proyecto inválido.'); }
-    if (data.app !== 'koi-flow') return alert('No es un proyecto koi-flow.');
+    let data; try { data = JSON.parse(await file.text()); } catch { return toast('Archivo de proyecto inválido.', 'error'); }
+    if (data.app !== 'koi-flow') return toast('No es un proyecto koi-flow.', 'error');
     this.aplicarEstado(data);
-    alert(`Proyecto cargado: ${data.puntos?.length || 0} puntos, ${data.importados?.length || 0} capas, ${data.etiquetas?.length || 0} referencias.`);
+    toast(`Proyecto cargado: ${data.puntos?.length || 0} puntos, ${data.importados?.length || 0} capas, ${data.etiquetas?.length || 0} referencias.`, 'ok');
   }
 }

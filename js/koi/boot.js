@@ -8,6 +8,7 @@
 // se monta sobre este esqueleto en fases siguientes.
 // ─────────────────────────────────────────────────────────────────────────────
 import { SceneView } from './scene_view.js?v=2';
+import { toast } from './ui/toast.js?v=2';
 import { MapView } from './map_view.js?v=2';
 import { Capas } from './capas/capas.js?v=2';
 import { loadProject } from './data.js?v=2';
@@ -33,6 +34,8 @@ import { abrirMorfoHUD } from './hidraulica/morfo1d_ui.js?v=2';
 import { abrirContinuoHUD } from './hidro/continuo_ui.js?v=2';
 import { abrirCalibracionHUD } from './hidro/calibracion_ui.js?v=2';
 import { abrirModClarkHUD } from './hidro/modclark_ui.js?v=2';
+import { abrirBreachHUD } from './hidro/breach_ui.js?v=2';
+import { abrirSismoEstriboHUD } from './hidraulica/sismo_estribo_ui.js?v=2';
 import { Flujo2D } from './hidraulica/panel2d.js?v=2';
 import { EstructurasPanel } from './estructuras/panel.js?v=2';
 import { delinearAuto } from './cuenca/cuenca.js?v=2';
@@ -177,7 +180,7 @@ async function startBoot() {
         const mLon = Math.max((e - w) * 0.25, 0.006), mLat = Math.max((n - s) * 0.25, 0.006);
         capas.setRelieveCargando(t.name, true);
         try { t.demGrid = await fetchDEM({ west: w - mLon, east: e + mLon, south: s - mLat, north: n + mLat }, { maxDim: 256 }); }
-        catch (err) { capas.setRelieveCargando(t.name, false); alert('No se pudo bajar el relieve: ' + err.message); return; }
+        catch (err) { capas.setRelieveCargando(t.name, false); toast('No se pudo bajar el relieve: ' + err.message, 'error'); return; }
       }
     }
     capas.render();
@@ -272,11 +275,21 @@ async function startBoot() {
     'calibracion': () => abrirCalibracionHUD(window.__koi, huds),
     'modclark': () => abrirModClarkHUD(window.__koi, huds),
     'morfo1d': () => abrirMorfoHUD(window.__koi, huds),
+    'breach': () => abrirBreachHUD(window.__koi, huds),
+    'sismo-estribo': () => abrirSismoEstriboHUD(window.__koi, huds),
     'ayuda': () => abrirAyudaHUD(huds),
     'acerca': () => huds.open('acerca', { title: 'Acerca de koi-flow', w: 380, h: 240,
       html: `<p><b>koi-flow</b> — estudios hidrológico-hidráulicos en el navegador (MC-V3 / DGA).</p>
         <p class="hud-note">Software propiedad de <b>JPReyes / Conmuta.cl</b>. Licencia <b>AGPL-3.0</b>.</p>
         <p class="hud-note">PWA sin build · JS ES-modules + Three.js + Leaflet.</p>` }),
+  });
+
+  // Atajos de teclado globales: Ctrl+S guarda el proyecto (sin abrir el diálogo del navegador).
+  document.addEventListener('keydown', (ev) => {
+    if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 's') {
+      ev.preventDefault();
+      capas.guardarProyecto();
+    }
   });
 
   // Selección inicial: el primer tramo con DEM (Tramo 3) para mostrar algo rico.

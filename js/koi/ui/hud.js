@@ -39,8 +39,31 @@ export class Hud {
 
   focus() { this.el.style.zIndex = ++_z; }
   setTitle(t) { this.titleEl.textContent = t || ''; }
-  setBody(html) { this.bodyEl.innerHTML = html; }
+  setBody(html) { this.bodyEl.innerHTML = html; this._restaurarForm(); }
   get body() { return this.bodyEl; }
+
+  // ── memoria de formularios: los inputs/selects con id recuerdan su último valor
+  // por HUD (localStorage), para no re-tipear los parámetros en cada sesión. ────
+  _formKey() { return `koi_form_${this.id}`; }
+  _restaurarForm() {
+    let store; try { store = JSON.parse(localStorage.getItem(this._formKey())) || {}; } catch { store = {}; }
+    for (const el of this.bodyEl.querySelectorAll('input[id], select[id]')) {
+      const v = store[el.id];
+      if (v == null) continue;
+      if (el.type === 'checkbox') el.checked = !!v;
+      else if (el.type !== 'file') el.value = v;
+    }
+    if (!this._formWired) {
+      this._formWired = true;
+      this.bodyEl.addEventListener('change', (ev) => {
+        const el = ev.target;
+        if (!el.id || !(el.matches('input, select')) || el.type === 'file') return;
+        let s; try { s = JSON.parse(localStorage.getItem(this._formKey())) || {}; } catch { s = {}; }
+        s[el.id] = el.type === 'checkbox' ? el.checked : el.value;
+        try { localStorage.setItem(this._formKey(), JSON.stringify(s)); } catch { /* cuota llena: se ignora */ }
+      });
+    }
+  }
 
   toggleMin() {
     this._min = !this._min;
