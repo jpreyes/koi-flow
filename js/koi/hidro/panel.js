@@ -359,6 +359,12 @@ export class HydroPanel {
       this.map.pickOnce((lon, lat) => trazar(lon, lat), 'Clic sobre el cauce para trazar sus afluentes');
     });
     sr.appendChild(bpt);
+    // Auto-actualizar al mover/zoom el mapa (ruteo en un worker → no congela).
+    const auto = el('label', 'hp-f');
+    auto.style.cssText = 'display:flex;align-items:center;gap:6px;margin:4px 0';
+    auto.innerHTML = `<input id="rd_auto" type="checkbox"><span>Actualizar al mover / hacer zoom (auto)</span>`;
+    auto.querySelector('#rd_auto').addEventListener('change', (e) => this.setAutoCauce?.(e.target.checked));
+    sr.appendChild(auto);
     // Mover el umbral re-traza EN VIVO el mismo punto (barato: no re-rutea).
     fr.querySelector('#rd_umbral')?.addEventListener('change', () => {
       const c = this._ultimoCauce; if (c) trazar(c.lon, c.lat);

@@ -104,10 +104,23 @@ async function startBoot() {
     return fc.meta;
   };
   hydro.limpiarRed = () => { map.clearRed(); };
+  // Ruteo D8 en un WORKER (no congela la UI); si el worker falla, cae al síncrono.
+  function routD8Async(grid) {
+    return new Promise((resolve) => {
+      let w;
+      try { w = new Worker(new URL('./cuenca/worker_routd8.js', import.meta.url), { type: 'module' }); }
+      catch { resolve(routD8(grid)); return; }
+      const fin = (r) => { try { w.terminate(); } catch {} resolve(r); };
+      const safety = setTimeout(() => fin(routD8(grid)), 20000);
+      w.onmessage = (ev) => { clearTimeout(safety); fin(ev.data.error ? routD8(grid) : { elev: ev.data.elev, recv: ev.data.recv, accum: ev.data.accum }); };
+      w.onerror = () => { clearTimeout(safety); fin(routD8(grid)); };
+      w.postMessage({ grid });
+    });
+  }
   // Cauce del PUNTO pinchado: solo su árbol de afluentes (red ∩ cuenca del punto),
   // no toda la red de la vista. Reusa el ruteo cacheado si cubre el punto; si no,
-  // baja un DEM alrededor (con holgura) y lo rutea. El umbral se puede re-pasar en
-  // vivo (barato: no re-rutea). Deja la traza en el mapa y devuelve su meta.
+  // baja un DEM alrededor (con holgura) y lo rutea EN UN WORKER. El umbral se puede
+  // re-pasar en vivo (barato: no re-rutea). Deja la traza en el mapa y devuelve meta.
   hydro.cauceEnPunto = async (lon, lat, umbralKm2, onProgress) => {
     let st = hydro.redState;
     const dentro = (g) => g && lon >= g.bbox.west && lon <= g.bbox.east && lat >= g.bbox.south && lat <= g.bbox.north;
@@ -118,7 +131,7 @@ async function startBoot() {
       const dw = Math.max((b.getEast() - b.getWest()) * 0.75, 0.05), dh = Math.max((b.getNorth() - b.getSouth()) * 0.75, 0.05);
       const grid = await fetchDEM({ west: lon - dw, east: lon + dw, south: lat - dh, north: lat + dh }, { maxDim: 512 });
       onProgress?.('Ruteando el flujo (D8)…');
-      st = hydro.redState = { grid, rout: routD8(grid) };
+      st = hydro.redState = { grid, rout: await routD8Async(grid), zoom: map.map.getZoom() };
     }
     onProgress?.('Trazando el cauce del punto…');
     const fc = trazarCauce(st.grid, st.rout, lon, lat, { umbralKm2: umbralKm2 || 0.05 });
@@ -127,6 +140,32 @@ async function startBoot() {
     capas.render();
     return fc.meta;
   };
+  // Auto-trazado: re-traza el punto activo al mover/zoom el mapa (debounce), con el
+  // ruteo en el worker. Al cambiar el zoom se invalida el DEM cacheado para refinar
+  // a la resolución del nuevo zoom. Un flag evita solapar corridas.
+  hydro._autoCauce = false;
+  hydro.setAutoCauce = (on) => {
+    hydro._autoCauce = !!on;
+    if (on && hydro._ultimoCauce) hydro._autoTick();
+  };
+  hydro._autoTick = () => {
+    clearTimeout(hydro._autoTimer);
+    hydro._autoTimer = setTimeout(async () => {
+      if (!hydro._autoCauce || hydro._autoBusy) return;
+      const c = hydro._ultimoCauce; if (!c) return;
+      hydro._autoBusy = true;
+      try {
+        const z = map.map.getZoom();
+        // el punto salió de la vista → no re-trazar (evita bajar DEM lejos del cauce)
+        if (!map.map.getBounds().contains([c.lat, c.lon])) return;
+        if (hydro.redState && Math.abs(z - (hydro.redState.zoom ?? z)) >= 1) hydro.redState = null; // refina por zoom
+        const um = parseFloat(document.getElementById('rd_umbral')?.value) || 0.05;
+        await hydro.cauceEnPunto(c.lon, c.lat, um);
+      } catch (e) { console.warn('auto-cauce:', e.message); }
+      finally { hydro._autoBusy = false; }
+    }, 550);
+  };
+  map.map.on('moveend', () => { if (hydro._autoCauce) hydro._autoTick(); });
   // Cuenca aportante completa (HydroBASINS) a pedido, para cualquier punto.
   hydro.cuencaCompleta = async (p) => {
     await cargarHydroBasins();
