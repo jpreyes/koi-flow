@@ -6,6 +6,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { puentePresion, curvaPuente } from './puente_presion.js?v=2';
 import { socavacionEstribo } from './socavacion.js?v=2';
+import { registrar } from '../informe/registro.js?v=2';
 
 const f = (v, d = 2) => (v == null || !isFinite(v) ? '—' : v.toFixed(d));
 
@@ -89,6 +90,7 @@ function wire(hud, koi) {
     if (!(o.Zlow > o.Zinvert) || !(o.Zcrest >= o.Zlow)) { out.innerHTML = '<p class="hud-note" style="color:var(--red)">Las cotas deben cumplir solera &lt; bajo-tablero ≤ rasante.</p>'; return; }
     if (!(o.Q > 0)) { out.innerHTML = '<p class="hud-note" style="color:var(--red)">Ingresa el caudal Q.</p>'; return; }
     const r = puentePresion(o);
+    if (r.presuriza) registrar('puentePresion', { regimen: r.regimen, Eu: r.Eu, Qpresion: r.Qpresion, Qvertedero: r.Qvertedero, afeccion: r.afeccion, revancha: r.revancha, Vvano: r.Vvano });
     if (!r.presuriza) {
       out.innerHTML = `<div class="bp-resalto" style="border-color:var(--teal)"><b>Superficie libre</b> — ${r.nota}
         <div class="hp-kv"><div><span>Q incipiente de presión</span><b>${f(r.Qincip, 0)} m³/s</b></div>
@@ -125,6 +127,7 @@ function bloqueEstribo($, r) {
   const Fr = $('#pp-ea-fr').value ? +$('#pp-ea-fr').value : Math.min(0.9, r.Vvano / Math.sqrt(9.81 * ya));
   const forma = $('#pp-ea-forma').value, theta = +$('#pp-ea-th').value || 90;
   const e = socavacionEstribo({ ya, Fr, Lp, forma, theta });
+  registrar('estribo', { metodo: e.recomendado, ratio: e.ratio, ys: e.adoptada });
   return `<div class="hp-mini" style="margin-top:10px">Socavación de estribos (HEC-18)</div>
     <div class="hp-kv">
       <div><span>Froehlich / HIRE</span><b>${f(e.froehlich)} / ${f(e.hire)} m</b></div>

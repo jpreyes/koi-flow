@@ -6,6 +6,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { serieSintetica, simularContinuo } from './continuo.js?v=2';
 import { calibrarContinuo } from './calibracion.js?v=2';
+import { registrar } from '../informe/registro.js?v=2';
 
 const f = (v, d = 2) => (v == null || !isFinite(v) ? '—' : v.toFixed(d));
 
@@ -61,6 +62,7 @@ function wire(hud) {
     const out = $('#ca-out');
     if (Qobs.length < 30) { out.innerHTML = '<p class="hud-note" style="color:var(--red)">Serie observada insuficiente (mín 30 valores).</p>'; return; }
     const cal = calibrarContinuo(serie, Qobs, { base: { area }, claves: ['Cm', 'Smax', 'kBase'] });
+    registrar('calibracion', { nse0: cal.nse0 ?? null, nse: cal.nse, iter: cal.iteraciones ?? cal.iter ?? null, params: cal.params });
     const cmp = (lbl, got, tru) => `<div><span>${lbl}</span><b>${f(got)}${tru != null ? ` <span style="color:var(--text2)">(real ${f(tru)})</span>` : ''}</b></div>`;
     out.innerHTML = `<div class="hp-kv">
         <div><span>Nash-Sutcliffe (NSE)</span><b style="color:${cal.nse > 0.7 ? 'var(--teal)' : 'var(--coral)'}">${f(cal.nse, 4)}</b></div>

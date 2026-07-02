@@ -1,14 +1,20 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // informe.js — generador del INFORME hidrológico-hidráulico (koi-flow).
-// Sigue la MISMA estructura de capítulos/subcapítulos del informe de referencia
-// "03 Hidrología e Hidráulica S17" (Análisis Hidrológico · Estudio Hidráulico ·
-// Análisis de Socavaciones), con las MISMAS ecuaciones (prerrenderizadas) y al
-// menos las mismas tablas, rellenadas con los datos del proyecto cuando existen.
+// Sigue la estructura de capítulos del informe de referencia "03 Hidrología e
+// Hidráulica S17" (Hidrología · Hidráulico · Socavaciones) y agrega el capítulo
+// 4 "Diseño y Verificación de Obras" (alcantarillas HDS-5, puente en presión,
+// enrocado, verificaciones normativas, sísmica de estribos, rotura de presa).
+// Las fórmulas están PRERRENDERIZADAS en MathML (informe/formulas.js) — las
+// formulaciones no cambian, solo se insertan bien tipografiadas.
+// Los HUD publican sus resultados en `koi.reg.<modulo>` y el informe los lee;
+// si un módulo no se corrió, la sección muestra la metodología + "pendiente".
 // Documento HTML imprimible (→ PDF). Propiedad: JPReyes / Conmuta.cl.
 // ─────────────────────────────────────────────────────────────────────────────
 import { estacionesCercanas, cargarSerie } from '../datos/dga.js?v=2';
 import { analizar } from '../hidro/frecuencia.js?v=2';
 import { correrPipelinePunto } from '../hidro/pipeline.js?v=2';
+import { F } from './formulas.js?v=2';
+import { figuraCuencaMapa } from './mapa_fig.js?v=2';
 
 const f = (v, d = 2) => (v == null || !isFinite(v) ? '—' : (Math.abs(v) >= 1000 ? v.toFixed(0) : v.toFixed(d)));
 const esc = (s) => String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
@@ -19,7 +25,7 @@ const TS = [2, 5, 10, 25, 50, 100, 200];
 // Abre la ventana YA (evita bloqueo de popups), corre el análisis y rellena.
 export async function generarInforme(koi) {
   const w = window.open('', '_blank');
-  if (!w) { alert('Permite las ventanas emergentes para ver el informe.'); return; }
+  if (!w) { (window.__koiToast || alert)('Permite las ventanas emergentes para ver el informe.'); return; }
   w.document.write('<p style="font:15px system-ui;padding:28px;color:#128aa5">Generando informe… corriendo el análisis de frecuencia.</p>');
   let datos = {};
   try { datos = await reunirDatos(koi); } catch (e) { console.warn('informe:', e.message); }
@@ -45,8 +51,13 @@ async function reunirDatos(koi) {
       }
     } catch { /* sin catálogo */ }
   }
-  // Pipeline completo (caudales pluviales + HU + transposición fluviométrica + adoptados)
-  // si hay cuenca delineada y serie pluviométrica.
+  // figura de la cuenca sobre el satélite (tiles + polígono + punto) para la sección 1.6
+  const pc = pts.find((p) => p.cuenca);
+  if (pc?.cuenca) {
+    try { out.mapaCuenca = await figuraCuencaMapa(pc.cuenca.polygonSuave || pc.cuenca.polygon, [pc.lon, pc.lat]); }
+    catch (e) { console.warn('mapa cuenca:', e.message); }
+  }
+
   const m = (pts.find((p) => p.cuenca)?.cuenca?.morfometria);
   if (m && out.pp?.raw) {
     let Apc = 0;
@@ -69,8 +80,10 @@ function numerador() {
     const n = c.slice(0, lvl).join('.'); return `<h${lvl + 1} class="h${lvl}"><span class="hn">${n}</span> ${esc(title)}</h${lvl + 1}>`; };
 }
 const P = (html) => `<p>${html}</p>`;
-const EQ = (html) => `<div class="formula">${html}</div>`;
+const EQ = (mathml, nota) => `<div class="formula">${mathml}${nota ? `<div class="eq-nota">${nota}</div>` : ''}</div>`;
 const ND = (t = 'Pendiente de ingreso de datos.') => `<p class="nd">${t}</p>`;
+const FIGCAP = (t) => `<p class="figcap">${t}</p>`;
+const KV = (pares) => tabla(['Magnitud', 'Valor'], pares);
 
 // Contenido del informe (portada + capítulos + pie), reutilizable para pantalla y Word.
 function contenido(koi, datos = {}) {
@@ -81,11 +94,12 @@ function contenido(koi, datos = {}) {
     `<section class="cap">${capHidrologia(koi, H, datos)}</section>`,
     `<section class="cap">${capHidraulico(koi, H)}</section>`,
     `<section class="cap">${capSocavacion(koi, H)}</section>`,
+    `<section class="cap">${capObras(koi, H)}</section>`,
   ].join('\n');
   return `${portada(proj, fecha)}${cuerpo}${pieLicencia()}`;
 }
 
-function construir(koi, datos = {}) {
+export function construir(koi, datos = {}) {   // exportado para poder testear el documento sin abrir popup
   const proj = koi.project || {};
   return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
     <title>Informe hidrológico-hidráulico · ${esc(proj.name || 'koi-flow')}</title><style>${CSS}</style></head><body>
@@ -94,31 +108,40 @@ function construir(koi, datos = {}) {
     <main>${contenido(koi, datos)}</main></body></html>`;
 }
 
-// Exporta el informe a Word (.doc): HTML compatible con Word (tablas/fórmulas/texto).
+// Exporta el informe a Word .docx REAL (ZIP + OOXML, ver informe/docx.js): las
+// fórmulas van como OMML (matemática NATIVA de Word, editables) y las figuras
+// SVG/snapshot rasterizadas a PNG incrustado. Todo in-house.
 export async function generarInformeWord(koi) {
-  let datos = {};
-  try { datos = await reunirDatos(koi); } catch (e) { console.warn('informe word:', e.message); }
-  const proj = koi.project || {};
-  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
-    <head><meta charset="utf-8"><title>Informe · ${esc(proj.name || 'koi-flow')}</title>
-    <!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View></w:WordDocument></xml><![endif]-->
-    <style>${CSS}</style></head><body><main>${contenido(koi, datos)}</main></body></html>`;
-  const blob = new Blob(['﻿', html], { type: 'application/msword' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = `${(proj.name || 'informe').replace(/\s+/g, '_')}.doc`; a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+  const busy = window.__koiBusy?.start?.('Generando .docx…');
+  try {
+    let datos = {};
+    try { datos = await reunirDatos(koi); } catch (e) { console.warn('informe word:', e.message); }
+    const proj = koi.project || {};
+    const { informeADocx } = await import('./docx.js?v=2');
+    const blob = await informeADocx(contenido(koi, datos));
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = `${(proj.name || 'informe').replace(/\s+/g, '_')}.docx`; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+    (window.__koiToast || (() => {}))('Informe .docx generado (fórmulas editables en Word).', 'ok');
+  } catch (e) {
+    (window.__koiToast || alert)('No se pudo generar el .docx: ' + e.message, 'error');
+    console.error(e);
+  } finally { window.__koiBusy?.end?.(busy); }
 }
 
 function portada(proj, fecha) {
   return `<section class="portada">
+    <div class="p-banda"></div>
     <img src="icons/koi-symbol.svg" class="logo" alt="Koi-Flow" onerror="this.src='${MARCA.logo}'">
-    <h1>Informe Hidrológico-Hidráulico</h1>
+    <p class="p-tipo">Informe técnico</p>
+    <h1>Estudio Hidrológico · Hidráulico<br>y de Socavaciones</h1>
     <h2>${esc(proj.name || 'Proyecto')}</h2>
     <p class="fecha">${fecha}</p>
-    <div class="lic">Elaborado con <b>Koi-Flow</b> — software propiedad de <b>${MARCA.autor} / ${MARCA.empresa}</b>.
-      Metodologías según Manual de Carreteras (MC-V3, Vol. 3) y DGA. Estructura basada en el informe tipo S17.</div>
     <div class="toc"><b>Contenido</b>
-      <ol><li>Análisis Hidrológico</li><li>Estudio Hidráulico</li><li>Análisis de Socavaciones</li></ol></div></section>`;
+      <ol><li>Análisis Hidrológico</li><li>Estudio Hidráulico</li><li>Análisis de Socavaciones</li><li>Diseño y Verificación de Obras</li></ol></div>
+    <div class="lic">Elaborado con <b>Koi-Flow</b> — software propiedad de <b>${MARCA.autor} / ${MARCA.empresa}</b>.
+      Metodologías según Manual de Carreteras (MC-V3), DGA, FHWA (HDS-5 / HEC-18 / HEC-23) y AASHTO.
+      Estructura basada en el informe tipo S17.</div></section>`;
 }
 function pieLicencia() {
   return `<section class="pie"><hr><p>© ${new Date().getFullYear()} <b>${MARCA.autor} / ${MARCA.empresa}</b> · Koi-Flow.
@@ -128,12 +151,12 @@ function pieLicencia() {
 // ═══ 1 · ANÁLISIS HIDROLÓGICO ═══════════════════════════════════════════════════
 function capHidrologia(koi, H, datos = {}) {
   const est = koi.map?._stations || [];
+  const reg = koi.reg || {};
   const pl = est.filter((e) => e.tipo === 'pluviometrica'), fl = est.filter((e) => e.tipo === 'fluviometrica');
   const cuencas = (koi.map?.getPoints?.() || []).filter((p) => p.cuenca);
   const m = cuencas[0]?.cuenca?.morfometria;
   const filaEst = (e) => [esc(e.nombre), e.bna, f(e.dist, 1) + ' km', e.n_anios ?? '—', esc(e.periodo || '—')];
   const cabEst = ['Estación', 'BNA', 'Distancia', 'Años', 'Periodo'];
-  // Análisis de frecuencia corrido sobre las estaciones patrón (auto-relleno)
   const ppAn = datos.pp?.an, flAn = datos.fl?.an;
   const resumenDist = (an) => tabla(['Distribución', 'R²', 'χ²', 'Aceptada'],
     an ? Object.entries(an.resultados).map(([k, r]) => [DIST[k], r.r2.toFixed(3), r.chi2.toFixed(1), r.aceptado ? '✓' : '✗']) : null);
@@ -159,41 +182,43 @@ function capHidrologia(koi, H, datos = {}) {
 
   b += H(2, 'Cuencas Hidrográficas');
   b += P('La cuenca aportante se delinea por análisis de dirección de flujo <b>D8</b> sobre el DEM (llenado de depresiones → direcciones → acumulación → ajuste del exutorio → parteaguas).');
-  if (m) b += `<div class="fig-row">${svgPoligono(cuencas[0].cuenca.polygonSuave || cuencas[0].cuenca.polygon, '#128aa5', 'rgba(18,138,165,.15)', [cuencas[0].lon, cuencas[0].lat])}
-    ${tabla(['Parámetro', 'Valor'], [['Área A', m.A + ' km²'], ['Cauce principal L', m.L + ' km'], ['Long. al centroide Lg', m.Lg + ' km'], ['Pendiente media S', f(m.S * 100) + ' %'], ['Desnivel H', m.H + ' m'], ['Perímetro', m.perimetro_km + ' km']])}</div>`;
-  else b += ND('Delinea una cuenca para poblar esta sección.');
+  if (m) {
+    if (datos.mapaCuenca) b += `<img class="snap" src="${datos.mapaCuenca}" alt="Cuenca sobre satélite">` + FIGCAP('Cuenca aportante y punto de análisis sobre imagen satelital (mapa 2D).');
+    b += `<div class="fig-row">${svgPoligono(cuencas[0].cuenca.polygonSuave || cuencas[0].cuenca.polygon, '#128aa5', 'rgba(18,138,165,.15)', [cuencas[0].lon, cuencas[0].lat])}
+    ${tabla(['Parámetro', 'Valor'], [['Área A', m.A + ' km²'], ['Cauce principal L', m.L + ' km'], ['Long. al centroide Lg', m.Lg + ' km'], ['Pendiente media S', f(m.S * 100) + ' %'], ['Desnivel H', m.H + ' m'], ['Perímetro', m.perimetro_km + ' km']])}</div>` + FIGCAP('Croquis de la cuenca delineada (parteaguas D8) y morfometría.');
+  } else b += ND('Delinea una cuenca para poblar esta sección.');
 
   b += H(2, 'Estaciones Pluviométricas');
   b += tabla(cabEst, pl.length ? pl.map(filaEst) : null);
   b += H(3, 'Modelo digital de elevaciones');
   b += P('DEM base tipo Terrarium (y batimetría CAD fusionada cuando existe) para morfometría, secciones y modelación.');
-  { const png = koi.scene?.terrain ? koi.scene.snapshot?.() : null; if (png) b += `<img class="snap" src="${png}" alt="Relieve 3D"><p class="cap">Modelo 3D del sector (relieve + cauce).</p>`; }
+  { const png = koi.scene?.terrain ? koi.scene.snapshot?.() : null; if (png) b += `<img class="snap" src="${png}" alt="Relieve 3D">` + FIGCAP('Modelo 3D del sector (relieve + cauce).'); }
 
   b += H(2, 'Elección de la Estación Patrón');
   b += P('Se adopta como estación patrón la de mayor longitud de registro y representatividad, priorizando registro sobre cercanía.');
 
   b += H(2, 'Análisis de Datos Dudosos');
   b += P('Detección de datos dudosos altos/bajos por el criterio de <b>Grubbs-Beck</b> (WRC) sobre los logaritmos de la serie:');
-  b += EQ('x<sub>H,L</sub> = 10<sup>( x̄ ± K<sub>N</sub>·s )</sup> ,&nbsp; con x en log<sub>10</sub> ; K<sub>N</sub> según el tamaño de muestra N');
+  b += EQ(F.grubbs, 'con x en log₁₀; K<sub>N</sub> según el tamaño de muestra N');
 
   b += H(2, 'Relleno de Estadísticas');
   b += P('Relleno de faltantes por correlación con estaciones vecinas (razones/regresión) para homogeneizar el periodo.');
 
   b += H(2, 'Análisis de Frecuencia');
   b += P('Se ajustan las <b>6 distribuciones</b> del MC a la serie de máximos anuales y se calculan los cuantiles para los periodos de retorno de diseño (T = 2…300 años).');
-  b += H(3, 'Modelo Normal'); b += EQ('x<sub>T</sub> = x̄ + z<sub>T</sub>·s');
-  b += H(3, 'Modelo Log-Normal'); b += EQ('ln x<sub>T</sub> = μ<sub>ln</sub> + z<sub>T</sub>·σ<sub>ln</sub>');
-  b += H(3, 'Distribución Pearson III'); b += EQ('x<sub>T</sub> = x̄ + K<sub>T</sub>(C<sub>s</sub>)·s');
-  b += H(3, 'Modelo Log-Pearson tipo III'); b += EQ('log x<sub>T</sub> = x̄<sub>log</sub> + K<sub>T</sub>(C<sub>s,log</sub>)·s<sub>log</sub>');
-  b += H(3, 'Modelo Valores Extremos tipo I (Gumbel)'); b += EQ('x<sub>T</sub> = x̄ + s·( −(√6/π)[0.5772 + ln(ln(T/(T−1)))] − Y<sub>n</sub> )/S<sub>n</sub>');
-  b += H(3, 'Distribución Gamma'); b += EQ('f(x) = x<sup>α−1</sup>·e<sup>−x/β</sup> / (β<sup>α</sup>·Γ(α))');
+  b += H(3, 'Modelo Normal'); b += EQ(F.normal);
+  b += H(3, 'Modelo Log-Normal'); b += EQ(F.lognormal);
+  b += H(3, 'Distribución Pearson III'); b += EQ(F.pearson3);
+  b += H(3, 'Modelo Log-Pearson tipo III'); b += EQ(F.logpearson3);
+  b += H(3, 'Modelo Valores Extremos tipo I (Gumbel)'); b += EQ(F.gumbel);
+  b += H(3, 'Distribución Gamma'); b += EQ(F.gamma);
 
   b += H(2, 'Calidad del Ajuste — Coeficiente de Determinación R²');
-  b += EQ('R² = 1 − Σ(x<sub>i</sub> − x̂<sub>i</sub>)² / Σ(x<sub>i</sub> − x̄)²');
+  b += EQ(F.r2);
 
   b += H(2, 'Prueba de Bondad de Ajuste');
   b += P('Prueba χ² de Pearson (α = 0.05), gl = k − 1 − p:');
-  b += EQ('χ² = Σ (O<sub>i</sub> − E<sub>i</sub>)² / E<sub>i</sub>');
+  b += EQ(F.chi2);
 
   b += H(2, 'Resultados del Análisis de Frecuencia');
   b += H(3, 'Parámetros de Distribuciones'); b += tabla(['Distribución', 'Parámetros'], [['Normal', 'μ, σ'], ['Log-Normal', 'μ_ln, σ_ln'], ['Pearson III', 'x̄, s, Cs'], ['Log-Pearson III', 'x̄_log, s_log, Cs_log'], ['Gumbel', 'x̄, s (Yn, Sn)'], ['Gamma', 'α, β']]);
@@ -209,35 +234,34 @@ function capHidrologia(koi, H, datos = {}) {
 
   b += H(2, 'Curva de Intensidad – Duración – Frecuencia');
   b += P('IDF por coeficientes de duración/frecuencia (Grunsky) a partir de la PP diaria:');
-  b += EQ('i(t,T) = P<sub>24,T</sub> · C<sub>D</sub>(t) / t');
+  b += EQ(F.idf);
 
   b += H(2, 'Estimación de Caudales en Cuencas Sin Control Fluviométrico');
-  b += H(3, 'Coeficiente de escorrentía'); b += EQ('C = f(uso de suelo, pendiente, T) ;&nbsp; método racional: Q = C·i·A / 3.6');
+  b += H(3, 'Coeficiente de escorrentía'); b += P('C = f(uso de suelo, pendiente, T); método racional:'); b += EQ(F.racional);
 
   b += H(2, 'Línea de Nieve');
   b += P('Se determina la línea de nieves (Peña-Vidal) para separar el <b>área pluvial</b> aportante del área nival.');
 
   b += H(2, 'Áreas Aportantes');
   b += H(3, 'Forma de la Cuenca');
-  b += H(4, 'Índice de Gravelius o coeficiente de compacidad (Kc)'); b += EQ('K<sub>c</sub> = 0.28 · P / √A' + (m ? ` = <b>${m.Kc}</b>` : ''));
-  b += H(4, 'Factor de forma (Kf)'); b += EQ('K<sub>f</sub> = A / L²' + (m ? ` = <b>${f(m.A / (m.L * m.L))}</b>` : ''));
-  // Tiempo de concentración — todos los métodos
+  b += H(4, 'Índice de Gravelius o coeficiente de compacidad (Kc)'); b += EQ(F.kc, m ? `K<sub>c</sub> = <b>${m.Kc}</b>` : '');
+  b += H(4, 'Factor de forma (Kf)'); b += EQ(F.kf, m ? `K<sub>f</sub> = <b>${f(m.A / (m.L * m.L))}</b>` : '');
   const tc = m ? tcTabla(m) : null;
-  b += H(4, 'Método de California'); b += EQ('t<sub>c</sub> = 0.95·(L³/H)<sup>0.385</sup>' + tcVal(tc, 'California'));
-  b += H(4, 'Método de Giandotti'); b += EQ('t<sub>c</sub> = (4√A + 1.5L) / (0.8√H<sub>m</sub>)' + tcVal(tc, 'Giandotti'));
-  b += H(4, 'Normas Españolas'); b += EQ('t<sub>c</sub> = 0.3·(L / S<sup>0.25</sup>)<sup>0.76</sup>' + tcVal(tc, 'Normas'));
-  b += H(4, 'Método SCS (1975)'); b += EQ('t<sub>c</sub> = (3.28·L)<sup>0.8</sup>·(1000/CN − 9)<sup>0.7</sup> / (1140·S<sub>%</sub><sup>0.5</sup>)' + tcVal(tc, 'SCS'));
-  b += H(4, 'Método de Kirpich'); b += EQ('t<sub>c</sub> = 0.0195·L<sub>m</sub><sup>0.77</sup>·S<sup>−0.385</sup>' + tcVal(tc, 'Kirpich'));
+  b += H(4, 'Método de California'); b += EQ(F.tcCalifornia, tcVal(tc, 'California'));
+  b += H(4, 'Método de Giandotti'); b += EQ(F.tcGiandotti, tcVal(tc, 'Giandotti'));
+  b += H(4, 'Normas Españolas'); b += EQ(F.tcNormas, tcVal(tc, 'Normas'));
+  b += H(4, 'Método SCS (1975)'); b += EQ(F.tcSCS, tcVal(tc, 'SCS'));
+  b += H(4, 'Método de Kirpich'); b += EQ(F.tcKirpich, tcVal(tc, 'Kirpich'));
   if (tc) b += tabla(['Método', 't_c [h]'], tc.metodos.map((x) => [x.metodo, x.aplica && isFinite(x.tc) ? x.tc.toFixed(2) : '—'])).replace('</table>', `</table><p class="nd">t_c adoptado (máx): <b>${isFinite(tc.adoptado) ? tc.adoptado.toFixed(2) + ' h' : '—'}</b></p>`);
 
   b += H(2, 'Determinación de Caudales Máximos');
-  b += H(3, 'Método Racional'); b += EQ('Q = C·i·A / 3.6');
-  b += H(3, 'Método Verni-King (modificado)'); b += EQ('Q<sub>T</sub> = C · A<sup>0.88</sup> · P<sub>24,T</sub><sup>1.24</sup> · (factor de forma)');
+  b += H(3, 'Método Racional'); b += EQ(F.racional);
+  b += H(3, 'Método Verni-King (modificado)'); b += EQ(F.verniking);
   b += H(3, 'Método DGA');
   b += H(4, 'Determinación de Zona Homogénea'); b += P('Se clasifica la cuenca en la zona homogénea correspondiente (coeficientes regionales DGA-AC).');
-  b += H(4, 'Caudal Medio Diario Máximo T=10 años'); b += EQ('Q<sub>10</sub><sup>md</sup> = a · A<sup>b</sup> · PP<sup>c</sup> (coef. de la zona)');
-  b += H(4, 'Factor de conversión y Caudal Instantáneo Máximo'); b += EQ('Q<sub>T</sub><sup>inst</sup> = Q<sub>10</sub><sup>md</sup> · (Q<sub>T</sub>/Q<sub>10</sub>) · f<sub>inst</sub>');
-  b += H(3, 'Hidrograma Unitario Sintético tipo Linsley'); b += EQ('t<sub>p</sub> = C<sub>t</sub>·(L·L<sub>g</sub>/√S)<sup>n</sup> ;&nbsp; q<sub>p</sub> = C<sub>p</sub>·A / t<sub>p</sub>');
+  b += H(4, 'Caudal Medio Diario Máximo T=10 años'); b += EQ(F.dgaQmd);
+  b += H(4, 'Factor de conversión y Caudal Instantáneo Máximo'); b += EQ(F.dgaInst);
+  b += H(3, 'Hidrograma Unitario Sintético tipo Linsley'); b += EQ(F.linsley);
 
   b += H(2, 'Resumen de Caudales — Estudio Pluviométrico');
   if (pipe?.caudales?.pluvial?.metodos?.length) {
@@ -254,8 +278,7 @@ function capHidrologia(koi, H, datos = {}) {
   if (datos.fl) b += P(`Estación de control fluviométrica: <b>${esc(datos.fl.est.nombre)}</b> (BNA ${datos.fl.est.bna}, ${datos.fl.n} años) · mejor ajuste: <b>${DIST[flAn.mejor]}</b>.`);
   b += cuantiles(flAn, 'Q [m³/s]');
   b += H(4, 'Test de Bondad de Ajuste'); b += P('χ² y R² por distribución (ver HUD de la estación fluviométrica).');
-  b += H(4, 'Resultados de dispersiones probabilísticas'); b += P('Bandas de confianza de los cuantiles fluviométricos.');
-  b += H(3, 'Transposición de Caudales'); b += EQ('Q<sub>x</sub> = Q<sub>c</sub> · (A<sub>px</sub> / A<sub>pc</sub>)<sup>0.88</sup> · (P<sub>x24</sub>/P<sub>c24</sub>)<sup>1.24</sup>');
+  b += H(3, 'Transposición de Caudales'); b += EQ(F.transposicion);
   const tr = pipe?.caudales?.transposicion;
   if (tr) {
     b += P(`Estación patrón <b>${esc(tr.estacion)}</b> (A<sub>pc</sub> = ${f(tr.Apc)} km²) → cuenca del tramo (A<sub>px</sub> = ${f(tr.Apx)} km²), distribución <b>${esc(tr.distribucion)}</b>.`);
@@ -271,6 +294,46 @@ function capHidrologia(koi, H, datos = {}) {
   } else if (flAn) {
     b += tabla(['T [años]', 'Q adoptado [m³/s]', 'Origen'], [10, 100, 200].map((T) => [T, f(flAn.resultados[flAn.mejor].quantiles[T]), 'fluviometría · ' + esc(datos.fl.est.nombre)]));
   } else b += tabla(['T [años]', 'Q adoptado [m³/s]', 'Origen'], null);
+
+  // ── Módulos HMS-lite (nuevos) ────────────────────────────────────────────────
+  b += H(2, 'Hidrograma de Crecida — Convolución del HU');
+  b += P('La tormenta de diseño se discretiza (bloques alternos), se descuenta la abstracción por <b>SCS-CN</b> y la lluvia efectiva se convoluciona con el hidrograma unitario sintético (Linsley) conservando la masa (V = P<sub>e</sub>·A):');
+  b += EQ(F.scsCN); b += EQ(F.convolucion);
+  const cv = reg.convolucion;
+  if (cv) b += KV([['P total', f(cv.Ptotal) + ' mm'], ['Duración', f(cv.durH, 1) + ' h'], ['CN', cv.CN], ['Lluvia efectiva', f(cv.PeTotal) + ' mm'], ['Q pico', f(cv.Qpico) + ' m³/s'], ['t pico', f(cv.tPicoH, 1) + ' h'], ['Volumen', f(cv.volMm3, 3) + ' hm³']]);
+  else b += ND('Corre "Hidrograma de crecida (HU)" en Análisis para poblar esta sección.');
+
+  b += H(2, 'Tránsito de Crecidas en Cauce — Muskingum / Muskingum-Cunge');
+  b += EQ(F.muskingum); b += EQ(F.cunge);
+  const rt = reg.routing;
+  if (rt) b += KV([['Método', esc(rt.metodo)], ['K', f(rt.K / 3600, 2) + ' h'], ['x', f(rt.x, 3)], ['Q pico entrada', f(rt.QpicoIn) + ' m³/s'], ['Q pico salida', f(rt.QpicoOut) + ' m³/s'], ['Atenuación', f(rt.atenPct, 1) + ' %'], ['Desfase', f(rt.desfaseH, 2) + ' h']]);
+  else b += ND('Corre "Tránsito en cauce (Muskingum)" para poblar esta sección.');
+
+  b += H(2, 'Red de Subcuencas (HMS-lite)');
+  b += P('Los elementos (subcuenca → tramo → unión) se resuelven en orden topológico; cada subcuenca genera su hidrograma (SCS-CN + HU) y los tramos lo transitan (Muskingum-Cunge).');
+  const rd = reg.red;
+  if (rd) b += KV([['Elementos', rd.nElementos], ['Q pico en el cierre', f(rd.Qpico) + ' m³/s'], ['t pico', f(rd.tPicoH, 1) + ' h']]);
+  else b += ND('Corre "Red de cuencas (HMS-lite)" para poblar esta sección.');
+
+  b += H(2, 'Simulación Continua con Deshielo (índice grado-día)');
+  b += P('Balance diario de humedad del suelo (cubeta con percolación y flujo base de reservorio lineal) más fusión nival por índice de temperatura:');
+  b += EQ(F.gradoDia);
+  const cn = reg.continuo;
+  if (cn) b += KV([['Días simulados', cn.nDias], ['Q medio', f(cn.Qmedio) + ' m³/s'], ['Q máx', f(cn.Qmax) + ' m³/s'], ['SWE máx', f(cn.sweMax) + ' mm'], ['Fracción nival', f(cn.fracNival * 100, 1) + ' %']]);
+  else b += ND('Corre "Continua + deshielo" para poblar esta sección.');
+
+  b += H(2, 'Calibración de Parámetros (Nelder-Mead · NSE)');
+  b += EQ(F.nse);
+  const cb = reg.calibracion;
+  if (cb) b += KV([['NSE inicial', f(cb.nse0, 3)], ['NSE calibrado', f(cb.nse, 3)], ['Iteraciones', cb.iter], ...(cb.params ? Object.entries(cb.params).map(([k, v]) => ['Parámetro ' + esc(k), f(v, 3)]) : [])]);
+  else b += ND('Corre "Calibración (Nelder-Mead)" para poblar esta sección.');
+
+  b += H(2, 'Transformada de Clark / ModClark (lluvia distribuida)');
+  b += P('Traslación por histograma tiempo-área (isócronas) y ruteo por reservorio lineal; el sesgo espacial de la lluvia desplaza el pico:');
+  b += EQ(F.clark);
+  const mc = reg.modclark;
+  if (mc) b += KV([['Tc', f(mc.Tc, 1) + ' h'], ['R', f(mc.R, 1) + ' h'], ['Bandas', mc.Nb], ['Q pico', f(mc.Qpico) + ' m³/s'], ['t pico', f(mc.tPicoH, 1) + ' h']]);
+  else b += ND('Corre "ModClark grillado" para poblar esta sección.');
   return b;
 }
 
@@ -279,7 +342,7 @@ function capHidraulico(koi, H) {
   const bt = koi.bati, secs = bt?.secciones || [];
   let b = H(1, 'Estudio Hidráulico');
   b += H(2, 'Introducción');
-  b += P('El eje hidráulico se resuelve en régimen permanente (1D) por el método del <b>paso estándar</b> (standard step) y, alternativamente, en <b>2D</b> por onda difusiva. La dirección del flujo la define el eje/descenso del lecho.');
+  b += P('El eje hidráulico se resuelve en régimen permanente (1D) por el método del <b>paso estándar</b> y, en 2D, por <b>onda difusiva</b> (flujo lento/subcrítico) o por las <b>ecuaciones de aguas someras completas</b> (momentum — resaltos, flujo supercrítico, rotura de presa).');
 
   b += H(2, 'Antecedentes');
   b += H(3, 'Geomorfología del cauce');
@@ -288,26 +351,57 @@ function capHidraulico(koi, H) {
   b += P('Batimetría CAD (DXF) colocada a escala y/o DEM base del terreno; secciones extraídas del modelo.');
 
   b += H(2, 'Parámetros y Criterios Principales');
-  b += H(3, 'Pérdidas de Energía por Fricción'); b += EQ('h<sub>f</sub> = L · ( (Q·n) / (A·R<sub>h</sub><sup>2/3</sup>) )² &nbsp;(Manning) ;&nbsp; V = (1/n)·R<sub>h</sub><sup>2/3</sup>·J<sup>1/2</sup>');
-  b += H(3, 'Pérdidas por Contracción y Expansión'); b += EQ('h<sub>e</sub> = C · | (V<sub>2</sub>²−V<sub>1</sub>²) / 2g | ,&nbsp; C = 0.1 (contracción) / 0.3 (expansión), 0.3/0.5 en puentes');
-  b += H(3, 'Datos de Flujo Permanente'); b += EQ('E = z + y + V²/2g ;&nbsp; Fr = V / √(g·A/B)');
+  b += H(3, 'Pérdidas de Energía por Fricción'); b += EQ(F.manning);
+  b += H(3, 'Pérdidas por Contracción y Expansión'); b += EQ(F.contraccion, 'C = 0.1 (contracción) / 0.3 (expansión); 0.3/0.5 en puentes');
+  b += H(3, 'Datos de Flujo Permanente'); b += EQ(F.energia);
   b += H(3, 'Período de Retorno y Caudal de Diseño'); b += P('Se adopta el caudal de diseño según el periodo de retorno normativo de la obra (MC): habitualmente T = 100 años (verificación T = 200).');
 
   b += H(2, 'Resultados Modelación Hidráulica');
   b += H(3, 'Situación Existente');
-  if (bt?._remanso) b += `<h4 class="h3">Eje hidráulico longitudinal</h4>${svgPerfil(bt._remanso)}`;
+  if (bt?._remanso) b += `<h4 class="h3">Eje hidráulico longitudinal</h4>${svgPerfil(bt._remanso)}` + FIGCAP('Perfil longitudinal: lecho y eje hidráulico (WSE).');
   if (secs.length) {
     b += `<h4 class="h3">Secciones transversales (${secs.length})</h4>`;
     for (const s of secs) {
       if (!s.res) continue;
       b += `<div class="sec-card"><h5 class="h4">${esc(s.nombre)}${s.res.fuente2D ? ' · WSE del 2D' : ''}</h5>${svgSeccion(s)}
-        ${tabla(['Magnitud', 'Valor'], [['WSE', f(s.res.WSE) + ' m'], ['Prof. máx', f(s.res.profMax) + ' m'], ['Ancho B', f(s.res.B) + ' m'], ['Área A', f(s.res.A) + ' m²'], ['V', f(s.res.V) + ' m/s'], ['Fr', f(s.res.Fr) + ' (' + esc(s.res.regimen || '') + ')'],
+        ${KV([['WSE', f(s.res.WSE) + ' m'], ['Prof. máx', f(s.res.profMax) + ' m'], ['Ancho B', f(s.res.B) + ' m'], ['Área A', f(s.res.A) + ' m²'], ['V', f(s.res.V) + ' m/s'], ['Fr', f(s.res.Fr) + ' (' + esc(s.res.regimen || '') + ')'],
           ...(s.obstr ? [['Angostado por pilas', `B ${f(s.res.B)}→${f(s.obstr.Bef)} m · V→${f(s.obstr.Vobs)} m/s`]] : [])])}</div>`;
     }
   } else b += ND('Traza secciones y calcula el eje (pestaña Hidráulica).');
-  // 2D
+
+  // 2D difusiva
   const mesh = bt?.mesh2d, r2 = bt?.result2d;
-  if (mesh) b += `<h4 class="h3">Modelación 2D (onda difusiva)</h4>${svgMalla(mesh)}${r2 ? svgInundacion(mesh, r2) + tabla(['Magnitud', 'Valor'], [['Calado máx', f(r2.hmax) + ' m'], ['Velocidad máx', f(r2.Vmax) + ' m/s'], ['Nodos mojados', r2.nMojados + ' / ' + mesh.nodes.length]]) : ''}`;
+  b += H(3, 'Modelación Bidimensional — Onda Difusiva');
+  b += EQ(F.difusiva);
+  if (mesh) {
+    b += svgMalla(mesh) + FIGCAP(`Malla de cálculo — ${mesh.meta.nTri} triángulos, refinada en el cauce.`);
+    if (r2) b += svgInundacion(mesh, r2) + FIGCAP(`Mancha de inundación (h máx ${f(r2.hmax)} m).`) +
+      KV([['Calado máx', f(r2.hmax) + ' m'], ['Velocidad máx', f(r2.Vmax) + ' m/s'], ['Nodos mojados', r2.nMojados + ' / ' + mesh.nodes.length],
+        ...(r2.solver ? [['Solver lineal', esc(r2.solver)]] : [])]);
+  } else b += ND('Genera la malla y simula (pestaña Hidráulica → 2D).');
+
+  // 2D momentum
+  b += H(3, 'Modelación Bidimensional — Aguas Someras Completas (Momentum)');
+  b += P('Volúmenes finitos tipo Godunov con solver de Riemann <b>HLL</b> y reconstrucción hidrostática bien-balanceada (Audusse 2004); captura resaltos hidráulicos, flujo supercrítico y frentes de onda:');
+  b += EQ(F.saintvenant);
+  const rm = bt?.resultMom2d;
+  if (rm) {
+    if (mesh) b += svgInundacion(mesh, rm) + FIGCAP(`Momentum 2D — mancha de inundación (h máx ${f(rm.hmax)} m).`);
+    b += KV([['Calado máx', f(rm.hmax) + ' m'], ['Velocidad máx', f(rm.Vmax) + ' m/s'], ['Pasos (CFL adaptativo)', rm.pasos], ['Tiempo simulado', f(rm.t, 0) + ' s'],
+      ...(rm.tArrMin != null ? [['Primer arribo de onda', f(rm.tArrMin, 0) + ' s']] : [])]);
+  } else b += ND('Corre "Simular Momentum 2D" (pestaña Hidráulica → 2D).');
+
+  // Peligrosidad
+  b += H(3, 'Peligrosidad Hidráulica (h·V)');
+  b += P('Clasificación combinada de peligrosidad <b>ARR/Australian</b> (Smith et al. 2014): producto calado·velocidad con topes de h y V → clases H1 (seguro) … H6 (colapso de construcciones):');
+  b += EQ(F.hazard);
+  const pel = (bt?.resultMom2d?._pel) || (bt?.result2d?._pel);
+  if (pel) {
+    const cc = pel.conteo;
+    b += tabla(['Clase', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6'], [['Nodos', cc.H1, cc.H2, cc.H3, cc.H4, cc.H5, cc.H6]]);
+    b += P(`h·V máximo: <b>${f(pel.hvMax)} m²/s</b> → clase <b>${pel.clasePico.clase}</b> (${esc(pel.clasePico.desc)}).`);
+  } else b += ND('Simula el 2D para clasificar la peligrosidad.');
+
   b += H(3, 'Situación Proyectada');
   b += P('Incorpora las estructuras (puente/alcantarilla): en 1D angostan la sección (y fijan la cota inferior del tablero); en 2D se integran como modificación del terreno (el flujo las rodea).');
   const es = koi.estr?.estructuras || [];
@@ -317,6 +411,7 @@ function capHidraulico(koi, H) {
 
 // ═══ 3 · ANÁLISIS DE SOCAVACIONES ═══════════════════════════════════════════════
 function capSocavacion(koi, H) {
+  const reg = koi.reg || {};
   const secs = (koi.bati?.secciones || []).filter((s) => s.soc);
   let b = H(1, 'Análisis de Socavaciones');
   b += H(2, 'Generalidades');
@@ -327,15 +422,17 @@ function capSocavacion(koi, H) {
   if (secs.length) b += tabla(['Sección', 'D50 [mm]', 'T [años]'], secs.map((s) => [esc(s.nombre), f(s.D50mm), f(s.T)]));
 
   b += H(2, 'Socavación General');
-  b += H(3, 'Método de Lischtvan – Levediev');
-  b += EQ('d<sub>s</sub> = [ α·h<sup>5/3</sup> / (0.68·β·D<sub>50</sub><sup>0.28</sup>) ]<sup>1/(1+x)</sup> ,&nbsp; α = Q / (H<sub>m</sub><sup>5/3</sup>·B<sub>e</sub>·μ)');
-  b += P('Se evalúa por vertical y <b>por franjas</b> (la velocidad varía en la sección), con la D<sub>50</sub> del estrato y tope en la roca.');
-  b += H(3, 'Método de Neill');
-  b += EQ('V<sub>c</sub> = k · h<sup>1/6</sup> · D<sup>1/3</sup> &nbsp;(velocidad competente) ;&nbsp; d<sub>s</sub> = [q / k]<sup>6/7</sup> − h');
+  b += H(3, 'Método de Lischtvan – Levediev'); b += EQ(F.lischtvan, 'α = Q / (H<sub>m</sub><sup>5/3</sup>·B<sub>e</sub>·μ) — se evalúa por vertical y por franjas, con la D₅₀ del estrato y tope en la roca.');
+  b += H(3, 'Método de Neill'); b += EQ(F.neill);
 
   b += H(3, 'Socavación Local en Pilas');
-  b += EQ('HEC-18/CSU: y<sub>s</sub> = 2.0·y<sub>1</sub>·K<sub>1</sub>K<sub>2</sub>K<sub>3</sub>·(a/y<sub>1</sub>)<sup>0.65</sup>·Fr<sub>1</sub><sup>0.43</sup>');
-  b += P('Se comparan ≥ 4 métodos del MC (HEC-18, Froehlich, Laursen-Toch, Breusers, Larras) y se adopta el máximo.');
+  b += EQ(F.hec18pila, 'Se comparan ≥ 4 métodos del MC (HEC-18/CSU, Froehlich, Laursen-Toch, Breusers, Larras) y se adopta el máximo.');
+
+  b += H(3, 'Socavación Local en Estribos');
+  b += P('Según la relación longitud/calado (L′/y<sub>a</sub>) se aplica <b>Froehlich</b> (L′/y<sub>a</sub> &lt; 25) o <b>HIRE</b> (≥ 25):');
+  b += EQ(F.froehlichEstribo); b += EQ(F.hireEstribo);
+  const eb = reg.estribo;
+  if (eb) b += KV([['Método aplicado', esc(eb.metodo)], ['L′/ya', f(eb.ratio, 1)], ['Socavación ys', f(eb.ys) + ' m']]);
 
   b += H(2, 'Resumen de Socavación General');
   if (secs.length) {
@@ -346,12 +443,94 @@ function capSocavacion(koi, H) {
       tabla(['Sección', 'HEC-18', 'Froehlich', 'Laursen-Toch', 'Breusers', 'Larras', 'Adoptada'],
         cp.map((s) => { const m = s.soc.metodosPila; return [esc(s.nombre), f(m.csu), f(m.froehlich), f(m.laursenToch), f(m.breusers), f(m.larras), f(m.max)]; }));
   } else b += ND('Calcula la socavación por sección (pestaña Hidráulica).');
+
+  // ── Sedimentos y evolución del lecho (nuevos) ───────────────────────────────
+  b += H(2, 'Transporte de Sedimentos');
+  b += P('Transporte incipiente por <b>Shields</b>, gasto de fondo por <b>Meyer-Peter &amp; Müller</b> y gasto total por <b>Engelund-Hansen</b> (MC 3.707.304):');
+  b += EQ(F.shields); b += EQ(F.mpm); b += EQ(F.engelund);
+
+  b += H(2, 'Degradación del Lecho a Largo Plazo');
+  b += P('Pendiente de equilibrio por reducción del aporte sólido y acorazamiento por tamaño competente; se adopta el mecanismo más restrictivo:');
+  b += EQ(F.pendEquilibrio); b += EQ(F.coraza);
+  const dg = reg.degradacion;
+  if (dg) b += KV([['Δz por pendiente de equilibrio', f(dg.dzPend) + ' m'], ['Δz por acorazamiento', f(dg.dzCoraza) + ' m'], ['Degradación adoptada', f(dg.dzAdoptado) + ' m'], ['Mecanismo', esc(dg.mecanismo)]]);
+  else b += ND('Corre "Degradación a largo plazo" para poblar esta sección.');
+
+  b += H(2, 'Lecho Móvil — Evolución Morfodinámica');
+  b += P('Continuidad del sedimento (ecuación de <b>Exner</b>) acoplada a la hidráulica: en 1D sobre el perfil (quasi-unsteady, recorriendo el hidrograma) y en 2D celda a celda con la velocidad real del campo de flujo:');
+  b += EQ(F.exner);
+  const m1 = reg.morfo1d;
+  if (m1) { b += `<h4 class="h3">Lecho móvil 1D (quasi-unsteady)</h4>`; b += KV([['Duración simulada', f(m1.horas, 1) + ' h'], ['Erosión máxima', f(m1.eroMax) + ' m'], ['Depósito máximo', f(m1.depMax) + ' m']]); }
+  const rmf = koi.bati?.resultMorfo2d;
+  if (rmf) {
+    b += `<h4 class="h3">Morfodinámico 2D (Saint-Venant + Exner)</h4>`;
+    b += KV([['Acople', rmf.acople === 'acoplado' ? 'Acoplado (cada paso)' : 'Desacoplado'], ['Volumen erosionado', f(rmf.volErosion) + ' m³'], ['Volumen depositado', f(rmf.volDeposito) + ' m³'], ['|Δz| máx por actualización', f(rmf.dzMax, 3) + ' m'], ['Tiempo simulado', f(rmf.t, 0) + ' s']]);
+  }
+  if (!m1 && !rmf) b += ND('Corre "Lecho móvil 1D" o "Morfodinámico 2D" para poblar esta sección.');
+  return b;
+}
+
+// ═══ 4 · DISEÑO Y VERIFICACIÓN DE OBRAS ═════════════════════════════════════════
+function capObras(koi, H) {
+  const reg = koi.reg || {};
+  let b = H(1, 'Diseño y Verificación de Obras');
+  b += H(2, 'Períodos de Retorno Normativos y Revancha');
+  b += P('Los períodos de retorno de diseño/verificación se adoptan según el tipo de obra (MC 3.702); la revancha mínima según la velocidad y el tipo de flujo.');
+  const vf = reg.verificaciones;
+  if (vf) {
+    b += KV([['Obra', esc(vf.obra)], ['T diseño', vf.Tdis + ' años'], ['T verificación', vf.Tver + ' años'], ['Revancha requerida', f(vf.revanchaReq) + ' m'], ['Revancha disponible', vf.revanchaDisp != null ? f(vf.revanchaDisp) + ' m' : '—'], ['Cumple', vf.cumple == null ? '—' : (vf.cumple ? '✓ sí' : '✗ NO')]]);
+  } else b += ND('Corre "Verificaciones (período T · revancha)" para poblar esta sección.');
+
+  b += H(2, 'Alcantarillas — FHWA HDS-5');
+  b += P('El diseño se controla por la condición más desfavorable entre <b>control de entrada</b> (nomogramas FHWA, forma/embocadura) y <b>control de salida</b> (balance de energía con pérdidas por fricción):');
+  b += EQ(F.hds5entrada, 'control de entrada (forma sumergida; K<sub>u</sub> = 1.811 SI)');
+  b += EQ(F.hds5salida, 'control de salida (balance de energía)');
+  const al = reg.alcantarilla;
+  if (al) {
+    b += KV([['Tipo / embocadura', esc(al.tipo)], ['Dimensiones', esc(al.dim)], ['Barriles', al.nBarriles || 1], ['Q diseño', f(al.Q) + ' m³/s'], ['Q por barril', f(al.Qbarril) + ' m³/s'],
+      ['HW control entrada', f(al.HWe) + ' m'], ['HW control salida', f(al.HWs) + ' m'], ['Control que gobierna', esc(al.gobierna)], ['HW/D', f(al.HWD, 2)], ['V salida', f(al.Vsal) + ' m/s']]);
+  } else b += ND('Corre "Alcantarilla (FHWA HDS-5)" para poblar esta sección.');
+
+  b += H(2, 'Puente en Presión / Vertedero sobre la Rasante');
+  b += P('Cuando el nivel alcanza el tablero, el vano trabaja como <b>compuerta/orificio</b> y, si sobrepasa la rasante, se agrega <b>vertedero</b> con corrección por sumergencia (Villemonte) — rutina tipo HEC-RAS:');
+  b += EQ(F.orificio); b += EQ(F.vertedero);
+  const pp = reg.puentePresion;
+  if (pp) {
+    b += KV([['Régimen', esc(pp.regimen)], ['Energía aguas arriba Eu', f(pp.Eu) + ' m'], ['Q por presión', f(pp.Qpresion) + ' m³/s'], ['Q por vertedero', f(pp.Qvertedero) + ' m³/s'], ['Afección (ΔWSE)', f(pp.afeccion) + ' m'], ['Revancha', f(pp.revancha) + ' m'], ['V en el vano', f(pp.Vvano) + ' m/s']]);
+  } else b += ND('Corre "Puente (presión / vertedero)" para poblar esta sección.');
+
+  b += H(2, 'Enrocado de Protección (MC 3.708 · HEC-23)');
+  b += P('Dimensionamiento del D₅₀ por <b>Isbash</b> (flujo impacto), <b>Maynord/HEC-11</b> (revestimiento con factor de talud) y <b>HEC-23</b> (pila/estribo); se adopta el mayor con su granulometría, espesor y empotramiento del pie:');
+  b += EQ(F.isbash); b += EQ(F.maynord); b += EQ(F.hec23);
+  const en = reg.enrocado;
+  if (en) {
+    b += KV([['Aplicación', esc(en.aplicacion)], ['V diseño', f(en.V) + ' m/s'], ['D50 Isbash', f(en.d50Isbash) + ' m'], ['D50 Maynord', f(en.d50Maynord) + ' m'], ['D50 HEC-23', f(en.d50Hec23) + ' m'], ['D50 adoptado', f(en.d50) + ' m'], ['Peso W50', f(en.W50, 0) + ' kg'], ['Espesor', f(en.espesor) + ' m']]);
+  } else b += ND('Corre "Enrocado / defensas" para poblar esta sección.');
+
+  b += H(2, 'Verificación Sísmica de Estribos y Muros (Mononobe-Okabe)');
+  b += P('Empuje activo sísmico por el método pseudo-estático de <b>Mononobe-Okabe</b>; el coeficiente sísmico horizontal se adopta según la zona sísmica (MC 3.1004 / NCh433):');
+  b += EQ(F.moKh, 'A₀ = 0.20g / 0.30g / 0.40g para zonas sísmicas 1 / 2 / 3');
+  b += EQ(F.moKae); b += EQ(F.moPae, 'el incremento dinámico ΔP<sub>AE</sub> = P<sub>AE</sub> − P<sub>A</sub> se aplica a 0.6·H');
+  const sm = reg.sismo;
+  if (sm) {
+    b += KV([['Zona sísmica', sm.zona], ['kh', f(sm.kh, 3)], ['K_A (estático)', f(sm.KA, 3)], ['K_AE (sísmico)', f(sm.KAE, 3)], ['P_A', f(sm.PA, 1) + ' kN/m'], ['P_AE', f(sm.PAE, 1) + ' kN/m'], ['ΔP_AE', f(sm.dPAE, 1) + ' kN/m'],
+      ['FS deslizamiento', f(sm.FSdesl, 2) + (sm.FSdesl >= 1.1 ? ' ✓' : ' ✗')], ['FS volcamiento', f(sm.FSvolc, 2) + (sm.FSvolc >= 1.15 ? ' ✓' : ' ✗')]]);
+  } else b += ND('Corre "Sísmica de estribos (Mononobe-Okabe)" para poblar esta sección.');
+
+  b += H(2, 'Rotura de Presa / Depósito de Relaves (Froehlich)');
+  b += P('Parámetros de brecha e hidrograma de rotura por las relaciones empíricas de <b>Froehlich</b> (2008/1995); el hidrograma resultante puede rutearse con el modelo 2D de momentum (y con reología de mezcla para relaves):');
+  b += EQ(F.froehlichBrecha, 'K<sub>o</sub> = 1.3 (sobrevertimiento) / 1.0 (tubificación)');
+  b += EQ(F.froehlichQp);
+  b += EQ(F.obrien, 'fricción de mezcla (O’Brien): fluencia + viscoso + turbulento-dispersivo');
+  const br = reg.breach;
+  if (br) {
+    b += KV([['Modo de falla', esc(br.modo)], ['Volumen embalsado Vw', f(br.Vw, 0) + ' m³'], ['Altura de brecha hb', f(br.hb) + ' m'], ['Ancho medio de brecha', f(br.Bavg) + ' m'], ['Tiempo de falla', f(br.tfMin, 1) + ' min'], ['Q pico de rotura', f(br.Qp, 0) + ' m³/s']]);
+  } else b += ND('Corre "Rotura de presa (Froehlich)" para poblar esta sección.');
   return b;
 }
 
 // ── Tc para el informe ────────────────────────────────────────────────────────
 function tcTabla(m) {
-  // método simple e inline (evita import ESM del navegador en el doc nuevo)
   const L = m.L, S = m.S, A = m.A, Hh = m.H, Hm = m.H * 0.5, CN = 75;
   const kirpich = 0.0195 * Math.pow(L * 1000, 0.77) * Math.pow(S, -0.385) / 60;
   const california = 0.95 * Math.pow((L * L * L) / Hh, 0.385);
@@ -366,7 +545,7 @@ function tcTabla(m) {
 function tcVal(tc, key) {
   if (!tc) return '';
   const x = tc.metodos.find((m) => m.metodo.startsWith(key));
-  return x && isFinite(x.tc) ? ` = <b>${x.tc.toFixed(2)} h</b>` : '';
+  return x && isFinite(x.tc) ? `t<sub>c</sub> = <b>${x.tc.toFixed(2)} h</b>` : '';
 }
 
 // ── Figuras (SVG) y tabla ──────────────────────────────────────────────────────
@@ -414,7 +593,7 @@ function svgMalla(m) {
   const X = (x) => pad + (x - bw) * k, Y = (y) => Hh - pad - (y - bs) * k;
   let edges = '';
   for (const t of m.tris) { const a = m.nodes[t[0]], b = m.nodes[t[1]], c = m.nodes[t[2]], enC = a.enCauce || b.enCauce || c.enCauce; edges += `<polygon points="${X(a.x).toFixed(1)},${Y(a.y).toFixed(1)} ${X(b.x).toFixed(1)},${Y(b.y).toFixed(1)} ${X(c.x).toFixed(1)},${Y(c.y).toFixed(1)}" fill="${enC ? 'rgba(56,189,248,.18)' : 'none'}" stroke="#94a3b8" stroke-width="0.4"/>`; }
-  return `<svg class="fig wide" viewBox="0 0 ${W} ${Hh}">${edges}</svg><p class="cap">Malla triangular — celdas azules = cauce (refinamiento fino). ${m.meta.nTri} triángulos.</p>`;
+  return `<svg class="fig wide" viewBox="0 0 ${W} ${Hh}">${edges}</svg>`;
 }
 function svgInundacion(m, r) {
   if (!m || !r?.h) return '';
@@ -424,7 +603,7 @@ function svgInundacion(m, r) {
   const X = (x) => pad + (x - bw) * k, Y = (y) => Hh - pad - (y - bs) * k, hmax = r.hmax || 1;
   let tri = '';
   for (const t of m.tris) { const hm = (r.h[t[0]] + r.h[t[1]] + r.h[t[2]]) / 3; if (hm <= 0.02) continue; const a = m.nodes[t[0]], b = m.nodes[t[1]], c = m.nodes[t[2]], al = Math.min(0.85, 0.2 + hm / hmax); tri += `<polygon points="${X(a.x).toFixed(1)},${Y(a.y).toFixed(1)} ${X(b.x).toFixed(1)},${Y(b.y).toFixed(1)} ${X(c.x).toFixed(1)},${Y(c.y).toFixed(1)}" fill="rgba(18,138,165,${al.toFixed(2)})"/>`; }
-  return `<svg class="fig wide" viewBox="0 0 ${W} ${Hh}">${tri}</svg><p class="cap">Mancha de inundación (azul = calado, hmax ${f(hmax)} m).</p>`;
+  return `<svg class="fig wide" viewBox="0 0 ${W} ${Hh}">${tri}</svg>`;
 }
 function tabla(headers, rows) {
   const body = (rows && rows.length) ? rows.map((r) => `<tr>${r.map((c) => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')
@@ -434,37 +613,67 @@ function tabla(headers, rows) {
 
 const CSS = `
   * { box-sizing: border-box; }
-  body { font: 13px/1.55 "Segoe UI", system-ui, sans-serif; color: #082a3d; margin: 0; background: #eef3f5; }
-  .toolbar { position: sticky; top: 0; background: #062538; color: #cfe; padding: 8px 16px; display: flex; gap: 14px; align-items: center; }
-  .toolbar button { background: #128aa5; color: #fff; border: 0; border-radius: 7px; padding: 7px 14px; cursor: pointer; font-size: 13px; }
-  main { max-width: 820px; margin: 16px auto; background: #fff; padding: 40px 52px; box-shadow: 0 2px 16px rgba(8,39,56,.12); }
-  .portada { text-align: center; padding: 30px 0; border-bottom: 3px solid #128aa5; margin-bottom: 8px; }
-  .portada .logo { width: 96px; height: 96px; }
-  .portada h1 { font-size: 25px; margin: 12px 0 2px; }
-  .portada h2 { font-size: 18px; color: #128aa5; margin: 0; }
-  .portada .fecha { color: #567; }
-  .lic { max-width: 580px; margin: 14px auto; font-size: 12px; color: #445; background: #f1f6f8; border: 1px solid #d3e1e8; border-radius: 8px; padding: 10px 14px; }
-  .toc { display: inline-block; text-align: left; margin-top: 8px; }
-  .cap { margin: 22px 0; }
+  :root { --tinta:#12242e; --marca:#0d7a94; --marca2:#31c3ce; --linea:#d9e4ea; --suave:#5a707c; }
+  body { font: 13px/1.6 "Segoe UI", system-ui, sans-serif; color: var(--tinta); margin: 0; background: #e9eef1; }
+  .toolbar { position: sticky; top: 0; z-index: 5; background: #062538; color: #cfe; padding: 8px 16px; display: flex; gap: 14px; align-items: center; }
+  .toolbar button { background: var(--marca); color: #fff; border: 0; border-radius: 7px; padding: 7px 14px; cursor: pointer; font-size: 13px; }
+  main { max-width: 860px; margin: 18px auto; background: #fff; padding: 0 0 32px; box-shadow: 0 2px 20px rgba(8,39,56,.14); counter-reset: fig; }
+  main > section { padding: 0 58px; }
+
+  /* Portada */
+  .portada { text-align: center; padding: 0 58px 44px !important; position: relative; }
+  .p-banda { height: 14px; background: linear-gradient(90deg, var(--marca), var(--marca2)); margin: 0 -58px 42px; }
+  .portada .logo { width: 104px; height: 104px; }
+  .p-tipo { text-transform: uppercase; letter-spacing: .35em; font-size: 11px; color: var(--suave); margin: 18px 0 4px; }
+  .portada h1 { font-size: 27px; line-height: 1.25; margin: 4px 0 10px; font-weight: 650; }
+  .portada h2 { font-size: 17px; color: var(--marca); margin: 0 0 4px; font-weight: 600; }
+  .portada .fecha { color: var(--suave); margin: 2px 0 22px; }
+  .toc { display: inline-block; text-align: left; background: #f4f8fa; border: 1px solid var(--linea); border-radius: 10px; padding: 12px 26px 12px 16px; }
+  .toc ol { margin: 6px 0 0; padding-left: 22px; }
+  .toc li { padding: 2px 0; }
+  .lic { max-width: 600px; margin: 20px auto 0; font-size: 11.5px; color: #47606d; background: #f4f8fa; border: 1px solid var(--linea); border-radius: 10px; padding: 10px 16px; }
+
+  /* Jerarquía */
+  .cap { margin: 26px 0; }
   h2, h3, h4, h5 { page-break-after: avoid; }
-  .h1 { font-size: 20px; border-bottom: 2px solid #128aa5; padding-bottom: 5px; margin: 28px 0 10px; }
-  .h2 { font-size: 16px; margin: 20px 0 6px; color: #0a3547; }
-  .h3 { font-size: 14px; margin: 14px 0 4px; color: #0a526c; }
-  .h4 { font-size: 13px; margin: 10px 0 3px; color: #33596a; font-weight: 700; }
-  .hn { color: #128aa5; font-weight: 700; margin-right: 6px; }
-  p { margin: 5px 0; }
-  .formula { background: #f4f9fb; border-left: 3px solid #31c3ce; padding: 7px 12px; margin: 7px 0; font-family: "Cambria Math", Georgia, serif; font-size: 13.5px; }
-  table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 12px; page-break-inside: avoid; }
-  th, td { border: 1px solid #d5dce6; padding: 5px 8px; text-align: right; }
-  th { background: #eef4f6; } th:first-child, td:first-child { text-align: left; }
-  .fig { width: 300px; height: auto; background: #fbfdfe; border: 1px solid #dbe6ec; border-radius: 8px; }
-  .fig.wide { width: 100%; max-width: 480px; }
-  .snap { width: 100%; max-width: 520px; border: 1px solid #dbe6ec; border-radius: 8px; }
+  .h1 { font-size: 21px; margin: 34px -58px 14px; padding: 12px 58px; background: linear-gradient(90deg, #eef6f8, transparent); border-left: 6px solid var(--marca); font-weight: 650; }
+  .h2 { font-size: 15.5px; margin: 22px 0 6px; color: #0b3a4c; border-bottom: 1px solid var(--linea); padding-bottom: 3px; }
+  .h3 { font-size: 13.5px; margin: 15px 0 4px; color: #0d5a72; }
+  .h4 { font-size: 12.5px; margin: 11px 0 3px; color: #38596a; font-weight: 700; }
+  .hn { color: var(--marca); font-weight: 700; margin-right: 7px; font-variant-numeric: tabular-nums; }
+  p { margin: 5px 0; text-align: justify; }
+
+  /* Fórmulas (MathML) */
+  .formula { background: #f6fafc; border: 1px solid #e2edf2; border-radius: 8px; padding: 10px 14px 8px; margin: 9px 0; text-align: center; page-break-inside: avoid; }
+  .formula math { font-size: 15px; }
+  .eq-nota { font-size: 11px; color: var(--suave); margin-top: 5px; text-align: center; }
+
+  /* Tablas */
+  table { border-collapse: collapse; width: 100%; margin: 9px 0; font-size: 12px; page-break-inside: avoid; }
+  th, td { border: 1px solid var(--linea); padding: 5px 9px; text-align: right; }
+  th { background: #eaf3f6; color: #0b3a4c; font-weight: 650; }
+  th:first-child, td:first-child { text-align: left; }
+  tbody tr:nth-child(even) td { background: #f8fbfc; }
+
+  /* Figuras */
+  .fig { width: 300px; height: auto; background: #fcfeff; border: 1px solid var(--linea); border-radius: 8px; display: block; margin: 6px auto; }
+  .fig.wide { width: 100%; max-width: 500px; }
+  .snap { width: 100%; max-width: 540px; border: 1px solid var(--linea); border-radius: 8px; display: block; margin: 6px auto; }
+  .figcap { font-size: 11px; color: var(--suave); text-align: center; margin: 2px 0 10px; }
+  .figcap::before { counter-increment: fig; content: "Figura " counter(fig) " — "; font-weight: 600; color: #38596a; }
   .fig-row { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
   .fig-row table { flex: 1; min-width: 240px; }
-  .sec-card { border: 1px solid #dbe6ec; border-radius: 8px; padding: 8px 12px; margin: 10px 0; page-break-inside: avoid; }
-  .cap-fig, .cap { font-size: 11px; color: #667; margin: 2px 0 0; }
-  .nd { color: #99a; font-style: italic; }
-  .pie { margin-top: 28px; font-size: 11px; color: #778; }
-  @media print { body { background: #fff; } .no-print { display: none; } main { box-shadow: none; margin: 0; max-width: none; padding: 0 8mm; } .cap { page-break-before: always; } }
+  .sec-card { border: 1px solid var(--linea); border-radius: 10px; padding: 9px 14px; margin: 10px 0; page-break-inside: avoid; background: #fdfefe; }
+  .nd { color: #93a3ad; font-style: italic; }
+  .pie { margin-top: 30px; font-size: 11px; color: #7b8b95; }
+
+  @page { margin: 16mm 14mm; }
+  @media print {
+    body { background: #fff; } .no-print { display: none; }
+    main { box-shadow: none; margin: 0; max-width: none; }
+    main > section { padding: 0 2mm; }
+    .h1 { margin-left: -2mm; margin-right: -2mm; padding-left: 8mm; }
+    .p-banda { margin-left: -2mm; margin-right: -2mm; }
+    .cap { page-break-before: always; }
+  }
 `;

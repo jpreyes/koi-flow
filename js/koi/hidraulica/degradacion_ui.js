@@ -5,6 +5,7 @@
 // El resultado se suma a la socavación general + local para la socavación TOTAL.
 // ─────────────────────────────────────────────────────────────────────────────
 import { degradacionLargoPlazo } from './degradacion.js?v=2';
+import { registrar } from '../informe/registro.js?v=2';
 
 const f = (v, d = 2) => (v == null || !isFinite(v) ? '—' : v.toFixed(d));
 
@@ -62,6 +63,11 @@ function wire(hud) {
     const out = $('#dg-out');
     if (!(o.h > 0) || !(o.J > 0) || !(o.B > 0)) { out.innerHTML = '<p class="hud-note" style="color:var(--red)">Ingresa h, S₀ y B.</p>'; return; }
     const r = degradacionLargoPlazo(o);
+    registrar('degradacion', {
+      dzPend: Math.abs(r.dzPendiente), dzCoraza: isFinite(r.dzCoraza) ? r.dzCoraza : null,
+      dzAdoptado: r.tendencia === 'degradación' ? r.degradacion : (r.tendencia === 'agradación' ? -r.agradacion : 0),
+      mecanismo: r.limitadaPorCoraza ? 'acorazamiento' : 'pendiente de equilibrio',
+    });
     const degra = r.tendencia === 'degradación', agra = r.tendencia === 'agradación';
     const col = degra ? 'var(--coral)' : agra ? 'var(--teal)' : 'var(--border2)';
     const val = degra ? `descenso del lecho <b>${f(r.degradacion)} m</b>` : agra ? `ascenso del lecho <b>${f(r.agradacion)} m</b>` : 'sin cambio neto';

@@ -4,6 +4,7 @@
 // humedad con deshielo por grado-día → hidrograma continuo, manto nival y estadísticos.
 // ─────────────────────────────────────────────────────────────────────────────
 import { serieSintetica, simularContinuo } from './continuo.js?v=2';
+import { registrar } from '../informe/registro.js?v=2';
 
 const f = (v, d = 1) => (v == null || !isFinite(v) ? '—' : v.toFixed(d));
 
@@ -42,6 +43,7 @@ function wire(hud) {
   $('#co-run').addEventListener('click', () => {
     const serie = serieSintetica({ Panual: +$('#co-p').value, Tmedia: +$('#co-tm').value, amplitudT: +$('#co-at').value });
     const r = simularContinuo(serie, { area: +$('#co-a').value, Tb: +$('#co-tb').value, Cm: +$('#co-cm').value, Smax: +$('#co-sm').value, kBase: +$('#co-kb').value });
+    registrar('continuo', { nDias: r.serie.length, Qmedio: r.Qmedia, Qmax: r.Qmax, sweMax: r.sweMax, fracNival: r.fraccionNival });
     const out = $('#co-out');
     out.innerHTML = `<div class="hp-kv">
         <div><span>Caudal medio / máx / mín</span><b>${f(r.Qmedia)} / ${f(r.Qmax)} / ${f(r.Qmin, 2)} m³/s</b></div>

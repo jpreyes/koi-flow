@@ -5,6 +5,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { morfo1d, tramoPrismatico } from './morfo1d.js?v=2';
 import { hidrogramaTriangular } from '../hidro/embalse.js?v=2';
+import { registrar } from '../informe/registro.js?v=2';
 
 const f = (v, d = 2) => (v == null || !isFinite(v) ? '—' : v.toFixed(d));
 let _koi = null;
@@ -51,6 +52,7 @@ function wire(hud) {
     if ($('#mf-usecrec').checked && _koi?.hidrogramaCrecida?.length) hg = _koi.hidrogramaCrecida;
     else hg = hidrogramaTriangular(+$('#mf-qp').value || 200, { tpico: (+$('#mf-tp').value || 3) * 3600, tbase: (+$('#mf-tb').value || 14) * 3600 });
     const r = morfo1d(nodos, hg, { D50mm: +$('#mf-d50').value, razonAporte: +$('#mf-r').value, poros: +$('#mf-p').value });
+    registrar('morfo1d', { horas: (hg[hg.length - 1]?.t || 0) / 3600, eroMax: r.degradacionMax, depMax: r.agradacionMax });
     const out = $('#mf-out');
     const neta = r.perfil.reduce((a, p) => a + p.dz, 0);
     out.innerHTML = `<div class="hp-kv">

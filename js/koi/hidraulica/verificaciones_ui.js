@@ -5,6 +5,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { PERIODOS_RETORNO, sugerirT, chequeoRevancha, revanchaRecomendada } from './normas.js?v=2';
 import { getConfig, setConfig } from '../config.js?v=2';
+import { registrar } from '../informe/registro.js?v=2';
 
 const f = (v, d = 2) => (v == null || !isFinite(v) ? '—' : v.toFixed(d));
 
@@ -64,6 +65,8 @@ function wire(hud, koi) {
     const out = $('#ve-out');
     if (!isFinite(wseDiseno) || !isFinite(cotaBajoTablero)) { out.innerHTML = '<p class="hud-note" style="color:var(--red)">Ingresa el WSE de diseño y la cota del bajo-tablero.</p>'; return; }
     const r = chequeoRevancha({ wseDiseno, cotaBajoTablero, revanchaMin });
+    const p = PERIODOS_RETORNO[+$('#ve-obra').value] || PERIODOS_RETORNO[0];
+    registrar('verificaciones', { obra: p.obra, Tdis: p.T, Tver: p.Tver, revanchaReq: revanchaMin, revanchaDisp: r.galibo, cumple: r.cumple });
     out.innerHTML = `<div class="bp-resalto" style="border-color:${r.cumple ? 'var(--teal)' : 'var(--coral)'}">
       ${r.cumple ? '✔️ <b>CUMPLE</b>' : '⚠️ <b>NO CUMPLE</b>'} — gálibo disponible <b>${f(r.galibo)} m</b> vs mínimo <b>${f(r.revanchaMin)} m</b>.
       ${r.cumple ? '' : `<div class="hp-kv"><div><span>Déficit de revancha</span><b>${f(r.deficit)} m</b></div>

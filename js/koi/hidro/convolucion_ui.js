@@ -5,6 +5,7 @@
 // tránsito en cauce y el embalse lo usen en vez del triangular.
 // ─────────────────────────────────────────────────────────────────────────────
 import { hidrogramaTormenta } from './convolucion.js?v=2';
+import { registrar } from '../informe/registro.js?v=2';
 
 const f = (v, d = 1) => (v == null || !isFinite(v) ? '—' : v.toFixed(d));
 
@@ -63,6 +64,8 @@ function wire(hud, koi) {
       zona: +$('#cv-z').value, patron: $('#cv-pat').value, baseflow: +$('#cv-qb').value || 0,
     });
     koi.hidrogramaCrecida = r.out;   // disponible para embalse/tránsito
+    let iPk = 0; r.out.forEach((p, ii) => { if (p.Q > r.out[iPk].Q) iPk = ii; });
+    registrar('convolucion', { Ptotal: +$('#cv-p').value, durH: +$('#cv-dur').value, CN: +$('#cv-cn').value, PeTotal: r.PeTotal, Qpico: r.Qpico, tPicoH: r.out[iPk].t / 3600, volMm3: r.volumen / 1e6 });
     out.innerHTML = `<div class="hp-kv">
         <div><span>Caudal pico</span><b>${f(r.Qpico)} m³/s</b></div>
         <div><span>Lluvia efectiva total</span><b>${f(r.PeTotal)} mm</b></div>

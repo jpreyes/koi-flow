@@ -5,6 +5,7 @@
 // chequeo de anegamiento de la rasante y curva de gasto (performance curve).
 // ─────────────────────────────────────────────────────────────────────────────
 import { disenarAlcantarilla, curvaGasto, TIPOS_ALC } from './alcantarilla.js?v=2';
+import { registrar } from '../informe/registro.js?v=2';
 
 const f = (v, d = 2) => (v == null || !isFinite(v) ? '—' : v.toFixed(d));
 
@@ -62,6 +63,11 @@ function wire(hud) {
     const out = $('#al-out');
     if (!(o.Q > 0) || !(o.D > 0)) { out.innerHTML = '<p class="hud-note" style="color:var(--red)">Ingresa D y Q.</p>'; return; }
     const r = disenarAlcantarilla(o);
+    registrar('alcantarilla', {
+      tipo: r.label, dim: r.forma === 'cajon' ? `cajón ${f(r.B, 1)}×${f(r.D, 1)} m` : `Ø ${f(r.D, 1)} m`,
+      nBarriles: r.nBarriles || 1, Q: r.Q, Qbarril: r.Qbarril ?? r.Q,
+      HWe: r.HWi, HWs: r.HWo, gobierna: r.control, HWD: r.HWD, Vsal: r.Vout,
+    });
     const ctrlTxt = r.control === 'entrada' ? 'CONTROL DE ENTRADA' : 'CONTROL DE SALIDA';
     const ot = r.overtop == null ? '' :
       `<div class="bp-resalto" style="border-color:${r.overtop ? 'var(--coral)' : 'var(--teal)'}">

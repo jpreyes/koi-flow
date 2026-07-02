@@ -5,6 +5,7 @@
 // Las piezas sólidas se integran al análisis: 2D (stamp del DEM) y 1D (ancho de pila).
 // ─────────────────────────────────────────────────────────────────────────────
 import { TIPOS, crearEstructura, plantaDe, elevarAlTerreno } from './estructuras.js?v=2';
+import { toast } from '../ui/toast.js?v=2';
 import { fetchDEM } from '../cuenca/dem_tiles.js?v=2';
 import { elevAt } from '../hidraulica/secciones.js?v=2';
 
@@ -117,7 +118,7 @@ export class EstructurasPanel {
       if (!grid) { const m = 0.003; grid = await fetchDEM({ west: cx - m, east: cx + m, south: cy - m, north: cy + m }, { maxDim: 128 }); }
       elevarAlTerreno(e, grid, elevAt);
       this._render(); this._draw();
-    } catch (err) { alert('No se pudo bajar el relieve para elevar: ' + err.message); }
+    } catch (err) { toast('No se pudo bajar el relieve para elevar: ' + err.message, 'error'); }
   }
 
   _draw() {
@@ -162,7 +163,7 @@ export class EstructurasPanel {
       }
       for (const es of this.estructuras) elevarAlTerreno(es, grid, elevAt);
       this._render(); this._draw();
-    } catch (err) { alert('No se pudo bajar el relieve: ' + err.message); }
+    } catch (err) { toast('No se pudo bajar el relieve: ' + err.message, 'error'); }
     finally { const b = this.host.querySelector('#es-elev-todas'); if (b) b.textContent = '⛰️ Elevar todas al terreno'; }
   }
 

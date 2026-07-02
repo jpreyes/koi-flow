@@ -5,6 +5,7 @@
 // espesor de capa, granulometría y empotramiento del pie. MC-V3 3.707/3.708.
 // ─────────────────────────────────────────────────────────────────────────────
 import { dimensionarEnrocado } from './enrocado.js?v=2';
+import { registrar } from '../informe/registro.js?v=2';
 
 const f = (v, d = 2) => (v == null || !isFinite(v) ? '—' : v.toFixed(d));
 
@@ -79,6 +80,12 @@ function wire(hud) {
     const out = $('#en-out');
     if (!(o.V > 0) || !(o.h > 0)) { out.innerHTML = '<p class="hud-note" style="color:var(--red)">Ingresa V y h.</p>'; return; }
     const r = dimensionarEnrocado(o);
+    registrar('enrocado', {
+      aplicacion: o.aplicacion, V: o.V,
+      d50Isbash: r.metodos?.isbash, d50Maynord: r.metodos?.maynord,
+      d50Hec23: r.metodos?.hec23pila ?? r.metodos?.hec23estribo,
+      d50: r.D50, W50: r.W50_ton * 1000, espesor: r.espesor,
+    });
     const metRows = Object.entries(r.metodos).filter(([k]) => !k.startsWith('_'))
       .map(([k, v]) => `<div><span>${NOM[k] || k}</span><b>${f(v)} m</b></div>`).join('');
     out.innerHTML = `

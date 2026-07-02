@@ -4,6 +4,7 @@
 // y ruteo por reservorio lineal. El sesgo mueve el pico (lluvia cerca/lejos del cierre).
 // ─────────────────────────────────────────────────────────────────────────────
 import { hidrogramaModClark } from './modclark.js?v=2';
+import { registrar } from '../informe/registro.js?v=2';
 
 const f = (v, d = 1) => (v == null || !isFinite(v) ? '—' : v.toFixed(d));
 
@@ -43,6 +44,7 @@ function wire(hud) {
     const base = { Tc: +$('#mc-tc').value, R: +$('#mc-r').value, area: +$('#mc-a').value, dt: +$('#mc-dt').value || 600 };
     const r = hidrogramaModClark(base, { Ptotal: +$('#mc-p').value, durH: +$('#mc-dur').value, CN: +$('#mc-cn').value, sesgo: +$('#mc-g').value });
     let iPk = 0; r.out.forEach((p, i) => { if (p.Q > r.out[iPk].Q) iPk = i; });
+    registrar('modclark', { Tc: base.Tc, R: base.R, Nb: r.Nb, Qpico: r.Qpico, tPicoH: r.out[iPk].t / 3600 });
     const out = $('#mc-out');
     out.innerHTML = `<div class="hp-kv">
         <div><span>Caudal pico</span><b>${f(r.Qpico)} m³/s</b></div>

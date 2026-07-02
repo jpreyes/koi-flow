@@ -4,6 +4,7 @@
 // entrega el hidrograma en el punto de cierre + picos por nodo.
 // ─────────────────────────────────────────────────────────────────────────────
 import { simularRed } from './red.js?v=2';
+import { registrar } from '../informe/registro.js?v=2';
 
 const f = (v, d = 1) => (v == null || !isFinite(v) ? '—' : v.toFixed(d));
 
@@ -96,6 +97,8 @@ function run(hud) {
   const out = $('#rd-out');
   try {
     const r = simularRed(els, { dt: 600 });
+    { let iPk = 0; r.out.forEach((p, ii) => { if (p.Q > r.out[iPk].Q) iPk = ii; });
+      registrar('red', { nElementos: els.length, Qpico: r.Qpico, tPicoH: r.out[iPk].t / 3600 }); }
     const picos = Object.entries(r.picos).map(([k, v]) => `<tr><td>${k}</td><td>${f(v)}</td></tr>`).join('');
     out.innerHTML = `<div class="hp-kv"><div><span>Punto de cierre</span><b>${r.salida}</b></div>
         <div><span>Caudal pico en el cierre</span><b>${f(r.Qpico)} m³/s</b></div></div>

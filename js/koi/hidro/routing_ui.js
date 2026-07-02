@@ -5,6 +5,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { muskingum, muskingumCunge } from './routing.js?v=2';
 import { hidrogramaTriangular } from './embalse.js?v=2';
+import { registrar } from '../informe/registro.js?v=2';
 
 let _koi = null;
 
@@ -76,6 +77,11 @@ function wire(hud) {
       r = muskingum(inflow, { K: (+$('#rt-k').value || 2) * 3600, x: +$('#rt-x').value, dt });
     }
     if (qb) r.out = r.out.map((p) => ({ ...p, I: p.I + qb, O: p.O + qb }));
+    registrar('routing', {
+      metodo: $('#rt-metodo').value === 'cunge' ? 'Muskingum-Cunge' : 'Muskingum',
+      K: r.K, x: r.x, QpicoIn: r.IinPico + qb, QpicoOut: r.QoutPico + qb,
+      atenPct: r.atenuacion * 100, desfaseH: r.desfaseHoras,
+    });
     const extra = $('#rt-metodo').value === 'cunge'
       ? `<div><span>K · x (derivados)</span><b>${f(r.K / 3600, 2)} h · ${f(r.x, 3)}</b></div>
          <div><span>Celeridad · tirante</span><b>${f(r.c, 2)} m/s · ${f(r.y, 2)} m</b></div>`
