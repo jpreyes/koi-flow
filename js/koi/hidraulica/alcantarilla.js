@@ -105,33 +105,38 @@ export function controlSalida(Q, p) {
   return { HW: ho + H - S * L, H, ho, V };
 }
 
-// Diseño completo de una alcantarilla para un caudal Q.
+// Diseño completo de una alcantarilla para un caudal Q. Con nBarriles>1, barriles
+// IDÉNTICOS en paralelo comparten la misma carga de agua: cada uno lleva Q/N y toda
+// la hidráulica (HW, control, velocidad) se calcula por barril; los caudales se
+// reportan por barril y totales (×N).
 export function disenarAlcantarilla(o) {
   const cfg = TIPOS_ALC[o.tipo] || TIPOS_ALC['horm-recto'];
   const forma = cfg.forma;
   const D = +o.D || 1, B = forma === 'cajon' ? (+o.B || D) : D;
   const n = o.n != null ? +o.n : cfg.n;
   const L = +o.L || 20, S = o.S != null ? +o.S : 0.02, TW = +o.TW || 0, Q = +o.Q || 0;
+  const N = Math.max(1, Math.round(+o.nBarriles || 1));
+  const Qb = Q / N;                                  // caudal por barril
   const Aful = areaLlena(forma, { D, B }), Rful = radioLleno(forma, { D, B });
-  const dc = tiranteCritico(forma, Q, { D, B });
+  const dc = tiranteCritico(forma, Qb, { D, B });
   const gc = geomBarril(forma, Math.min(dc, D * 0.999), { D, B });
-  const Vc = dc > 0 ? Q / gc.A : 0;
+  const Vc = dc > 0 ? Qb / gc.A : 0;
   const HcD = (dc + Vc * Vc / G2) / D;
-  const ic = controlEntrada(Q, { D, Aful, K: cfg.K, M: cfg.M, c: cfg.c, Y: cfg.Y, form: cfg.form, S, mitered: cfg.mitered, HcD });
-  const oc = controlSalida(Q, { Aful, Rful, n, L, S, Ke: cfg.Ke, D, TW, dc });
+  const ic = controlEntrada(Qb, { D, Aful, K: cfg.K, M: cfg.M, c: cfg.c, Y: cfg.Y, form: cfg.form, S, mitered: cfg.mitered, HcD });
+  const oc = controlSalida(Qb, { Aful, Rful, n, L, S, Ke: cfg.Ke, D, TW, dc });
   const HWi = ic.HWD * D, HWo = oc.HW;
   const control = HWi >= HWo ? 'entrada' : 'salida';
   const HW = Math.max(HWi, HWo, 0);
-  const dn = tiranteNormal(forma, Q, { D, B, n, S });
-  // Velocidad de salida: control de entrada → a tirante normal; control de salida → lleno.
+  const dn = tiranteNormal(forma, Qb, { D, B, n, S });
+  // Velocidad de salida (por barril): control de entrada → a tirante normal; salida → lleno.
   const Vout = control === 'entrada'
-    ? (dn > 0 ? Q / geomBarril(forma, Math.min(dn, D * 0.999), { D, B }).A : 0)
+    ? (dn > 0 ? Qb / geomBarril(forma, Math.min(dn, D * 0.999), { D, B }).A : 0)
     : oc.V;
   const overtop = (o.cotaEntrada != null && o.cotaCorona != null) ? (o.cotaEntrada + HW) > o.cotaCorona : null;
   return {
-    Q, forma, D, B, n, L, S, TW, control, HW, HWi, HWo, HWD: HW / D,
+    Q, nBarriles: N, Qbarril: Qb, forma, D, B, n, L, S, TW, control, HW, HWi, HWo, HWD: HW / D,
     sumergido: HW / D > 1.2, regimenEntrada: ic.regimen, dc, dn, Vc, Vout,
-    Aful, Vlleno: oc.V, Hbarril: oc.H, ho: oc.ho, overtop, tipo: o.tipo, label: cfg.label,
+    Aful, AfulTotal: Aful * N, Vlleno: oc.V, Hbarril: oc.H, ho: oc.ho, overtop, tipo: o.tipo, label: cfg.label,
   };
 }
 
@@ -139,8 +144,9 @@ export function disenarAlcantarilla(o) {
 export function curvaGasto(o, { Qmax, nPtos = 24 } = {}) {
   const cfg = TIPOS_ALC[o.tipo] || TIPOS_ALC['horm-recto'];
   const D = +o.D || 1, B = cfg.forma === 'cajon' ? (+o.B || D) : D;
+  const N = Math.max(1, Math.round(+o.nBarriles || 1));
   const Aful = areaLlena(cfg.forma, { D, B });
-  const qm = Qmax || 2.5 * Aful * Math.sqrt(G * D); // ~caudal a barril lleno holgado
+  const qm = Qmax || N * 2.5 * Aful * Math.sqrt(G * D); // ~caudal a barriles llenos (×N)
   const pts = [];
   for (let i = 1; i <= nPtos; i++) {
     const Q = (qm * i) / nPtos;

@@ -28,6 +28,7 @@ function form() {
       <label>Largo L [m]<input id="al-l" type="number" value="25"></label>
       <label>Pendiente S [m/m]<input id="al-s" type="number" step="0.005" value="0.02"></label>
       <label>Manning n<input id="al-n" type="number" step="0.001" placeholder="por material"></label>
+      <label>Nº de barriles<input id="al-nb" type="number" min="1" step="1" value="1"></label>
     </div>
     <div class="cfg-grp">Hidráulica</div>
     <div class="cfg-form">
@@ -52,7 +53,7 @@ function wire(hud) {
 
   $('#al-run').addEventListener('click', () => {
     const o = {
-      tipo: $('#al-tipo').value, D: +$('#al-d').value, B: +$('#al-b').value,
+      tipo: $('#al-tipo').value, D: +$('#al-d').value, B: +$('#al-b').value, nBarriles: +$('#al-nb').value || 1,
       L: +$('#al-l').value, S: +$('#al-s').value, Q: +$('#al-q').value, TW: +$('#al-tw').value,
       n: $('#al-n').value ? +$('#al-n').value : undefined,
       cotaEntrada: $('#al-ce').value ? +$('#al-ce').value : undefined,
@@ -68,8 +69,9 @@ function wire(hud) {
          <div class="hp-kv"><div><span>Cota agua entrada</span><b>${f(o.cotaEntrada + r.HW)} m</b></div>
          <div><span>Cota corona</span><b>${f(o.cotaCorona)} m</b></div></div></div>`;
     out.innerHTML = `
-      <div class="hp-mini" style="margin-top:8px">${r.label} · ${r.forma === 'cajon' ? `cajón ${f(r.B, 1)}×${f(r.D, 1)} m` : `Ø ${f(r.D, 1)} m`}</div>
+      <div class="hp-mini" style="margin-top:8px">${r.label} · ${r.forma === 'cajon' ? `cajón ${f(r.B, 1)}×${f(r.D, 1)} m` : `Ø ${f(r.D, 1)} m`}${r.nBarriles > 1 ? ` · ${r.nBarriles} barriles` : ''}</div>
       <div class="hp-kv">
+        ${r.nBarriles > 1 ? `<div><span>Caudal por barril (de ${f(r.Q, 0)} total)</span><b>${f(r.Qbarril)} m³/s</b></div>` : ''}
         <div><span>Carga de agua HW</span><b>${f(r.HW)} m (HW/D ${f(r.HWD)})</b></div>
         <div><span>Gobierna</span><b>${ctrlTxt}</b></div>
         <div><span>HW control entrada / salida</span><b>${f(r.HWi)} / ${f(r.HWo)} m</b></div>
