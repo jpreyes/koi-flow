@@ -5,12 +5,13 @@
 // STR 1695) que se carga a pedido. Un id guardado reconstruye su estado.
 // ─────────────────────────────────────────────────────────────────────────────
 import { getOpen, loadProjectState } from './proyectos.js?v=2';
+import { fetchJSON } from './datos/fetch_json.js?v=2';
 
 const EMPTY_FC = () => ({ type: 'FeatureCollection', features: [] });
 
 // Proyecto de muestra (Tarapacá) — cargado sólo si el usuario abre "demo".
 export async function demoProject() {
-  const fc = await (await fetch('data/tramos_str1695.geojson?v=2')).json();
+  const fc = await fetchJSON('data/tramos_str1695.geojson?v=2', { contexto: 'Proyecto demo (Tarapacá)' });
   const dems = { 'Tramo 3': 'data/dem_tramo3.json?v=2' };
   const project = {
     id: 'demo', name: 'Demo — STR 1695 (Tarapacá)',

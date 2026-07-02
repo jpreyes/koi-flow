@@ -6,6 +6,7 @@
 // cuenca y la mancha de inundación.
 // ─────────────────────────────────────────────────────────────────────────────
 import * as THREE from 'three';
+import { fetchJSON } from './datos/fetch_json.js?v=2';
 
 export class Terrain {
   // dem: {bbox,nx,ny,min,max,data}  ·  proj: makeProjection(...)
@@ -112,6 +113,6 @@ export class Terrain {
 
 // Carga el DEM y devuelve un Terrain listo para añadir a la escena.
 export async function loadTerrain(url, proj, opts) {
-  const dem = await (await fetch(url)).json();
+  const dem = await fetchJSON(url, { contexto: 'DEM del tramo' });
   return new Terrain(dem, proj, opts);
 }

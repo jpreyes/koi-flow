@@ -9,6 +9,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Terrain } from './terrain.js?v=2';
 import { makeProjection, bboxCenter } from './geo.js?v=2';
 import { tableroSobre } from './estructuras/estructuras.js?v=2';
+import { fetchJSON } from './datos/fetch_json.js?v=2';
 
 export class SceneView {
   constructor(container) {
@@ -46,7 +47,7 @@ export class SceneView {
 
   // Carga el relieve desde un DEM JSON pre-generado (formato data/dem_*.json).
   async loadSector(demUrl, tramoFeature) {
-    const demHead = await (await fetch(demUrl)).json();
+    const demHead = await fetchJSON(demUrl, { contexto: 'DEM del sector' });
     this._mountDem(demHead, tramoFeature);
   }
 

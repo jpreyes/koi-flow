@@ -11,7 +11,8 @@ import { transponer, transponerRegional } from './transposicion.js?v=2';
 import { caudalesHU } from './hidrograma.js?v=2';
 import { ppDiseno, grunsky } from './idf.js?v=2';
 import { racional, verniKing, dgaAC } from './caudales.js?v=2';
-import { estacionesCercanas, estacionRecomendada, cargarSerie, centroideTramo, resetCatalogo } from '../datos/dga.js?v=2';
+import { estacionesCercanas, estacionRecomendada, cargarSerie, centroideTramo, resetCatalogo, descargarSerieDGA } from '../datos/dga.js?v=2';
+import { fetchJSON } from '../datos/fetch_json.js?v=2';
 import { calcular as tcCalcular } from './tc.js?v=2';
 import { cuencaGeoJSON, cuencaKMZ, descargar } from '../cuenca/exportar.js?v=2';
 import { cuencaShapefileZip } from '../cuenca/shapefile.js?v=2';
@@ -754,7 +755,7 @@ export class HydroPanel {
       const A = num('pf_a');
       if (!(A > 0)) throw new Error('Ingresa el área A.');
       if (!this._sel.pluvio) throw new Error('Elige una estación pluvial.');
-      const coef = await (await fetch('data/coef_hidro.json?v=2')).json();
+      const coef = await fetchJSON('data/coef_hidro.json?v=2', { contexto: 'Coeficientes hidrológicos' });
       const sp = await cargarSerie(this._sel.pluvio);
       const an = analizar(Object.values(sp.serie), { T: TSL });
       const pp = ppDiseno(an.resultados[an.mejor].quantiles, 1.10);
@@ -789,13 +790,7 @@ export class HydroPanel {
   async _descargarDatos(p, varname, statusEl) {
     statusEl.textContent = ' descargando…';
     try {
-      const r = await fetch('/api/fetch_dga', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lon: p.lon, lat: p.lat, radio: varname === 'qflx' ? 120 : 60, var: varname }),
-      });
-      const j = await r.json();
-      if (!j.ok) throw new Error(j.error || j.stderr || 'falló la descarga');
-      resetCatalogo();
+      await descargarSerieDGA({ lon: p.lon, lat: p.lat }, varname === 'qflx' ? 'fluviometrica' : 'pluviometrica');
       statusEl.textContent = ' ✓ listo';
       await this._renderEstacionesPunto(p);   // refresca con lo nuevo
     } catch (e) {

@@ -13,11 +13,12 @@ import * as Q from './caudales.js?v=2';
 import { transponer } from './transposicion.js?v=2';
 import { caudalesHU } from './hidrograma.js?v=2';
 import { lineaNieveTemperatura, lineaNieveLatitud } from './linea_nieve.js?v=2';
+import { fetchJSON } from '../datos/fetch_json.js?v=2';
 
 const TS = [2, 5, 10, 25, 50, 100, 150, 200];
 
 export async function correrHidrologia(caso) {
-  const coef = await (await fetch('data/coef_hidro.json?v=2')).json();
+  const coef = await fetchJSON('data/coef_hidro.json?v=2', { contexto: 'Coeficientes hidrológicos' });
   const out = { caso: caso.nombre, T: TS };
 
   // ── 1) Línea de nieve y área pluvial aportante ──
@@ -36,7 +37,7 @@ export async function correrHidrologia(caso) {
   const pp = caso.precipitacion;
   let ppDis, distPP, frec = null;
   if (pp?.file) {                              // serie disponible → análisis de frecuencia (para mostrar)
-    const j = await (await fetch(pp.file + '?v=2')).json();
+    const j = await fetchJSON(pp.file + '?v=2', { contexto: `Serie pluvial ${pp.estacion || ''}`.trim() });
     frec = analizar(Object.values(j.serie || j), { T: TS });
   }
   if (pp?.ppDisenoFijo) {                      // PP de diseño publicada (la serie cruda no reproduce el informe)
@@ -63,7 +64,7 @@ export async function correrHidrologia(caso) {
   let trans = null;
   if (caso.fluviometria) {
     const fv = caso.fluviometria;
-    const patron = await (await fetch(fv.file + '?v=2')).json();
+    const patron = await fetchJSON(fv.file + '?v=2', { contexto: `Serie fluviométrica ${fv.estacion || ''}`.trim() });
     trans = transponer(patron, { Apx: Ap }, {
       Qc: fv.Qc_publicado, distribucion: fv.dist || 'lognormal', T: TS,
     });
@@ -87,7 +88,7 @@ export async function correrHidrologia(caso) {
 //          pp:{estacion, serie, dist?, coefIDF?}, fluvio:{estacion, serie, Apc, dist?} }
 // ─────────────────────────────────────────────────────────────────────────────
 export async function correrPipelinePunto(cfg) {
-  const coef = await (await fetch('data/coef_hidro.json?v=2')).json();
+  const coef = await fetchJSON('data/coef_hidro.json?v=2', { contexto: 'Coeficientes hidrológicos' });
   const m = cfg.morfometria;
   const Ap = m.A;                                  // sin hipsometría: área pluvial ≈ área total
   const out = { caso: cfg.nombre, T: TS };

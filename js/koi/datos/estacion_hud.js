@@ -5,8 +5,9 @@
 // las distribuciones del MC y sus cuantiles por período de retorno. Reutiliza
 // cargarSerie (dga.js) y analizar (frecuencia.js).
 // ─────────────────────────────────────────────────────────────────────────────
-import { cargarSerie } from './dga.js?v=2';
+import { cargarSerie, descargarSerieDGA } from './dga.js?v=2';
 import { analizar } from '../hidro/frecuencia.js?v=2';
+import { KoiDataError } from './fetch_json.js?v=2';
 
 const f = (v) => (v == null || !isFinite(v) ? '—' : (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(1)));
 const DIST = { normal: 'Normal', lognormal: 'Log-Normal', pearson3: 'Pearson III', logpearson3: 'Log-Pearson III', gumbel: 'Gumbel', gamma: 'Gamma' };
@@ -16,15 +17,41 @@ export async function abrirEstacionHUD(huds, est, { onLink } = {}) {
   const uni = fluvio ? 'm³/s' : 'mm';
   const id = 'est_' + est.bna + '_' + est.tipo;
   const hud = huds.open(id, { title: `${fluvio ? '🌊' : '🌧'} ${est.nombre}`, w: 420, h: 400 });
+  await pintarSerie(hud, est, uni, fluvio, onLink);
+  return hud;
+}
+
+// Carga la serie y pinta el HUD; si no hay serie, ofrece descargarla y reintenta.
+async function pintarSerie(hud, est, uni, fluvio, onLink) {
   hud.setBody('<p class="hud-note">Cargando serie…</p>');
   let raw;
-  try { raw = await cargarSerie(est); }
-  catch { hud.setBody(metaHTML(est) + '<p class="hud-note" style="color:var(--red)">No hay serie descargada para esta estación.</p>'); return hud; }
+  try {
+    raw = await cargarSerie(est);
+  } catch (e) {
+    const msg = e instanceof KoiDataError ? e.message : 'No hay serie descargada para esta estación.';
+    hud.setBody(metaHTML(est) +
+      `<p class="hud-note" style="color:var(--red)">${msg}</p>` +
+      `<button class="hud-link" id="hud-dl">⬇ Descargar serie DGA</button>` +
+      `<span class="hud-note" id="hud-dl-st"></span>`);
+    hud.body.querySelector('#hud-dl')?.addEventListener('click', async () => {
+      const st = hud.body.querySelector('#hud-dl-st');
+      const btn = hud.body.querySelector('#hud-dl');
+      btn.disabled = true; st.textContent = ' descargando desde el CR2… (puede tardar)';
+      try {
+        await descargarSerieDGA({ lon: est.lon, lat: est.lat }, est.tipo);
+        await pintarSerie(hud, est, uni, fluvio, onLink);   // reintenta con la serie ya bajada
+      } catch (err) {
+        btn.disabled = false;
+        st.textContent = ' ✗ ' + (err?.message || 'falló la descarga');
+      }
+    });
+    return;
+  }
 
   const so = raw?.serie ?? raw;
   const pares = (Array.isArray(so) ? so.map((v, i) => [i + 1, +v]) : Object.entries(so || {}).map(([y, v]) => [+y, +v]))
     .filter((p) => isFinite(p[1])).sort((a, b) => a[0] - b[0]);
-  if (pares.length < 3) { hud.setBody(metaHTML(est) + '<p class="hud-note">Serie insuficiente para el análisis.</p>'); return hud; }
+  if (pares.length < 3) { hud.setBody(metaHTML(est) + '<p class="hud-note">Serie insuficiente para el análisis.</p>'); return; }
 
   const vals = pares.map((p) => p[1]);
   const an = analizar(vals);
@@ -40,7 +67,6 @@ export async function abrirEstacionHUD(huds, est, { onLink } = {}) {
   if (onLink) html += `<button class="hud-link" id="hud-hidro">Ver en pestaña Hidrología →</button>`;
   hud.setBody(html);
   if (onLink) hud.body.querySelector('#hud-hidro')?.addEventListener('click', () => onLink(est));
-  return hud;
 }
 
 function metaHTML(est) {
