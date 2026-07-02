@@ -296,6 +296,13 @@ function capHidrologia(koi, H, datos = {}) {
   } else b += tabla(['T [años]', 'Q adoptado [m³/s]', 'Origen'], null);
 
   // ── Módulos HMS-lite (nuevos) ────────────────────────────────────────────────
+  b += H(2, 'Tormenta de Diseño (Hietograma)');
+  b += P('El hietograma de diseño se construye por el <b>método de bloques alternos</b> a partir de la curva IDF (coeficientes de duración de la estación): la profundidad acumulada a cada duración es P<sub>24</sub>·C<sub>D</sub>(t) y la diferencia entre duraciones consecutivas da el incremento de cada bloque, que se ordena con el mayor al centro alternando a los lados. En zona árida el resultado es <b>referencial</b> (la crecida la gobierna la fluviometría); sirve para la forma del hidrograma y el tránsito.');
+  b += EQ(F.bloquesAlternos, 'ΔPₖ = incremento de lluvia del bloque k; Σ ΔPₖ = P₂₄·C_D(T_d)');
+  const tm = reg.tormenta;
+  if (tm) b += KV([['Método', tm.metodo === 'uniforme' ? 'uniforme' : 'bloques alternos'], ['Estación coef. IDF', esc(tm.estacion)], ['Período T', tm.T + ' años'], ['PP24 de diseño', f(tm.pp24) + ' mm'], ['Duración', f(tm.TdH, 0) + ' h · Δt ' + tm.dtMin + ' min'], ['Posición del peak r', f(tm.r, 2)], ['P total', f(tm.Ptotal) + ' mm'], ['Intensidad máx', f(tm.imax) + ' mm/h'], ...(tm.Qpico != null ? [['Q pico hidrograma', f(tm.Qpico) + ' m³/s'], ['Volumen escorrentía', f(tm.volMm3, 2) + ' hm³']] : [])]);
+  else b += ND('Corre "Tormenta de diseño (hietograma)" en Análisis para poblar esta sección.');
+
   b += H(2, 'Hidrograma de Crecida — Convolución del HU');
   b += P('La tormenta de diseño se discretiza (bloques alternos), se descuenta la abstracción por <b>SCS-CN</b> y la lluvia efectiva se convoluciona con el hidrograma unitario sintético (Linsley) conservando la masa (V = P<sub>e</sub>·A):');
   b += EQ(F.scsCN); b += EQ(F.convolucion);

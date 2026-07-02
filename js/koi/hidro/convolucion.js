@@ -59,11 +59,12 @@ export function convolucion(peInc, u) {
   return Q;
 }
 
-// Hidrograma de crecida completo desde morfometría, lluvia total y CN.
-export function hidrogramaTormenta(morfo, { Ptotal, durH, CN, zona = 1, patron = 'alterno', baseflow = 0 } = {}) {
+// Hidrograma de crecida desde un HIETOGRAMA INCREMENTAL ya construido (mm por bloque)
+// con paso dtH [h]. Aplica pérdidas SCS-CN y convoluciona con el HU Linsley. Es el
+// núcleo que usan tanto hidrogramaTormenta (curva sintética) como el módulo de
+// Tormenta de diseño (bloques alternos desde la IDF).
+export function hidrogramaDesdeHietograma(morfo, hietoInc, { CN, zona = 1, dtH, baseflow = 0 } = {}) {
   const par = linsley(morfo, zona);
-  const dtH = par.tu;                                   // paso = duración unitaria del HU
-  const hietoInc = hietogramaIncremental(Ptotal, { durH, dtH, patron });
   const peInc = efectivaIncremental(hietoInc, CN);
   const u = uhUniforme(ordenadasUH(par), dtH);
   // normaliza el HU a volumen unitario (1 mm → A·1000 m³) para conservar masa exacta.
@@ -76,4 +77,12 @@ export function hidrogramaTormenta(morfo, { Ptotal, durH, CN, zona = 1, patron =
   const Qpico = out.length ? Math.max(...out.map((p) => p.Q)) : 0;
   const volumen = Qd.reduce((a, b) => a + b, 0) * dtH * 3600;   // m³ escorrentía directa
   return { out, Qpico, dtH, tu: par.tu, tp: par.tp, PeTotal: peInc.reduce((a, b) => a + b, 0), volumen, par, hietoInc, peInc };
+}
+
+// Hidrograma de crecida completo desde morfometría, lluvia total y CN (curva sintética).
+export function hidrogramaTormenta(morfo, { Ptotal, durH, CN, zona = 1, patron = 'alterno', baseflow = 0 } = {}) {
+  const par = linsley(morfo, zona);
+  const dtH = par.tu;                                   // paso = duración unitaria del HU
+  const hietoInc = hietogramaIncremental(Ptotal, { durH, dtH, patron });
+  return hidrogramaDesdeHietograma(morfo, hietoInc, { CN, zona, dtH, baseflow });
 }

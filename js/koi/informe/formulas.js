@@ -40,6 +40,7 @@ export const F = {
   r2: M(R(sup(i('R'), n(2)), eq, n(1), menos, frac(R(o('Σ'), par(sub(i('x'), i('i')), menos, sub(o('x̂'), i('i')), sup(tx(''), n(2)))), R(o('Σ'), par(sub(i('x'), i('i')), menos, o('x̄'), sup(tx(''), n(2))))))),
   chi2: M(R(sup(i('χ'), n(2)), eq, o('Σ'), frac(sup(par(sub(i('O'), i('i')), menos, sub(i('E'), i('i'))), n(2)), sub(i('E'), i('i'))))),
   idf: M(R(i('i'), par(i('t'), o(','), i('T')), eq, frac(R(sub(i('P'), R(n(24), o(','), i('T'))), cdot, sub(i('C'), i('D')), par(i('t'))), i('t')))),
+  bloquesAlternos: M(R(o('Δ'), sub(i('P'), i('k')), eq, sub(i('P'), n(24)), cor(sub(i('C'), i('D')), par(i('k'), o('Δ'), i('t')), menos, sub(i('C'), i('D')), par(par(i('k'), menos, n(1)), o('Δ'), i('t'))))),
   racional: M(R(i('Q'), eq, frac(R(i('C'), cdot, i('i'), cdot, i('A')), n('3.6')))),
   verniking: M(R(sub(i('Q'), i('T')), eq, i('C'), cdot, sup(i('A'), n('0.88')), cdot, subsup(i('P'), n(24), n('1.24')))),
   dgaQmd: M(R(subsup(i('Q'), n(10), it('md')), eq, i('a'), cdot, sup(i('A'), i('b')), cdot, sup(it('PP'), i('c')))),

@@ -29,6 +29,7 @@ import { abrirVerificacionesHUD } from './hidraulica/verificaciones_ui.js?v=2';
 import { abrirDegradacionHUD } from './hidraulica/degradacion_ui.js?v=2';
 import { abrirRoutingHUD } from './hidro/routing_ui.js?v=2';
 import { abrirConvolucionHUD } from './hidro/convolucion_ui.js?v=2';
+import { abrirTormentaHUD } from './hidro/tormenta_ui.js?v=2';
 import { abrirRedHUD } from './hidro/red_ui.js?v=2';
 import { abrirMorfoHUD } from './hidraulica/morfo1d_ui.js?v=2';
 import { abrirContinuoHUD } from './hidro/continuo_ui.js?v=2';
@@ -268,6 +269,7 @@ async function startBoot() {
     'verificaciones': () => abrirVerificacionesHUD(window.__koi, huds),
     'degradacion': () => abrirDegradacionHUD(window.__koi, huds),
     'routing': () => abrirRoutingHUD(window.__koi, huds),
+    'tormenta': () => abrirTormentaHUD(window.__koi, huds),
     'convolucion': () => abrirConvolucionHUD(window.__koi, huds),
     'red': () => abrirRedHUD(window.__koi, huds),
     'continuo': () => abrirContinuoHUD(window.__koi, huds),
