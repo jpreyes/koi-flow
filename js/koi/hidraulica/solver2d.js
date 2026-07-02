@@ -97,6 +97,18 @@ export function resolver2D(mesh, opts = {}) {
   const esSalida = new Uint8Array(n); for (const i of salida) esSalida[i] = 1;
 
   const A = buildCSR(n, tris);
+  // Índices CSR PRECOMPUTADOS (el patrón no cambia): el ensamblaje reusa estas
+  // posiciones en vez de la búsqueda binaria A.pos() por cada entrada, en cada
+  // iteración Picard de cada paso. A ~1500 nodos el ensamblaje pesaba MÁS que el
+  // solver por este A.pos(); precomputar una vez lo abarata mucho.
+  const diagPos = new Int32Array(n);
+  for (let i = 0; i < n; i++) diagPos[i] = A.pos(i, i);
+  for (const g of G) {
+    if (!g) continue;
+    const id = [g.i, g.j, g.k]; const p = new Int32Array(9);
+    for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) p[a * 3 + b] = A.pos(id[a], id[b]);
+    g.pos9 = p;
+  }
   // Solver WASM PERSISTENTE creado UNA vez (el patrón CSR no cambia en la simulación).
   // Si la instanciación falla, se cae a PCG-IC0 en JS (no rompe la corrida).
   let wasmPersist = null, usePersist = false;
@@ -122,7 +134,7 @@ export function resolver2D(mesh, opts = {}) {
       A.val.fill(0);
       rhs.set(F0);
       // M/Δt en la diagonal + M/Δt·H^n en rhs
-      for (let i = 0; i < n; i++) { const md = M[i] / dt; A.val[A.pos(i, i)] += md; rhs[i] += md * Hprev[i]; }
+      for (let i = 0; i < n; i++) { const md = M[i] / dt; A.val[diagPos[i]] += md; rhs[i] += md * Hprev[i]; }
       // rigidez de difusión K por elemento con D=(1/n)h^{5/3}|∇H|^{-1/2}
       for (const g of G) {
         if (!g) continue;
@@ -134,14 +146,14 @@ export function resolver2D(mesh, opts = {}) {
         const nE = (nMan[g.i] + nMan[g.j] + nMan[g.k]) / 3;
         const D = (1 / nE) * Math.pow(hE, 5 / 3) / Math.sqrt(S);
         const w = D * g.A;
-        const id = [g.i, g.j, g.k];
+        const pos9 = g.pos9;
         for (let a = 0; a < 3; a++) for (let bb = 0; bb < 3; bb++) {
-          A.val[A.pos(id[a], id[bb])] += w * (g.b[a] * g.b[bb] + g.c[a] * g.c[bb]);
+          A.val[pos9[a * 3 + bb]] += w * (g.b[a] * g.b[bb] + g.c[a] * g.c[bb]);
         }
       }
       // Dirichlet en salida por penalti (mantiene simetría/SPD)
       const BIG = 1e12;
-      for (let i = 0; i < n; i++) if (esSalida[i]) { A.val[A.pos(i, i)] += BIG; rhs[i] += BIG * stageOut; }
+      for (let i = 0; i < n; i++) if (esSalida[i]) { A.val[diagPos[i]] += BIG; rhs[i] += BIG * stageOut; }
       tAssembly += perfNow() - _ta0;
       // resolver SPD: WASM persistente (preferido; solo updateValues+solve), WASM por-solve,
       // PCG-IC0 (JS) o banda (Cholesky directo). rhs se pasa como Float64Array (sin copiar).
