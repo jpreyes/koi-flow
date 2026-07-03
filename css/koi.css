@@ -465,6 +465,11 @@ body { font: 14px/1.45 system-ui, "Segoe UI", Roboto, sans-serif; background: va
 .ins-desfase { margin: 0 0 8px; padding: 5px 9px; border-radius: 6px; font-size: 11px;
   background: rgba(245,158,11,.14); border: 1px solid rgba(245,158,11,.4); color: var(--text, #dce8ef); }
 
+/* Hoja del árbol = objeto ACTIVO (mismo objeto del indicador "Trabajando en:") */
+.cap-leaf.cap-activo { background: color-mix(in srgb, var(--obj-color, #1ea7c5) 14%, transparent);
+  box-shadow: inset 3px 0 0 var(--obj-color, #1ea7c5); border-radius: 6px; }
+.cap-leaf { border-radius: 6px; }
+
 /* Chips de "Resultados calculados" en el árbol */
 .cap-chip { display: inline-flex; align-items: center; gap: 4px; }
 .cap-chip .cap-ok { color: #22c55e; font-weight: 800; }

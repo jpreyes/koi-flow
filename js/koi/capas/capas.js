@@ -10,6 +10,7 @@ import { toast } from '../ui/toast.js?v=2';
 import { bus } from '../ui/bus.js?v=2';
 import { listProjects, saveProject, removeProject, setOpen, newProjectId } from '../proyectos.js?v=2';
 import { escribirKoi, leerKoi } from '../proyecto/koi_file.js?v=2';
+import { infoTipo, getActivo } from '../ui/seleccion.js?v=2';
 
 // Módulos de koi.reg → acción de menú (para reabrir el HUD) y etiqueta del chip.
 const REG_INFO = {
@@ -64,6 +65,19 @@ export class Capas {
     this._build();
     // Refresca los chips de "Resultados calculados" cuando un motor registra algo.
     bus.on('reg:actualizado', () => { clearTimeout(this._regT); this._regT = setTimeout(() => this.render(), 60); });
+    // Resalta en el árbol el objeto activo (mismo objeto del indicador "Trabajando en:").
+    bus.on('seleccion:cambio', (o) => this._marcarActivo(o));
+  }
+
+  // Marca la hoja del árbol que corresponde al objeto activo (por id).
+  _marcarActivo(o) {
+    if (!this.tree) return;
+    const id = o?.id != null ? String(o.id) : null;
+    this.tree.querySelectorAll('.cap-leaf.cap-activo').forEach((li) => li.classList.remove('cap-activo'));
+    if (!id) return;
+    this.tree.querySelectorAll('.cap-leaf').forEach((li) => {
+      if (li.dataset.objId === id) { li.classList.add('cap-activo'); li.style.setProperty('--obj-color', infoTipo(li.dataset.objTipo).color); }
+    });
   }
 
   _build() {
@@ -140,8 +154,9 @@ export class Capas {
       const has = !!(t.dem || t.demGrid) && !t.relieveOff;
       const li = el('li', 'cap-leaf');
       li.dataset.name = t.name;
+      li.dataset.objTipo = 'tramo'; li.dataset.objId = t.name;
       const editando = this._editTramo === t.name;
-      li.innerHTML = `<span class="cap-ico">${ico('wave')}</span><span class="cap-lbl">${t.name}</span>
+      li.innerHTML = `<span class="cap-ico" style="color:${infoTipo('tramo').color}">${ico('wave')}</span><span class="cap-lbl">${t.name}</span>
         <span class="cap-act cap-relieve${has ? ' on' : ''}" data-rel="1" title="${has ? 'Relieve activo — clic para desactivar' : 'Activar/descargar relieve'}">${ico('mountain')}</span>
         <span class="cap-act${editando ? ' on' : ''}" data-edittramo="${t.name}" title="Editar vértices (arrastra · Esc termina)">${ico('pencil')}</span>
         <span class="cap-act" data-deltramo="${t.name}" title="Quitar tramo">${ico('trash')}</span>
@@ -160,11 +175,13 @@ export class Capas {
     const puntos = (this.map?.getPoints?.() || []).map((p) => {
       const li = el('li', 'cap-leaf');
       li.title = `${p.lat.toFixed(5)}, ${p.lon.toFixed(5)}`;
-      li.innerHTML = `<span class="cap-ico">${ico('point')}</span><span class="cap-lbl">${p.nombre}</span>
+      li.dataset.objTipo = 'punto'; li.dataset.objId = p.id;
+      li.innerHTML = `<span class="cap-ico" style="color:${infoTipo('punto').color}">${ico('point')}</span><span class="cap-lbl">${p.nombre}</span>
         <span class="cap-act" data-gopt="${p.id}" title="Ir">${ico('locate')}</span><span class="cap-act" data-delpt="${p.id}" title="Borrar punto">${ico('trash')}</span>
         <span class="cap-meta">${p.cuenca ? p.cuenca.morfometria.A + 'km²' : p.lat.toFixed(3) + ',' + p.lon.toFixed(3)}</span>`;
-      li.querySelector('[data-gopt]').addEventListener('click', () => this.hydro?.irAPunto?.(p.id));
-      li.querySelector('[data-delpt]').addEventListener('click', () => { this.hydro?.borrarPunto?.(p.id); this.render(); });
+      li.querySelector('[data-gopt]').addEventListener('click', (e) => { e.stopPropagation(); this.hydro?.irAPunto?.(p.id); });
+      li.querySelector('[data-delpt]').addEventListener('click', (e) => { e.stopPropagation(); this.hydro?.borrarPunto?.(p.id); this.render(); });
+      li.addEventListener('click', () => this.hydro?.irAPunto?.(p.id));   // clic en la hoja = seleccionar
       return li;
     });
     this.tree.appendChild(this._grupo('puntos', ico('point'), `Puntos de análisis (${puntos.length})`, puntos));
@@ -172,14 +189,17 @@ export class Capas {
     // Cuencas delineadas (puntos con cuenca)
     const cuencas = (this.map?.getPoints?.() || []).filter((p) => p.cuenca).map((p) => {
       const li = el('li', 'cap-leaf');
-      li.innerHTML = `<span class="cap-ico">${ico('basin')}</span><span class="cap-lbl">${p.nombre}</span>
+      li.dataset.objTipo = 'cuenca'; li.dataset.objId = p.id;
+      li.innerHTML = `<span class="cap-ico" style="color:${infoTipo('cuenca').color}">${ico('basin')}</span><span class="cap-lbl">${p.nombre}</span>
         <span class="cap-act" data-gocu="${p.id}" title="Encuadrar">${ico('locate')}</span>
         <span class="cap-act" data-recu="${p.id}" title="Recalcular cuenca">↻</span>
         <span class="cap-act" data-delcu="${p.id}" title="Borrar cuenca">${ico('trash')}</span>
         <span class="cap-meta">${p.cuenca.morfometria.A}km²</span>`;
-      li.querySelector('[data-gocu]').addEventListener('click', () => { this.hydro?.irAPunto?.(p.id); this.map.showCuenca(p.id, p.cuenca.polygonSuave || p.cuenca.polygon); });
-      li.querySelector('[data-recu]').addEventListener('click', () => this.hydro?.recalcularCuenca?.(p));
-      li.querySelector('[data-delcu]').addEventListener('click', () => { this.map.clearCuenca(p.id); p.cuenca = null; this.render(); });
+      const irCuenca = () => { this.hydro?.irAPunto?.(p.id); this.map.showCuenca(p.id, p.cuenca.polygonSuave || p.cuenca.polygon); };
+      li.querySelector('[data-gocu]').addEventListener('click', (e) => { e.stopPropagation(); irCuenca(); });
+      li.querySelector('[data-recu]').addEventListener('click', (e) => { e.stopPropagation(); this.hydro?.recalcularCuenca?.(p); });
+      li.querySelector('[data-delcu]').addEventListener('click', (e) => { e.stopPropagation(); this.map.clearCuenca(p.id); p.cuenca = null; this.render(); });
+      li.addEventListener('click', irCuenca);   // clic en la hoja = seleccionar
       return li;
     });
     this.tree.appendChild(this._grupo('cuencas', ico('basin'), `Cuencas delineadas (${cuencas.length})`, cuencas));
@@ -264,6 +284,7 @@ export class Capas {
       ul.appendChild(li);
     }
     this.tree.appendChild(grp);
+    this._marcarActivo(getActivo());   // conserva el resaltado del activo tras reconstruir el árbol
   }
 
   // ── Barra de herramientas ────────────────────────────────────────────────────
