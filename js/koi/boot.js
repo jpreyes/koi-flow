@@ -174,7 +174,7 @@ async function startBoot() {
     if (hb) { p.cuencaHB = hb; map.showCuencaMulti(p.id, hb.multipolygon); }
     return hb;
   };
-  hydro.irAPunto = (id) => { const p = map.getPoints().find((x) => x.id === id); if (p) { map.selectPoint(id); hydro.analizarPunto(p); } };
+  hydro.irAPunto = (id) => { const p = map.getPoints().find((x) => x.id === id); if (p) { map.selectPoint(id); hydro.analizarPunto(p); activarPunto(p); } };
   hydro.borrarPunto = (id) => { map.removePoint(id); map.clearCuenca(id); hydro.setPuntos(map.getPoints()); capas.render(); };
   // Área de la cuenca de una estación de control (Apc) por delineación automática.
   hydro.delinearArea = async (lon, lat, onProgress) => {

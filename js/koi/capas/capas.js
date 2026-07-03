@@ -177,7 +177,7 @@ export class Capas {
         <span class="cap-act" data-recu="${p.id}" title="Recalcular cuenca">↻</span>
         <span class="cap-act" data-delcu="${p.id}" title="Borrar cuenca">${ico('trash')}</span>
         <span class="cap-meta">${p.cuenca.morfometria.A}km²</span>`;
-      li.querySelector('[data-gocu]').addEventListener('click', () => this.map.showCuenca(p.id, p.cuenca.polygonSuave || p.cuenca.polygon));
+      li.querySelector('[data-gocu]').addEventListener('click', () => { this.hydro?.irAPunto?.(p.id); this.map.showCuenca(p.id, p.cuenca.polygonSuave || p.cuenca.polygon); });
       li.querySelector('[data-recu]').addEventListener('click', () => this.hydro?.recalcularCuenca?.(p));
       li.querySelector('[data-delcu]').addEventListener('click', () => { this.map.clearCuenca(p.id); p.cuenca = null; this.render(); });
       return li;

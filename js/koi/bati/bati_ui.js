@@ -1412,8 +1412,8 @@ export class BatiPanel {
     this._secPolys = [];
     this.secciones.forEach((s, i) => {
       const poly = L.polyline(s.linea.map(([lo, la]) => [la, lo]), { color: '#22d3ee', weight: 3 })
-        .bindTooltip(s.nombre + (s.fuera > 0.15 ? ' ⚠ fuera del DEM' : '') + ' · doble-clic agrega vértice', { sticky: true })
-        .on('click', (e) => { window.L.DomEvent.stop(e); this._scrollSec(i); });
+        .bindTooltip(s.nombre + (s.fuera > 0.15 ? ' ⚠ fuera del DEM' : '') + ' · clic = seleccionar · doble-clic agrega vértice', { sticky: true })
+        .on('click', (e) => { window.L.DomEvent.stop(e); this._selSeccion(i); });
       // doble-clic sobre la sección → agrega un vértice (p.ej. un borde intermedio)
       poly.on('dblclick', (e) => { window.L.DomEvent.stop(e); this._insertarVertice(s.linea, e.latlng); this._muestrear(s); this._actualizarFlujo(); this._calcSeccionEje(s); this._render(); this._dibujarSecciones(); });
       this._secGroup.addLayer(poly); this._secPolys[i] = poly;
@@ -1426,6 +1426,15 @@ export class BatiPanel {
         mk.on('contextmenu', (e) => { window.L.DomEvent.stop(e); if (s.linea.length > 2) { s.linea.splice(v, 1); this._muestrear(s); this._actualizarFlujo(); this._calcSeccionEje(s); this._render(); this._dibujarSecciones(); } });
         this._secGroup.addLayer(mk);
       });
+    });
+    if (this._secSel != null) this._resaltarSeccion(this._secSel);   // conserva el resaltado tras redibujar
+  }
+  // Resalta en el MAPA la sección activa (amarillo grueso) y atenúa las demás.
+  _resaltarSeccion(i) {
+    (this._secPolys || []).forEach((poly, k) => {
+      if (!poly) return;
+      poly.setStyle(k === i ? { color: '#facc15', weight: 6, opacity: 1 } : { color: '#22d3ee', weight: 3, opacity: 0.85 });
+      if (k === i) poly.bringToFront();
     });
   }
   _redibujarLinea(i) {   // durante el arrastre, actualiza solo la polilínea (rápido)
