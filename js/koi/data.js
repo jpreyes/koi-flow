@@ -4,7 +4,7 @@
 // marcado como abierto (localStorage), cuyo estado se reconstruye. El usuario crea
 // proyectos («Nuevo»), importa tramos (KMZ/KML) y guarda/abre desde localStorage.
 // ─────────────────────────────────────────────────────────────────────────────
-import { getOpen, loadProjectState } from './proyectos.js?v=5';
+import { getOpen, loadProjectState } from './proyectos.js?v=6';
 
 const EMPTY_FC = () => ({ type: 'FeatureCollection', features: [] });
 

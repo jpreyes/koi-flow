@@ -15,7 +15,7 @@
 // distribución Log-Normal → cuenca Sector 17 A=951.3 km²): reproduce la
 // Tabla 3-41/3-42 de caudales adoptados.
 // ─────────────────────────────────────────────────────────────────────────────
-import { analizar } from './frecuencia.js?v=5';
+import { analizar } from './frecuencia.js?v=6';
 
 export const VERNI_KING = { a: 0.88, p: 1.24 };
 

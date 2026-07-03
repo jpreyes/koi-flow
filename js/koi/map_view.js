@@ -21,8 +21,11 @@ export class MapView {
 
     const L = window.L;
     this.map = L.map(container, { zoomControl: true, attributionControl: true, maxZoom: 22 })
-      .setView([-19.9, -69.1], 9);
+      .setView([-35.5, -71.2], 5);   // vista inicial: gran parte de Chile (no un sector puntual)
     this.map.on('click', (e) => { if (this.pickMode) this.addPoint(e.latlng.lng, e.latlng.lat); });
+    // Encuadra Chile continental de forma robusta según el tamaño de la ventana (Arica→Chiloé
+    // aprox.), independiente del aspecto de pantalla. Si falla, queda el setView de arriba.
+    try { this.map.fitBounds([[-18.4, -75.8], [-43.5, -66.0]], { padding: [10, 10] }); } catch {}
 
     // maxNativeZoom: al pasar el zoom nativo, Leaflet ESCALA el último tile disponible
     // en vez de pedir tiles inexistentes (evita el cartel "Map data not yet available").

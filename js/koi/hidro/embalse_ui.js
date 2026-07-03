@@ -3,8 +3,8 @@
 // la curva cota–área–volumen del DEM, define el vertedero y un hidrograma de
 // entrada, y rutea por piscina nivelada (Puls) mostrando la atenuación entrada/salida.
 // ─────────────────────────────────────────────────────────────────────────────
-import { curvaEmbalse, ruteoPuls, hidrogramaTriangular } from './embalse.js?v=5';
-import { fetchDEM } from '../cuenca/dem_tiles.js?v=5';
+import { curvaEmbalse, ruteoPuls, hidrogramaTriangular } from './embalse.js?v=6';
+import { fetchDEM } from '../cuenca/dem_tiles.js?v=6';
 
 const f = (v, d = 1) => (v == null || !isFinite(v) ? '—' : (Math.abs(v) >= 1000 ? v.toFixed(0) : v.toFixed(d)));
 

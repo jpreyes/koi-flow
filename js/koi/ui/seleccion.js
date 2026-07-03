@@ -5,7 +5,7 @@
 // paneles reaccionan. Mata el "estado activo implícito" (lo último en memoria):
 // ahora SIEMPRE se ve y se elige qué objeto se está calculando.
 // ─────────────────────────────────────────────────────────────────────────────
-import { emit } from './bus.js?v=5';
+import { emit } from './bus.js?v=6';
 
 // Tipos de objeto del proyecto (label + color + ícono) — molde extensible (§6.2).
 export const TIPOS = {

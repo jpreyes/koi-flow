@@ -21,7 +21,7 @@ export class KoiDataError extends Error {
 
 // Carga un JSON chequeando errores. `contexto` (string) se antepone al mensaje para
 // que el usuario sepa QUÉ se estaba cargando (p.ej. "Serie de la estación Camiña").
-//   fetchJSON('data/x.json?v=5', { contexto: 'Coeficientes hidrológicos' })
+//   fetchJSON('data/x.json?v=6', { contexto: 'Coeficientes hidrológicos' })
 // Lanza KoiDataError si: la red falla, el HTTP no es 2xx, o el cuerpo no es JSON.
 export async function fetchJSON(url, { contexto = null, signal = null } = {}) {
   const pref = contexto ? contexto + ': ' : '';

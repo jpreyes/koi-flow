@@ -5,12 +5,12 @@
 // Estaciones DGA, Referencias (río/ciudad/camino) e Importados. Cada capa se puede
 // mostrar/ocultar (casilla) y sus entidades ir/borrar. Estilo cercano a wind-shm.
 // ─────────────────────────────────────────────────────────────────────────────
-import { leerKMLoKMZ } from './kml.js?v=5';
-import { toast } from '../ui/toast.js?v=5';
-import { bus } from '../ui/bus.js?v=5';
-import { listProjects, saveProject, removeProject, setOpen, newProjectId } from '../proyectos.js?v=5';
-import { escribirKoi, leerKoi } from '../proyecto/koi_file.js?v=5';
-import { infoTipo, getActivo } from '../ui/seleccion.js?v=5';
+import { leerKMLoKMZ } from './kml.js?v=6';
+import { toast } from '../ui/toast.js?v=6';
+import { bus } from '../ui/bus.js?v=6';
+import { listProjects, saveProject, removeProject, setOpen, newProjectId } from '../proyectos.js?v=6';
+import { escribirKoi, leerKoi } from '../proyecto/koi_file.js?v=6';
+import { infoTipo, getActivo } from '../ui/seleccion.js?v=6';
 
 // Módulos de koi.reg → acción de menú (para reabrir el HUD) y etiqueta del chip.
 const REG_INFO = {

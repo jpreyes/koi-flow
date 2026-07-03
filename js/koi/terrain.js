@@ -6,7 +6,7 @@
 // cuenca y la mancha de inundación.
 // ─────────────────────────────────────────────────────────────────────────────
 import * as THREE from 'three';
-import { fetchJSON } from './datos/fetch_json.js?v=5';
+import { fetchJSON } from './datos/fetch_json.js?v=6';
 
 export class Terrain {
   // dem: {bbox,nx,ny,min,max,data}  ·  proj: makeProjection(...)

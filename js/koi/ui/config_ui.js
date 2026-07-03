@@ -3,7 +3,7 @@
 // parámetros por defecto editables (getConfig/SCHEMA). Guardar → setConfig; los
 // formularios los toman como default a partir de ese momento.
 // ─────────────────────────────────────────────────────────────────────────────
-import { getConfig, setConfig, resetConfig, SCHEMA } from '../config.js?v=5';
+import { getConfig, setConfig, resetConfig, SCHEMA } from '../config.js?v=6';
 
 export function abrirConfigHUD(huds) {
   const c = getConfig();
