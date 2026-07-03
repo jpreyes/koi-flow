@@ -44,10 +44,21 @@ function buildCSR(n, tris) {
 // Resuelve el flujo 2D difusivo hasta régimen (permanente) o nPasos.
 //   mesh: {nodes:[{x,y,z,n}], tris}.  opts:
 //     Q (caudal de entrada m³/s), entrada:[idx], salida:[idx], stageSalida (WSE fija),
-//     dt, nPasos, hmin, smin (pendiente mínima), picard, tol, onProgress.
+//     dt, nPasos, hmin, smin (pendiente mínima), picard (tope iter. no lineal), tol,
+//     relax (sub-relajación de Picard θ≤1; <1 estabiliza mallas casi uniformes y hace
+//     el resultado independiente del solver lineal), picardTol (corta Picard al converger
+//     el iterado), onProgress.
 export function resolver2D(mesh, opts = {}) {
   const nodes = mesh.nodes, tris = mesh.tris, n = nodes.length;
-  const { Q = 0, entrada = [], salida = [], hmin = 0.005, smin = 1e-4, picard = 3, dt = 30, nPasos = 200, tol = 1e-4 } = opts;
+  const { Q = 0, entrada = [], salida = [], hmin = 0.005, smin = 1e-4, picard = 12, dt = 30, nPasos = 200, tol = 1e-4 } = opts;
+  // Sub-relajación de Picard (θ≤1). D=(1/n)h^{5/3}|∇H|^{-1/2} es fuertemente no lineal
+  // (D→∞ al aplanarse ∇H); con Picard puro (θ=1) la iteración puede NO converger, y su
+  // parada depende del solver lineal → banda/pcg/wasm dan h distintos (~0.5 m en mallas
+  // casi uniformes, con calados sobrestimados 3–4×). θ=0.5 (validado: 0.4–0.6 convergen,
+  // ≥0.7 re-oscila) amortigua y fuerza el punto fijo reproducible. picardTol corta el
+  // Picard al converger el iterado interno (mallas fáciles ~5-6 it). relax=1,picardTol=0 = legacy.
+  const relax = opts.relax != null ? opts.relax : 0.5;
+  const picardTol = opts.picardTol != null ? opts.picardTol : 1e-3;
   // solver lineal: 'banda' (Cholesky directo, def), 'pcg' (IC0 en JS), 'wasm' (IC0 en C++).
   // Auto (sin especificar): 'pcg' si la malla es grande. 'wasm' requiere opts.wasmSolve (shim listo).
   let solverKind = opts.solver;
@@ -168,7 +179,15 @@ export function resolver2D(mesh, opts = {}) {
         sol = F.solve(rhs);
       }
       tSolve += perfNow() - _t0; nSolves++;
-      for (let i = 0; i < n; i++) { H[i] = Math.max(sol[i], z[i]); }   // clamp h≥0
+      // sub-relajación H ← (1-θ)·H_iter + θ·sol (clamp h≥0); dPic = cambio del iterado
+      let dPic = 0;
+      for (let i = 0; i < n; i++) {
+        const hc = Math.max(sol[i], z[i]);
+        const hn = relax >= 1 ? hc : (1 - relax) * H[i] + relax * hc;
+        const d = Math.abs(hn - H[i]); if (d > dPic) dPic = d;
+        H[i] = hn;
+      }
+      if (picardTol > 0 && dPic < picardTol) break;   // Picard convergió → no iterar de más
     }
     // guarda frame h(t) para animar (transiente)
     if (guardarCada && paso % guardarCada === 0) {
