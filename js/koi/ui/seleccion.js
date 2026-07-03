@@ -35,4 +35,21 @@ export function setActivo(obj) {
 
 export function infoTipo(tipo) { return TIPOS[tipo] || { label: tipo || '—', color: '#8aa', ico: '•' }; }
 
+// Fija la CRECIDA activa (hidrograma + reología) para el 2D/tránsito/embalse y la
+// guarda en el PUNTO/cuenca activo, para que CADA objeto lleve la suya — se acaba el
+// singleton global `koi.hidrogramaCrecida` (dos cuencas ya no comparten hidrograma).
+// crecida: { hidrograma:[{t,Q}], reologia?, fuente } | null.
+export function fijarCrecida(koi, crecida) {
+  const c = crecida ? { hidrograma: crecida.hidrograma || null, reologia: crecida.reologia || null, fuente: crecida.fuente || null } : null;
+  koi.hidrogramaCrecida = c?.hidrograma || null;
+  koi.reologia = c?.reologia || null;
+  const p = koi.hydro?._punto;         // el punto de análisis activo
+  if (p) p.crecida = c;
+  emit('crecida:cambio', { fuente: c?.fuente || null });
+  return c;
+}
+
+// Devuelve la crecida guardada en un objeto (o null).
+export function crecidaDe(obj) { return obj?.crecida || null; }
+
 if (typeof window !== 'undefined') window.__koiSel = { get: getActivo, set: setActivo, TIPOS };

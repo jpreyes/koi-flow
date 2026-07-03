@@ -13,6 +13,7 @@ import { fetchJSON } from '../datos/fetch_json.js?v=2';
 import { toast } from '../ui/toast.js?v=2';
 import { bloqueInsumos } from '../ui/insumos.js?v=2';
 import { on as busOn } from '../ui/bus.js?v=2';
+import { fijarCrecida } from '../ui/seleccion.js?v=2';
 
 const f = (v, d = 1) => (v == null || !isFinite(v) ? '—' : v.toFixed(d));
 
@@ -153,9 +154,9 @@ function wire(hud, koi, idf) {
       <p class="hud-note">Bloques alternos derivados de la IDF (CD de ${est}). Masa conservada: ΣP = PP24·CD(Td).</p>`;
 
     if (hg) $('#tw-use').addEventListener('click', () => {
-      koi.hidrogramaCrecida = hg.out;
-      koi.reologia = null;   // agua clara (no relave)
-      toast('Hidrograma de la tormenta fijado como crecida (2D / tránsito / embalse).', 'ok');
+      fijarCrecida(koi, { hidrograma: hg.out, reologia: null, fuente: 'tormenta' });   // agua clara; se guarda en la cuenca activa
+      const p = koi.hydro?._punto;
+      toast(`Hidrograma fijado como crecida${p ? ' de ' + p.nombre : ''} (2D / tránsito / embalse).`, 'ok');
     });
   });
 }

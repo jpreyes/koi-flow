@@ -7,6 +7,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { hidrogramaRotura } from './breach.js?v=2';
 import { registrar } from '../informe/registro.js?v=2';
+import { fijarCrecida } from '../ui/seleccion.js?v=2';
 
 const f = (v, d = 2) => (v == null || !isFinite(v) ? '—' : (Math.abs(v) >= 1000 ? v.toFixed(0) : v.toFixed(d)));
 
@@ -68,9 +69,9 @@ function wire(hud, koi) {
         { Qp: $('#br-qp').value });
     } catch (e) { out.innerHTML = `<p class="hud-note" style="color:var(--red)">${e.message}</p>`; return; }
 
-    koi.hidrogramaCrecida = r.out;   // → momentum 2D / tránsito / embalse
     const esRelave = $('#br-mat').value === 'relave';
-    koi.reologia = esRelave ? { tauY: +$('#br-ty').value || 0, mu: +$('#br-mu').value || 0, Cv: +$('#br-cv').value || 0.45, K: +$('#br-k').value || 24 } : null;
+    const reologia = esRelave ? { tauY: +$('#br-ty').value || 0, mu: +$('#br-mu').value || 0, Cv: +$('#br-cv').value || 0.45, K: +$('#br-k').value || 24 } : null;
+    fijarCrecida(koi, { hidrograma: r.out, reologia, fuente: 'breach' });   // → momentum 2D / tránsito / embalse; se guarda en el objeto activo
     registrar('breach', { modo: $('#br-modo').value, Vw: r.Vw, hb: r.hb, Bavg: r.Bavg, tfMin: r.tf / 60, Qp: r.QpUsado });
 
     out.innerHTML = `

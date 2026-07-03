@@ -418,6 +418,7 @@ export class Capas {
   _estadoActual() {
     const puntos = (this.map.getPoints() || []).map((p) => ({
       lon: p.lon, lat: p.lat, nombre: p.nombre,
+      crecida: p.crecida || null,   // cada punto/cuenca lleva SU hidrograma+reología
       cuenca: p.cuenca ? { polygon: p.cuenca.polygon, polygonSuave: p.cuenca.polygonSuave || null, morfometria: p.cuenca.morfometria } : null,
     }));
     const importados = [...this.map.importLayers.entries()].map(([id, it]) => {
@@ -477,6 +478,7 @@ export class Capas {
     for (const im of data.importados || []) { if (im.geojson) { const id = this.map.addImport(im.name, im.geojson); this.imports.push({ id, name: im.name }); } }
     for (const p of data.puntos || []) {
       const pt = this.map.restorePoint(p.lon, p.lat, p.nombre, p.cuenca);
+      if (pt && p.crecida) pt.crecida = p.crecida;   // restaura el hidrograma del objeto
       if (p.cuenca) this.map.showCuenca(pt.id, p.cuenca.polygonSuave || p.cuenca.polygon);
     }
     for (const lb of data.etiquetas || []) { const id = this.map.addLabel(lb); this.labels.push({ id, ...lb }); }

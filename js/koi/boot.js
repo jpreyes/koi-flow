@@ -296,6 +296,8 @@ async function startBoot() {
   // Marca un punto como objeto activo (indicador "Trabajando en: X").
   function activarPunto(p) {
     if (!p) return;
+    // Cada objeto lleva SU crecida: al activarlo, esa (o ninguna) es la que usan el 2D/tránsito.
+    const k = window.__koi; if (k) { k.hidrogramaCrecida = p.crecida?.hidrograma || null; k.reologia = p.crecida?.reologia || null; }
     setActivo({ tipo: p.cuenca ? 'cuenca' : 'punto', id: p.id, nombre: p.nombre,
       meta: p.cuenca ? `cuenca ${p.cuenca.morfometria.A} km² · ${p.lat.toFixed(4)}, ${p.lon.toFixed(4)}` : `${p.lat.toFixed(4)}, ${p.lon.toFixed(4)}` });
   }
