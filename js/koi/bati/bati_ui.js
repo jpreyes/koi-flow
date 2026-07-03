@@ -658,6 +658,14 @@ export class BatiPanel {
           <option value="wasm">PCG IC0 (WASM · C++)</option>
         </select></label>
       </div>
+      <details class="bp-det"><summary>⚙ Avanzado · convergencia no lineal (Picard)</summary>
+        <div class="bp-form">
+          <label title="Sub-relajación de Picard θ≤1. 0.5 (def) = resultado reproducible e independiente del solver; 1 = legacy (puede sobrestimar el calado 3-4× y depender del backend)">θ relax <input id="f2-relax" type="number" step="0.1" min="0.1" max="1" value="0.5"></label>
+          <label title="Tope de iteraciones no lineales por paso de tiempo">Picard máx <input id="f2-picard" type="number" step="1" value="12"></label>
+          <label title="Corta Picard al converger el iterado interno (mallas fáciles ~5-6 it). 0 = no cortar">Picard tol <input id="f2-picardtol" type="number" step="0.0005" value="0.001"></label>
+        </div>
+        <p class="hp-note">La difusiva usa D=(1/n)h^{5/3}|∇H|^{-1/2}, fuertemente no lineal. θ=0.5 amortigua la iteración de Picard y la hace converger a un calado físicamente correcto y reproducible entre backends. θ=1 recupera el comportamiento anterior.</p>
+      </details>
       <button class="hp-run" id="bp-2d-sim" title="Usa el Q del formulario 1D de este reach (o el Q efectivo si recibe de otros reaches)">▶ Simular 2D (Q del formulario)</button>
       <span class="hp-dl-status" id="bp-2d-simst"></span>
       <div id="bp-2d-res">${this._result2DHTML()}</div>`, true)
@@ -785,6 +793,14 @@ export class BatiPanel {
     const dt = +this.body.querySelector('#f2-dt').value || 60;
     const nPasos = +this.body.querySelector('#f2-steps').value || 300;
     const solver = this.body.querySelector('#f2-solver')?.value || 'banda';
+    // Controles de convergencia no lineal (Picard); vacíos → defaults del solver.
+    const _relax = parseFloat(this.body.querySelector('#f2-relax')?.value);
+    const _picard = parseInt(this.body.querySelector('#f2-picard')?.value, 10);
+    const _picardTol = parseFloat(this.body.querySelector('#f2-picardtol')?.value);
+    const picardOpts = {};
+    if (isFinite(_relax)) picardOpts.relax = _relax;
+    if (isFinite(_picard) && _picard > 0) picardOpts.picard = _picard;
+    if (isFinite(_picardTol)) picardOpts.picardTol = _picardTol;
     if (st) st.textContent = ' resolviendo…';
     await new Promise((r) => setTimeout(r, 20));
     try {
@@ -795,7 +811,7 @@ export class BatiPanel {
         catch (e) { if (st) st.textContent = ' ✗ WASM: ' + e.message + ' (usando JS)'; }
       }
       const t0 = performance.now();
-      const r = resolver2D(this.mesh2d, { Q, entrada, salida, stageSalida: isFinite(so) ? so : undefined, dt, nPasos, solver, wasmSolve, wasmPersist, onProgress: (p, N, d) => { if (st) st.textContent = ` paso ${p}/${N} (Δ=${d.toExponential(1)})`; } });
+      const r = resolver2D(this.mesh2d, { Q, entrada, salida, stageSalida: isFinite(so) ? so : undefined, dt, nPasos, solver, wasmSolve, wasmPersist, ...picardOpts, onProgress: (p, N, d) => { if (st) st.textContent = ` paso ${p}/${N} (Δ=${d.toExponential(1)})`; } });
       r._tTotalMs = performance.now() - t0;
       r.mesh = this.mesh2d; this.result2d = r; this._ultimoResultado2D = 'difusiva';
       r._pel = resumenPeligrosidad(r.h, r.V);
