@@ -6,20 +6,20 @@
 // Deja el hidrograma en koi.hidrogramaCrecida (para el 2D / tránsito / embalse) y
 // registra la tormenta en koi.reg.tormenta (para el informe).
 // ─────────────────────────────────────────────────────────────────────────────
-import { bloquesAlternos, uniforme, hietoIncremental } from './tormenta.js?v=7';
-import { hidrogramaDesdeHietograma } from './convolucion.js?v=7';
-import { registrar } from '../informe/registro.js?v=7';
-import { fetchJSON } from '../datos/fetch_json.js?v=7';
-import { toast } from '../ui/toast.js?v=7';
-import { bloqueInsumos } from '../ui/insumos.js?v=7';
-import { on as busOn } from '../ui/bus.js?v=7';
-import { fijarCrecida } from '../ui/seleccion.js?v=7';
+import { bloquesAlternos, uniforme, hietoIncremental } from './tormenta.js?v=8';
+import { hidrogramaDesdeHietograma } from './convolucion.js?v=8';
+import { registrar } from '../informe/registro.js?v=8';
+import { fetchJSON } from '../datos/fetch_json.js?v=8';
+import { toast } from '../ui/toast.js?v=8';
+import { bloqueInsumos } from '../ui/insumos.js?v=8';
+import { on as busOn } from '../ui/bus.js?v=8';
+import { fijarCrecida } from '../ui/seleccion.js?v=8';
 
 const f = (v, d = 1) => (v == null || !isFinite(v) ? '—' : v.toFixed(d));
 
 let _coefCache = null;
 async function coefIDF() {
-  if (!_coefCache) _coefCache = await fetchJSON('data/coef_hidro.json?v=7', { contexto: 'Coeficientes IDF' });
+  if (!_coefCache) _coefCache = await fetchJSON('data/coef_hidro.json?v=8', { contexto: 'Coeficientes IDF' });
   return _coefCache.idf;
 }
 

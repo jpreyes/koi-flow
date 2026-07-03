@@ -4,7 +4,7 @@
 // calcula los cuantiles para los T de diseño, la prueba de bondad Chi² y el R²,
 // y elige la distribución de mejor ajuste (menor Chi² entre las aceptadas).
 // ─────────────────────────────────────────────────────────────────────────────
-import { Modelos, stats, normCdf, normInv, gammp, gumbelYnSn } from './distribuciones.js?v=7';
+import { Modelos, stats, normCdf, normInv, gammp, gumbelYnSn } from './distribuciones.js?v=8';
 
 export const T_DISENO = [2, 5, 10, 25, 50, 100, 150, 200, 300];
 

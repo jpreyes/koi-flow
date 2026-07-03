@@ -4,8 +4,8 @@
 // pluvio/fluviométricas más cercanas a un tramo y carga su serie de máximos anuales.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { fetchJSON, fetchJSONopcional, KoiDataError } from './fetch_json.js?v=7';
-import { emit } from '../ui/bus.js?v=7';
+import { fetchJSON, fetchJSONopcional, KoiDataError } from './fetch_json.js?v=8';
+import { emit } from '../ui/bus.js?v=8';
 
 let _catalogo = null;
 
@@ -14,7 +14,7 @@ export function resetCatalogo() { _catalogo = null; }
 export async function cargarCatalogo() {
   if (_catalogo) return _catalogo;
   // El catálogo puede no estar generado todavía → catálogo vacío en vez de reventar.
-  _catalogo = (await fetchJSONopcional('data/estaciones_dga.json?v=7',
+  _catalogo = (await fetchJSONopcional('data/estaciones_dga.json?v=8',
     { contexto: 'Catálogo de estaciones DGA' })) || { estaciones: [] };
   return _catalogo;
 }
@@ -59,10 +59,10 @@ export async function cargarSerie(est, tipo) {
   // Ruta principal; si no existe, se prueba la ruta antigua (back-compat) SIN
   // enmascarar el error: si ninguna está, se lanza un KoiDataError con mensaje
   // accionable (el HUD ofrece «Descargar serie DGA»).
-  const j = await fetchJSONopcional(`data/series/dga/${archivo}?v=7`,
+  const j = await fetchJSONopcional(`data/series/dga/${archivo}?v=8`,
     { contexto: `Serie de ${nombre}` });
   if (j) return j;
-  const back = await fetchJSONopcional(`data/series/dga/${bna}.json?v=7`,
+  const back = await fetchJSONopcional(`data/series/dga/${bna}.json?v=8`,
     { contexto: `Serie de ${nombre}` });
   if (back) return back;
   throw new KoiDataError(

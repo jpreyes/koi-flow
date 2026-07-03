@@ -4,8 +4,8 @@
 // carga de agua (HW = máx control entrada/salida), velocidad de salida, régimen,
 // chequeo de anegamiento de la rasante y curva de gasto (performance curve).
 // ─────────────────────────────────────────────────────────────────────────────
-import { disenarAlcantarilla, curvaGasto, TIPOS_ALC } from './alcantarilla.js?v=7';
-import { registrar } from '../informe/registro.js?v=7';
+import { disenarAlcantarilla, curvaGasto, TIPOS_ALC } from './alcantarilla.js?v=8';
+import { registrar } from '../informe/registro.js?v=8';
 
 const f = (v, d = 2) => (v == null || !isFinite(v) ? '—' : v.toFixed(d));
 

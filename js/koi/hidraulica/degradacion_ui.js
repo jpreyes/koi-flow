@@ -4,8 +4,8 @@
 // (o ascenso) del lecho por pendiente de equilibrio y acorazamiento (MC-V3 3.707.4).
 // El resultado se suma a la socavación general + local para la socavación TOTAL.
 // ─────────────────────────────────────────────────────────────────────────────
-import { degradacionLargoPlazo } from './degradacion.js?v=7';
-import { registrar } from '../informe/registro.js?v=7';
+import { degradacionLargoPlazo } from './degradacion.js?v=8';
+import { registrar } from '../informe/registro.js?v=8';
 
 const f = (v, d = 2) => (v == null || !isFinite(v) ? '—' : v.toFixed(d));
 

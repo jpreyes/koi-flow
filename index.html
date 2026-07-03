@@ -11,8 +11,8 @@
   <script>
     try { document.documentElement.dataset.theme = localStorage.getItem('koi_theme') || 'light'; } catch (e) {}
   </script>
-  <link rel="stylesheet" href="lib/leaflet/leaflet.css?v=7">
-  <link rel="stylesheet" href="css/koi.css?v=7">
+  <link rel="stylesheet" href="lib/leaflet/leaflet.css?v=8">
+  <link rel="stylesheet" href="css/koi.css?v=8">
   <script type="importmap">
   {
     "imports": {
@@ -134,14 +134,14 @@
   setTimeout(function () { window.__koiCloseLanding(); }, 20000);
 </script>
 
-<script src="lib/leaflet/leaflet.js?v=7"></script>
+<script src="lib/leaflet/leaflet.js?v=8"></script>
 <script>
   window.__koiToggleTheme = function () {
     var d = document.documentElement, next = d.dataset.theme === 'dark' ? 'light' : 'dark';
     d.dataset.theme = next; try { localStorage.setItem('koi_theme', next); } catch (e) {}
   };
 </script>
-<script type="module" src="js/koi/boot.js?v=7"></script>
+<script type="module" src="js/koi/boot.js?v=8"></script>
 <script>
   if ('serviceWorker' in navigator && !navigator.webdriver) {
     window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));

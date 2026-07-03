@@ -7,48 +7,48 @@
 // (Three.js, sector con DEM). El resto (hidrología, cuencas, secciones, socavación)
 // se monta sobre este esqueleto en fases siguientes.
 // ─────────────────────────────────────────────────────────────────────────────
-import { SceneView } from './scene_view.js?v=7';
-import { toast } from './ui/toast.js?v=7';
-import { MapView } from './map_view.js?v=7';
-import { Capas } from './capas/capas.js?v=7';
-import { loadProject } from './data.js?v=7';
-import { HydroPanel } from './hidro/panel.js?v=7';
-import { BatiPanel } from './bati/bati_ui.js?v=7';
-import { Dock } from './ui/dock.js?v=7';
-import { HudManager } from './ui/hud.js?v=7';
-import { abrirEstacionHUD } from './datos/estacion_hud.js?v=7';
-import { abrirConfigHUD } from './ui/config_ui.js?v=7';
-import { generarInforme, generarInformeWord } from './informe/informe.js?v=7';
-import { abrirAyudaHUD } from './ui/ayuda.js?v=7';
-import { setupMenubar } from './ui/menubar.js?v=7';
-import { abrirEmbalseHUD } from './hidro/embalse_ui.js?v=7';
-import { abrirAlcantarillaHUD } from './hidraulica/alcantarilla_ui.js?v=7';
-import { abrirPuenteHUD } from './hidraulica/puente_presion_ui.js?v=7';
-import { abrirEnrocadoHUD } from './hidraulica/enrocado_ui.js?v=7';
-import { abrirVerificacionesHUD } from './hidraulica/verificaciones_ui.js?v=7';
-import { abrirDegradacionHUD } from './hidraulica/degradacion_ui.js?v=7';
-import { abrirRoutingHUD } from './hidro/routing_ui.js?v=7';
-import { abrirConvolucionHUD } from './hidro/convolucion_ui.js?v=7';
-import { abrirTormentaHUD } from './hidro/tormenta_ui.js?v=7';
-import { abrirRedHUD } from './hidro/red_ui.js?v=7';
-import { abrirMorfoHUD } from './hidraulica/morfo1d_ui.js?v=7';
-import { abrirContinuoHUD } from './hidro/continuo_ui.js?v=7';
-import { abrirCalibracionHUD } from './hidro/calibracion_ui.js?v=7';
-import { abrirModClarkHUD } from './hidro/modclark_ui.js?v=7';
-import { abrirBreachHUD } from './hidro/breach_ui.js?v=7';
-import { abrirSismoEstriboHUD } from './hidraulica/sismo_estribo_ui.js?v=7';
-import { Flujo2D } from './hidraulica/panel2d.js?v=7';
-import { EstructurasPanel } from './estructuras/panel.js?v=7';
-import { delinearAuto } from './cuenca/cuenca.js?v=7';
-import { delinearEnGrid, morfometria } from './cuenca/delineacion.js?v=7';
-import { fetchDEM } from './cuenca/dem_tiles.js?v=7';
-import { estacionesCercanas } from './datos/dga.js?v=7';
-import { cargarHydroBasins, cuencaHydroBasins } from './cuenca/hydrobasins.js?v=7';
-import { extraerRed, trazarCauce } from './cuenca/red_drenaje.js?v=7';
-import { routD8 } from './cuenca/delineacion.js?v=7';
-import { bus } from './ui/bus.js?v=7';
-import { setActivo, infoTipo, getActivo } from './ui/seleccion.js?v=7';
-import { curvaAlturaVolumen, vasoANivel } from './hidro/presa.js?v=7';
+import { SceneView } from './scene_view.js?v=8';
+import { toast } from './ui/toast.js?v=8';
+import { MapView } from './map_view.js?v=8';
+import { Capas } from './capas/capas.js?v=8';
+import { loadProject } from './data.js?v=8';
+import { HydroPanel } from './hidro/panel.js?v=8';
+import { BatiPanel } from './bati/bati_ui.js?v=8';
+import { Dock } from './ui/dock.js?v=8';
+import { HudManager } from './ui/hud.js?v=8';
+import { abrirEstacionHUD } from './datos/estacion_hud.js?v=8';
+import { abrirConfigHUD } from './ui/config_ui.js?v=8';
+import { generarInforme, generarInformeWord } from './informe/informe.js?v=8';
+import { abrirAyudaHUD } from './ui/ayuda.js?v=8';
+import { setupMenubar } from './ui/menubar.js?v=8';
+import { abrirEmbalseHUD } from './hidro/embalse_ui.js?v=8';
+import { abrirAlcantarillaHUD } from './hidraulica/alcantarilla_ui.js?v=8';
+import { abrirPuenteHUD } from './hidraulica/puente_presion_ui.js?v=8';
+import { abrirEnrocadoHUD } from './hidraulica/enrocado_ui.js?v=8';
+import { abrirVerificacionesHUD } from './hidraulica/verificaciones_ui.js?v=8';
+import { abrirDegradacionHUD } from './hidraulica/degradacion_ui.js?v=8';
+import { abrirRoutingHUD } from './hidro/routing_ui.js?v=8';
+import { abrirConvolucionHUD } from './hidro/convolucion_ui.js?v=8';
+import { abrirTormentaHUD } from './hidro/tormenta_ui.js?v=8';
+import { abrirRedHUD } from './hidro/red_ui.js?v=8';
+import { abrirMorfoHUD } from './hidraulica/morfo1d_ui.js?v=8';
+import { abrirContinuoHUD } from './hidro/continuo_ui.js?v=8';
+import { abrirCalibracionHUD } from './hidro/calibracion_ui.js?v=8';
+import { abrirModClarkHUD } from './hidro/modclark_ui.js?v=8';
+import { abrirBreachHUD } from './hidro/breach_ui.js?v=8';
+import { abrirSismoEstriboHUD } from './hidraulica/sismo_estribo_ui.js?v=8';
+import { Flujo2D } from './hidraulica/panel2d.js?v=8';
+import { EstructurasPanel } from './estructuras/panel.js?v=8';
+import { delinearAuto } from './cuenca/cuenca.js?v=8';
+import { delinearEnGrid, morfometria } from './cuenca/delineacion.js?v=8';
+import { fetchDEM } from './cuenca/dem_tiles.js?v=8';
+import { estacionesCercanas } from './datos/dga.js?v=8';
+import { cargarHydroBasins, cuencaHydroBasins } from './cuenca/hydrobasins.js?v=8';
+import { extraerRed, trazarCauce } from './cuenca/red_drenaje.js?v=8';
+import { routD8 } from './cuenca/delineacion.js?v=8';
+import { bus } from './ui/bus.js?v=8';
+import { setActivo, infoTipo, getActivo } from './ui/seleccion.js?v=8';
+import { curvaAlturaVolumen, vasoANivel } from './hidro/presa.js?v=8';
 
 export const KOI_VER = 'v2';
 
@@ -318,13 +318,25 @@ async function startBoot() {
 
   // Estaciones DGA: catálogo NACIONAL → muestra las cercanas a DONDE ESTÁS MIRANDO
   // (centro del mapa), y se actualizan al mover el mapa. (Osorno→Osorno, etc.)
+  // La CANTIDAD es acorde al zoom y solo se dibujan las que caen en la vista: en zoom país
+  // (Chile completo) no se dibuja ninguna (ni lag ni clutter); al acercarse aparecen más.
+  function nEstacionesPorZoom(z) {
+    if (z <= 6) return 0;     // vista país / gran región: sin estaciones
+    if (z <= 8) return 6;
+    if (z <= 10) return 12;
+    if (z <= 12) return 22;
+    return 40;                // vista local: todas las cercanas que quepan en pantalla
+  }
   let _estTimer;
   async function actualizarEstaciones() {
     try {
+      const nmax = nEstacionesPorZoom(map.map.getZoom());
+      if (!nmax) { map.clearStations(); return; }
       const c = map.map.getCenter(); const centro = [c.lng, c.lat];
-      const pl = await estacionesCercanas(centro, { tipo: 'pluviometrica', n: 18 });
-      const fl = await estacionesCercanas(centro, { tipo: 'fluviometrica', n: 18 });
-      if (pl.length || fl.length) map.showStations([...pl, ...fl]);
+      const b = map.map.getBounds(); const enVista = (e) => b.contains([e.lat, e.lon]);
+      const pl = (await estacionesCercanas(centro, { tipo: 'pluviometrica', n: nmax })).filter(enVista);
+      const fl = (await estacionesCercanas(centro, { tipo: 'fluviometrica', n: nmax })).filter(enVista);
+      map.showStations([...pl, ...fl]);
     } catch (err) { console.warn('estaciones DGA:', err.message); }
   }
   hydro.actualizarEstaciones = actualizarEstaciones;

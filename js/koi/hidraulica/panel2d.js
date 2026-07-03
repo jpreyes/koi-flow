@@ -6,10 +6,10 @@
 //   3) Generar la MALLA triangular (portico-core) con z del DEM y n por zona.
 // El solver difusivo (Fase B) y los resultados (Fase C) se montan sobre esto.
 // ─────────────────────────────────────────────────────────────────────────────
-import { construirMalla2D } from './malla2d.js?v=7';
-import { resolver2D } from './solver2d.js?v=7';
-import { ensureKoiWasm, makeSolverWasm, makePersistentSolverWasm } from '../../lib/portico/wasm_solve.js?v=7';
-import { fetchDEM } from '../cuenca/dem_tiles.js?v=7';
+import { construirMalla2D } from './malla2d.js?v=8';
+import { resolver2D } from './solver2d.js?v=8';
+import { ensureKoiWasm, makeSolverWasm, makePersistentSolverWasm } from '../../lib/portico/wasm_solve.js?v=8';
+import { fetchDEM } from '../cuenca/dem_tiles.js?v=8';
 
 const f1 = (v) => (v == null || !isFinite(v) ? '—' : Math.abs(v) < 10 ? (+v).toFixed(2) : (+v).toFixed(0));
 

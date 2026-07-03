@@ -5,9 +5,9 @@
 // El hidrograma queda en koi.hidrogramaCrecida y, si es RELAVE, la reología de la
 // mezcla queda en koi.reologia → el 2D de momentum los toma con el check "crecida".
 // ─────────────────────────────────────────────────────────────────────────────
-import { hidrogramaRotura } from './breach.js?v=7';
-import { registrar } from '../informe/registro.js?v=7';
-import { fijarCrecida, getActivo } from '../ui/seleccion.js?v=7';
+import { hidrogramaRotura } from './breach.js?v=8';
+import { registrar } from '../informe/registro.js?v=8';
+import { fijarCrecida, getActivo } from '../ui/seleccion.js?v=8';
 
 const f = (v, d = 2) => (v == null || !isFinite(v) ? '—' : (Math.abs(v) >= 1000 ? v.toFixed(0) : v.toFixed(d)));
 

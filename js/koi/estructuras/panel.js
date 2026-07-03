@@ -4,10 +4,10 @@
 // planta (2D), editar sus parámetros NUMÉRICOS, elevarlas al terreno y verlas en 3D.
 // Las piezas sólidas se integran al análisis: 2D (stamp del DEM) y 1D (ancho de pila).
 // ─────────────────────────────────────────────────────────────────────────────
-import { TIPOS, crearEstructura, plantaDe, elevarAlTerreno } from './estructuras.js?v=7';
-import { toast } from '../ui/toast.js?v=7';
-import { fetchDEM } from '../cuenca/dem_tiles.js?v=7';
-import { elevAt } from '../hidraulica/secciones.js?v=7';
+import { TIPOS, crearEstructura, plantaDe, elevarAlTerreno } from './estructuras.js?v=8';
+import { toast } from '../ui/toast.js?v=8';
+import { fetchDEM } from '../cuenca/dem_tiles.js?v=8';
+import { elevAt } from '../hidraulica/secciones.js?v=8';
 
 const f2 = (v) => (v == null || !isFinite(v) ? '—' : (Math.abs(v) < 10 ? v.toFixed(2) : v.toFixed(1)));
 const ETIQ = { largo: 'Largo [m]', ancho: 'Ancho [m]', espesor: 'Espesor [m]', luzLibre: 'Luz libre [m]', alto: 'Alto [m]', diametro: 'Diámetro [m]', rot: 'Rotación [°]' };

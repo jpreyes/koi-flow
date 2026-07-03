@@ -8,8 +8,8 @@
 //   H_arriba = H_abajo + hf + he   (subcrítico, se marcha aguas arriba)
 //   hf = Sf̄·Δx ,  Sf = (Q·n / (A·R^{2/3}))² ,  he = Ce·|V²/2g arriba − abajo|
 // ─────────────────────────────────────────────────────────────────────────────
-import { propiedades, nivelNormal } from './manning.js?v=7';
-import { puentePresion } from './puente_presion.js?v=7';
+import { propiedades, nivelNormal } from './manning.js?v=8';
+import { puentePresion } from './puente_presion.js?v=8';
 
 const G = 9.81;
 const zBed = (pts) => Math.min(...pts.map((p) => p.z));
