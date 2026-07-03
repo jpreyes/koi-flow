@@ -47,6 +47,7 @@ import { cargarHydroBasins, cuencaHydroBasins } from './cuenca/hydrobasins.js?v=
 import { extraerRed, trazarCauce } from './cuenca/red_drenaje.js?v=2';
 import { routD8 } from './cuenca/delineacion.js?v=2';
 import { bus } from './ui/bus.js?v=2';
+import { setActivo, infoTipo } from './ui/seleccion.js?v=2';
 
 export const KOI_VER = 'v2';
 
@@ -64,8 +65,8 @@ async function startBoot() {
   const huds = new HudManager($('viewport-wrap'));   // ventanas flotantes de resultados
   const map = new MapView($('map-container'), {
     onSelect: (f) => onTramoSelect(byName(f.properties.name)),
-    onPointAdd: (p) => { hydro.setPuntos(map.getPoints()); hydro.analizarPunto(p); capas.render(); },
-    onPointSelect: (p) => { hydro.setPuntos(map.getPoints()); hydro.analizarPunto(p); capas.render(); },
+    onPointAdd: (p) => { hydro.setPuntos(map.getPoints()); hydro.analizarPunto(p); capas.render(); activarPunto(p); },
+    onPointSelect: (p) => { hydro.setPuntos(map.getPoints()); hydro.analizarPunto(p); capas.render(); activarPunto(p); },
     onStationClick: (e) => abrirEstacionHUD(huds, e, { onLink: () => window.__koi?.dock?.show?.('hidro') }),
   });
 
@@ -292,6 +293,24 @@ async function startBoot() {
     menuItem('ver-3d')?.classList.toggle('on', is3d);
   }
 
+  // Marca un punto como objeto activo (indicador "Trabajando en: X").
+  function activarPunto(p) {
+    if (!p) return;
+    setActivo({ tipo: p.cuenca ? 'cuenca' : 'punto', id: p.id, nombre: p.nombre,
+      meta: p.cuenca ? `cuenca ${p.cuenca.morfometria.A} km² · ${p.lat.toFixed(4)}, ${p.lon.toFixed(4)}` : `${p.lat.toFixed(4)}, ${p.lon.toFixed(4)}` });
+  }
+  // Indicador universal "Trabajando en: <objeto>" sobre la tarjeta #sel-card.
+  bus.on('seleccion:cambio', (o) => {
+    const card = $('sel-card'), nm = $('sel-name'), inf = $('sel-info');
+    if (!card) return;
+    if (!o) { card.classList.remove('sel-activo'); if (nm) nm.textContent = '—'; if (inf) inf.textContent = 'Nada seleccionado'; return; }
+    const t = infoTipo(o.tipo);
+    card.classList.add('sel-activo');
+    card.style.setProperty('--sel-color', t.color);
+    if (nm) nm.innerHTML = `<span class="sel-badge" style="background:${t.color}">${t.ico} ${t.label}</span><span class="sel-nom">${o.nombre || ''}</span>`;
+    if (inf) inf.textContent = o.meta || 'Trabajando en este objeto';
+  });
+
   async function onTramoSelect(t) {
     if (!t) return;
     current = t;
@@ -299,12 +318,10 @@ async function startBoot() {
     map.select(t.name);
     const has = tieneRelieve(t);
     menuItem('ver-3d')?.classList.toggle('disabled', !has);
-    $('sel-name').textContent = t.name;
-    $('sel-info').textContent = has ? `${t.npts} puntos · relieve disponible` : `${t.npts} puntos · sin relieve`;
     hydro.setTramo(t);
     bati.setTramo(t);
     flujo2d.setTramo(t);
-    bus.emit('seleccion:cambio', { tipo: 'tramo', nombre: t.name });
+    setActivo({ tipo: 'tramo', id: t.name, nombre: t.name, meta: has ? `${t.npts} puntos · relieve disponible` : `${t.npts} puntos · sin relieve` });
     if (has && mode === '3d') await load3D(t);
   }
 

@@ -25,6 +25,7 @@ import { resolver2D } from '../hidraulica/solver2d.js?v=2';
 import { ensureKoiWasm, makeSolverWasm, makePersistentSolverWasm } from '../../lib/portico/wasm_solve.js?v=2';
 import { resumenPeligrosidad, exportarCSV, exportarGeoJSON } from '../hidraulica/peligrosidad2d.js?v=2';
 import { getConfig } from '../config.js?v=2';
+import { setActivo } from '../ui/seleccion.js?v=2';
 import { toast, busyStart, busyEnd } from '../ui/toast.js?v=2';
 import { stampTerreno, pilaEnSeccion, puntoEnPoligono } from '../estructuras/estructuras.js?v=2';
 
@@ -66,6 +67,7 @@ export class BatiPanel {
     this.mesh2d = null; this.result2d = null;   // la malla 2D es de su dominio → se recalcula por reach
     this.map?.clearMalla2D?.();
     this._render(); this._dibujarSecciones();
+    setActivo({ tipo: 'reach', id: i, nombre: c.nombre, meta: `${c.secciones.length} secciones${c.eje ? ' · eje trazado' : ''}` });
   }
   _nuevoCauce() {
     this._guardarCauce();
@@ -353,6 +355,22 @@ export class BatiPanel {
     this.body.querySelectorAll('[data-kloc]').forEach((inp) => inp.addEventListener('change', () => {
       const i = +inp.dataset.kloc; if (this.secciones[i]) this.secciones[i].kLoc = parseFloat(inp.value) || 0;
     }));
+    // Clic en la tarjeta de una sección → la vuelve el objeto activo (resalta + indicador).
+    this.body.querySelectorAll('.bp-sec-card').forEach((card) => card.addEventListener('click', (e) => {
+      if (e.target.closest('[data-del],[data-kloc],input,button')) return;   // no robar clics de sus controles
+      const i = +card.dataset.sec; this._selSeccion(i);
+    }));
+  }
+
+  _selSeccion(i) {
+    const s = this.secciones[i]; if (!s) return;
+    this._secSel = i;
+    this.body.querySelectorAll('.bp-sec-card').forEach((c) => c.classList.toggle('sel', +c.dataset.sec === i));
+    this._scrollSec?.(i);
+    try { this._resaltarSeccion?.(i); } catch {}
+    const cn = this.cauces[this.iCauce]?.nombre || 'Cauce';
+    const v = s.res?.V, h = s.res?.profMax;
+    setActivo({ tipo: 'seccion', id: i, nombre: `Sección ${i + 1} (${cn})`, meta: (v != null ? `V ${v.toFixed(2)} m/s · h ${h?.toFixed?.(2) ?? '—'} m` : 'sin resultado 1D todavía') });
   }
 
   async _onFile(file) {

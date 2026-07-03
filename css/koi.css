@@ -228,10 +228,16 @@ body { font: 14px/1.45 system-ui, "Segoe UI", Roboto, sans-serif; background: va
 #sel-card {
   position: absolute; left: 14px; bottom: 14px; z-index: 30;
   background: var(--bg2); border: 1px solid var(--border); border-radius: 10px;
-  padding: 10px 14px; box-shadow: var(--shadow); min-width: 180px; pointer-events: none;
+  padding: 10px 14px; box-shadow: var(--shadow); min-width: 180px; max-width: 320px; pointer-events: none;
+  border-left: 4px solid var(--sel-color, var(--border)); transition: border-color .15s;
 }
-#sel-name { font-weight: 700; }
-#sel-info { font-size: 12px; color: var(--text2); margin-top: 2px; }
+#sel-card.sel-activo::before { content: 'Trabajando en'; display: block; font-size: 9px; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--text2); margin-bottom: 3px; }
+#sel-name { font-weight: 700; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.sel-badge { display: inline-flex; align-items: center; gap: 3px; padding: 1px 7px; border-radius: 999px;
+  color: #fff; font-size: 10px; font-weight: 800; letter-spacing: .02em; }
+.sel-nom { font-weight: 700; }
+#sel-info { font-size: 12px; color: var(--text2); margin-top: 3px; }
 
 /* Portada / carga */
 #landing { position: fixed; inset: 0; z-index: 9000; display: grid; place-items: center;
@@ -425,7 +431,9 @@ body { font: 14px/1.45 system-ui, "Segoe UI", Roboto, sans-serif; background: va
   color: var(--text); border-radius: 8px; padding: 7px 8px; font-size: 12px; cursor: pointer; }
 .bp-b:hover { border-color: var(--accent); }
 .bp-secs { margin-top: 8px; display: grid; gap: 10px; }
-.bp-sec-card { border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; background: var(--bg2); }
+.bp-sec-card { border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; background: var(--bg2); cursor: pointer; }
+.bp-sec-card:hover { border-color: var(--accent, #1ea7c5); }
+.bp-sec-card.sel { border-color: #0d7a94; box-shadow: inset 3px 0 0 #0d7a94; background: color-mix(in srgb, #0d7a94 8%, var(--bg2)); }
 .bp-sec-h { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
 .bp-sec-del { background: none; border: 0; cursor: pointer; font-size: 13px; opacity: .6; }
 .bp-sec-del:hover { opacity: 1; }
