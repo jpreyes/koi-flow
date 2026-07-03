@@ -59,15 +59,19 @@ adelantando esta rama a `main` (fast-forward) y **re-aplicando el fix sobre el
 `solver2d.js` actual** (con sus backends), descartando el hook `solve` inyectable
 (redundante con el `solverKind` de main).
 
-## 4 · Pendientes (follow-ups)
+## 4 · Pendientes (follow-ups) — CERRADOS 2026-07-03
 
-- [ ] **Controles Picard en el HUD 2D**: re-portar inputs `relax`/`picardTol`/`picard`
-  al `bati_ui.js` nuevo de main (que ya tiene momentum/breach). En la base vieja se había
-  hecho un panel "Avanzado · convergencia no lineal (Picard)"; falta rehacerlo aquí.
-- [ ] **QA-matriz.md**: actualizar con las capacidades nuevas de main (presa, momentum 2D,
-  morfo 2D, sismo estribo, tormenta de diseño, peligrosidad h·V). Ver `QA-matriz.md`.
-- [ ] **Despliegue**: bumpear el `?v=` global cuando se publique, para que el navegador
-  recargue `solver2d.js`.
+- [x] **Controles Picard en el HUD 2D** (commit `a8234f3`): panel "⚙ Avanzado · convergencia
+  no lineal (Picard)" en la difusiva 2D de `bati_ui.js` con `θ relax` (0.5), `Picard máx` (12)
+  y `Picard tol` (1e-3); `_simular2D` los lee y pasa a `resolver2D`. Verificado: θ=1 legacy
+  hmax=0.33 m vs θ=0.5 hmax=0.17 m (físico), picardTol corta 218 vs 360 solves.
+- [x] **QA-matriz.md** (commit `f4ea14d`): actualizada con presa/rotura + onda al 2D, momentum
+  2D, morfo 2D, peligrosidad h·V, sismo estribo, tormenta, crecida por-objeto, avanzado Picard,
+  worker/WASM, selección "Trabajando en:", recalcular cuenca, cauce en un punto, KMZ→tramo, .koi.
+  Corregido el demo (removido en R2 → app arranca vacía).
+- [x] **Despliegue** (commit `4f4944e`): `tools/bump-version.mjs` — bump del `?v=` global en un
+  comando (`node tools/bump-version.mjs`, con `--dry`). NO se corre ahora; es acción de deploy.
+  Dry-run: v2→v3, 208 refs en 51 archivos, excluye worktrees/vendor/glue WASM.
 
 ## 5 · Encaje en el roadmap
 
