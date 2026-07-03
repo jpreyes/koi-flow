@@ -13,7 +13,7 @@
 //   · <img> (snapshot 3D, dataURL) → incrustado tal cual
 // Solo navegador (DOMParser + canvas). Sin dependencias externas.
 // ─────────────────────────────────────────────────────────────────────────────
-import { zipStore } from '../cuenca/exportar.js?v=4';
+import { zipStore } from '../cuenca/exportar.js?v=5';
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const EMU_PX = 9525;                       // EMUs por pixel (96 dpi)

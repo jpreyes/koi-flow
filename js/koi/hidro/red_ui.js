@@ -3,8 +3,8 @@
 // uniones con su topología (aguas abajo), aplica una tormenta de diseño común y
 // entrega el hidrograma en el punto de cierre + picos por nodo.
 // ─────────────────────────────────────────────────────────────────────────────
-import { simularRed } from './red.js?v=4';
-import { registrar } from '../informe/registro.js?v=4';
+import { simularRed } from './red.js?v=5';
+import { registrar } from '../informe/registro.js?v=5';
 
 const f = (v, d = 1) => (v == null || !isFinite(v) ? '—' : v.toFixed(d));
 

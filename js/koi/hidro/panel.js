@@ -4,21 +4,21 @@
 // → PP diseño → IDF → Tc → caudales (pluviales REFERENCIALES + transposición que
 // GOBIERNA) → adoptados. Look & feel koi (variables de css/koi.css).
 // ─────────────────────────────────────────────────────────────────────────────
-import { correrPipelinePunto } from './pipeline.js?v=4';
-import { analizar } from './frecuencia.js?v=4';
-import { transponer, transponerRegional } from './transposicion.js?v=4';
-import { caudalesHU } from './hidrograma.js?v=4';
-import { ppDiseno, grunsky } from './idf.js?v=4';
-import { racional, verniKing, dgaAC } from './caudales.js?v=4';
-import { estacionesCercanas, estacionRecomendada, cargarSerie, centroideTramo, resetCatalogo, descargarSerieDGA } from '../datos/dga.js?v=4';
-import { fetchJSON } from '../datos/fetch_json.js?v=4';
-import { calcular as tcCalcular } from './tc.js?v=4';
-import { cuencaGeoJSON, cuencaKMZ, descargar } from '../cuenca/exportar.js?v=4';
-import { cuencaShapefileZip } from '../cuenca/shapefile.js?v=4';
-import { suavizar } from '../cuenca/delineacion.js?v=4';
-import { perfilDesdeLinea } from '../hidraulica/secciones.js?v=4';
-import { nivelNormal } from '../hidraulica/manning.js?v=4';
-import { evaluarSocavacion } from '../hidraulica/socavacion.js?v=4';
+import { correrPipelinePunto } from './pipeline.js?v=5';
+import { analizar } from './frecuencia.js?v=5';
+import { transponer, transponerRegional } from './transposicion.js?v=5';
+import { caudalesHU } from './hidrograma.js?v=5';
+import { ppDiseno, grunsky } from './idf.js?v=5';
+import { racional, verniKing, dgaAC } from './caudales.js?v=5';
+import { estacionesCercanas, estacionRecomendada, cargarSerie, centroideTramo, resetCatalogo, descargarSerieDGA } from '../datos/dga.js?v=5';
+import { fetchJSON } from '../datos/fetch_json.js?v=5';
+import { calcular as tcCalcular } from './tc.js?v=5';
+import { cuencaGeoJSON, cuencaKMZ, descargar } from '../cuenca/exportar.js?v=5';
+import { cuencaShapefileZip } from '../cuenca/shapefile.js?v=5';
+import { suavizar } from '../cuenca/delineacion.js?v=5';
+import { perfilDesdeLinea } from '../hidraulica/secciones.js?v=5';
+import { nivelNormal } from '../hidraulica/manning.js?v=5';
+import { evaluarSocavacion } from '../hidraulica/socavacion.js?v=5';
 
 const TS = [2, 5, 10, 25, 50, 100, 150, 200];
 const f1 = (v) => (v == null || isNaN(v) ? '—' : Math.abs(v) < 10 ? Number(v).toFixed(2) : Number(v).toFixed(1));
@@ -378,7 +378,9 @@ export class HydroPanel {
     });
     sr.appendChild(brd);
     // Cauce SOLO del punto pinchado (su árbol de afluentes), no toda la red.
-    const bpt = el('button', 'hp-run', '📍 Cauce en un punto (clic en el mapa)');
+    // Afluentes del MISMO punto de análisis (no un segundo clic): el punto activo (o el único
+    // que exista) traza su árbol de afluentes; si no hay ninguno, el botón deja colocar EL punto.
+    const bpt = el('button', 'hp-run', '📍 Afluentes del punto de análisis');
     const pst = el('span', 'hp-dl-status'); bpt.appendChild(pst);
     const trazar = async (lon, lat) => {
       if (!this.cauceEnPunto) return;
@@ -389,10 +391,16 @@ export class HydroPanel {
         pst.textContent = ` ✓ cuenca ${m.areaKm2} km² · ${m.nSeg} tramos (afluentes del punto)`;
       } catch (e) { pst.textContent = ' ✗ ' + e.message; }
     };
-    bpt.addEventListener('click', () => {
-      this.map.pickOnce((lon, lat) => trazar(lon, lat), 'Clic sobre el cauce para trazar sus afluentes');
+    bpt.addEventListener('click', async () => {
+      if (!this.cauceDelPuntoActivo) return;
+      pst.textContent = ' …';
+      try {
+        const m = await this.cauceDelPuntoActivo((msg) => { pst.textContent = ' ' + msg; });
+        pst.textContent = m ? ` ✓ cuenca ${m.areaKm2} km² · ${m.nSeg} tramos (afluentes del punto)` : '';
+      } catch (e) { pst.textContent = ' ✗ ' + e.message; }
     });
     sr.appendChild(bpt);
+    sr.appendChild(el('p', 'hp-note', 'El mismo punto de análisis (el de la cuenca) traza aquí sus afluentes — no necesitas un segundo punto. Si no hay ninguno, el botón te deja colocarlo.'));
     // Auto-actualizar al mover/zoom el mapa (ruteo en un worker → no congela).
     const auto = el('label', 'hp-f');
     auto.style.cssText = 'display:flex;align-items:center;gap:6px;margin:4px 0';
@@ -809,7 +817,7 @@ export class HydroPanel {
       const A = num('pf_a');
       if (!(A > 0)) throw new Error('Ingresa el área A.');
       if (!this._sel.pluvio) throw new Error('Elige una estación pluvial.');
-      const coef = await fetchJSON('data/coef_hidro.json?v=4', { contexto: 'Coeficientes hidrológicos' });
+      const coef = await fetchJSON('data/coef_hidro.json?v=5', { contexto: 'Coeficientes hidrológicos' });
       const sp = await cargarSerie(this._sel.pluvio);
       const an = analizar(Object.values(sp.serie), { T: TSL });
       const pp = ppDiseno(an.resultados[an.mejor].quantiles, 1.10);

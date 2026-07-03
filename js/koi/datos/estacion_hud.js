@@ -5,9 +5,9 @@
 // las distribuciones del MC y sus cuantiles por período de retorno. Reutiliza
 // cargarSerie (dga.js) y analizar (frecuencia.js).
 // ─────────────────────────────────────────────────────────────────────────────
-import { cargarSerie, descargarSerieDGA } from './dga.js?v=4';
-import { analizar } from '../hidro/frecuencia.js?v=4';
-import { KoiDataError } from './fetch_json.js?v=4';
+import { cargarSerie, descargarSerieDGA } from './dga.js?v=5';
+import { analizar } from '../hidro/frecuencia.js?v=5';
+import { KoiDataError } from './fetch_json.js?v=5';
 
 const f = (v) => (v == null || !isFinite(v) ? '—' : (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(1)));
 const DIST = { normal: 'Normal', lognormal: 'Log-Normal', pearson3: 'Pearson III', logpearson3: 'Log-Pearson III', gumbel: 'Gumbel', gamma: 'Gamma' };

@@ -15,7 +15,7 @@ let CHILDREN = null;       // nextDown → [ids que drenan hacia él]
 let META = null;
 
 // Carga (una vez) el dataset regional de HydroBASINS.
-export async function cargarHydroBasins(url = 'data/hydrobasins/cl.json?v=4') {
+export async function cargarHydroBasins(url = 'data/hydrobasins/cl.json?v=5') {
   if (BASINS) return META;
   const r = await fetch(url);
   if (!r.ok) throw new Error('HydroBASINS no disponible (genera data/hydrobasins con tools/fetch_hydrobasins.py)');

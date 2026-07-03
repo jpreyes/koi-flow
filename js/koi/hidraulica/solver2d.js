@@ -8,8 +8,8 @@
 // + caudal de entrada. Se factoriza con el Cholesky en banda de portico-core.
 // Wetting/drying por profundidad mínima; salida por nivel fijo (Dirichlet, penalti).
 // ─────────────────────────────────────────────────────────────────────────────
-import { makeFactorCSR } from '../../lib/portico/linsolve.js?v=4';
-import { makeSolverPCG } from '../../lib/portico/pcg.js?v=4';
+import { makeFactorCSR } from '../../lib/portico/linsolve.js?v=5';
+import { makeSolverPCG } from '../../lib/portico/pcg.js?v=5';
 
 // Geometría P1 por triángulo: área y gradientes de las funciones de forma (b,c).
 function geomTris(nodes, tris) {

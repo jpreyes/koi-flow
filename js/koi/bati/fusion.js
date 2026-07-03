@@ -6,8 +6,8 @@
 // suavemente (feather) para que no haya un escalón. Así en el 3D se ve el cauce
 // levantado desde la topografía real, embebido en los cerros del entorno.
 // ─────────────────────────────────────────────────────────────────────────────
-import { elevAt } from '../hidraulica/secciones.js?v=4';
-import { metricoDesdeLonLat, lonLatDesdeMetrico, elevAtMetrico } from './place.js?v=4';
+import { elevAt } from '../hidraulica/secciones.js?v=5';
+import { metricoDesdeLonLat, lonLatDesdeMetrico, elevAtMetrico } from './place.js?v=5';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
