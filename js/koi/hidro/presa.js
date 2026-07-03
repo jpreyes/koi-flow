@@ -9,7 +9,7 @@
 // Barriendo el nivel se obtiene la CURVA ALTURA–VOLUMEN, que alimenta el embalse (Puls)
 // y la rotura de presa (Vw de Froehlich). Reusa el ruteo D8 de la delineación.
 // ─────────────────────────────────────────────────────────────────────────────
-import { cellSize, lonLatToColRow, snapOutlet, watershed, maskToPolygon } from '../cuenca/delineacion.js?v=2';
+import { cellSize, lonLatToColRow, snapOutlet, watershed, maskToPolygon } from '../cuenca/delineacion.js?v=3';
 
 const N4 = [[-1, 0], [1, 0], [0, -1], [0, 1]];
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));

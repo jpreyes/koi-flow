@@ -5,8 +5,8 @@
 // deslizamiento/volcamiento. Complementa la hidráulica del puente: el mismo estribo
 // que se verifica a socavación se verifica aquí al sismo (MC 3.1004 / NCh433).
 // ─────────────────────────────────────────────────────────────────────────────
-import { sismoEstribo, ZONAS_SISMICAS } from './sismo_estribo.js?v=2';
-import { registrar } from '../informe/registro.js?v=2';
+import { sismoEstribo, ZONAS_SISMICAS } from './sismo_estribo.js?v=3';
+import { registrar } from '../informe/registro.js?v=3';
 
 const f = (v, d = 2) => (v == null || !isFinite(v) ? '—' : v.toFixed(d));
 

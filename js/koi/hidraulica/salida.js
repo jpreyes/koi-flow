@@ -5,9 +5,9 @@
 // sedimentos (Shields, velocidad crítica, modo, gasto de fondo) y SOCAVACIÓN
 // general (Lischtvan-Lebediev) + local en pila (HEC-18) + total. Exportable a CSV.
 // ─────────────────────────────────────────────────────────────────────────────
-import { nivelCritico } from './remanso.js?v=2';
-import { evaluar as evalSed } from '../hidro/sedimentos.js?v=2';
-import { socavacionGeneral, socavacionLocalPila } from './socavacion.js?v=2';
+import { nivelCritico } from './remanso.js?v=3';
+import { evaluar as evalSed } from '../hidro/sedimentos.js?v=3';
+import { socavacionGeneral, socavacionLocalPila } from './socavacion.js?v=3';
 
 const RHO = 1000, G = 9.81;
 

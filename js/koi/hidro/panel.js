@@ -4,21 +4,21 @@
 // → PP diseño → IDF → Tc → caudales (pluviales REFERENCIALES + transposición que
 // GOBIERNA) → adoptados. Look & feel koi (variables de css/koi.css).
 // ─────────────────────────────────────────────────────────────────────────────
-import { correrPipelinePunto } from './pipeline.js?v=2';
-import { analizar } from './frecuencia.js?v=2';
-import { transponer, transponerRegional } from './transposicion.js?v=2';
-import { caudalesHU } from './hidrograma.js?v=2';
-import { ppDiseno, grunsky } from './idf.js?v=2';
-import { racional, verniKing, dgaAC } from './caudales.js?v=2';
-import { estacionesCercanas, estacionRecomendada, cargarSerie, centroideTramo, resetCatalogo, descargarSerieDGA } from '../datos/dga.js?v=2';
-import { fetchJSON } from '../datos/fetch_json.js?v=2';
-import { calcular as tcCalcular } from './tc.js?v=2';
-import { cuencaGeoJSON, cuencaKMZ, descargar } from '../cuenca/exportar.js?v=2';
-import { cuencaShapefileZip } from '../cuenca/shapefile.js?v=2';
-import { suavizar } from '../cuenca/delineacion.js?v=2';
-import { perfilDesdeLinea } from '../hidraulica/secciones.js?v=2';
-import { nivelNormal } from '../hidraulica/manning.js?v=2';
-import { evaluarSocavacion } from '../hidraulica/socavacion.js?v=2';
+import { correrPipelinePunto } from './pipeline.js?v=3';
+import { analizar } from './frecuencia.js?v=3';
+import { transponer, transponerRegional } from './transposicion.js?v=3';
+import { caudalesHU } from './hidrograma.js?v=3';
+import { ppDiseno, grunsky } from './idf.js?v=3';
+import { racional, verniKing, dgaAC } from './caudales.js?v=3';
+import { estacionesCercanas, estacionRecomendada, cargarSerie, centroideTramo, resetCatalogo, descargarSerieDGA } from '../datos/dga.js?v=3';
+import { fetchJSON } from '../datos/fetch_json.js?v=3';
+import { calcular as tcCalcular } from './tc.js?v=3';
+import { cuencaGeoJSON, cuencaKMZ, descargar } from '../cuenca/exportar.js?v=3';
+import { cuencaShapefileZip } from '../cuenca/shapefile.js?v=3';
+import { suavizar } from '../cuenca/delineacion.js?v=3';
+import { perfilDesdeLinea } from '../hidraulica/secciones.js?v=3';
+import { nivelNormal } from '../hidraulica/manning.js?v=3';
+import { evaluarSocavacion } from '../hidraulica/socavacion.js?v=3';
 
 const TS = [2, 5, 10, 25, 50, 100, 150, 200];
 const f1 = (v) => (v == null || isNaN(v) ? '—' : Math.abs(v) < 10 ? Number(v).toFixed(2) : Number(v).toFixed(1));
@@ -789,7 +789,7 @@ export class HydroPanel {
       const A = num('pf_a');
       if (!(A > 0)) throw new Error('Ingresa el área A.');
       if (!this._sel.pluvio) throw new Error('Elige una estación pluvial.');
-      const coef = await fetchJSON('data/coef_hidro.json?v=2', { contexto: 'Coeficientes hidrológicos' });
+      const coef = await fetchJSON('data/coef_hidro.json?v=3', { contexto: 'Coeficientes hidrológicos' });
       const sp = await cargarSerie(this._sel.pluvio);
       const an = analizar(Object.values(sp.serie), { T: TSL });
       const pp = ppDiseno(an.resultados[an.mejor].quantiles, 1.10);

@@ -5,29 +5,29 @@
 // ver en 3D → trazar secciones → eje hidráulico (Manning) + socavación → exportar
 // a HEC-RAS (.sdf / .asc / .prj / CSV). Reutiliza los módulos bati/* e hidraulica/*.
 // ─────────────────────────────────────────────────────────────────────────────
-import { leerDXF, sugerirCapas } from './dxf.js?v=2';
-import { construirDEMmetrico } from './interp.js?v=2';
-import { demMetricoAGrid, footprint, elevAtMetrico, metricoDesdeLonLat, autoElevar, anclaInicial } from './place.js?v=2';
-import { fusionar } from './fusion.js?v=2';
-import { detectarSistema } from './proj.js?v=2';
-import { nivelNormal } from '../hidraulica/manning.js?v=2';
-import { evaluarSocavacion } from '../hidraulica/socavacion.js?v=2';
-import { ejeRemanso, ejeMixto } from '../hidraulica/remanso.js?v=2';
-import { analisisCompleto, salidaCSV } from '../hidraulica/salida.js?v=2';
-import { perfilTransporte } from '../hidro/sedimentos.js?v=2';
-import { wktUTM, demArcASCII, sdfGeometria, csvSecciones } from './hecras.js?v=2';
-import { exportarDXF } from './dxf_export.js?v=2';
-import { fetchDEM } from '../cuenca/dem_tiles.js?v=2';
-import { elevAt } from '../hidraulica/secciones.js?v=2';
-import { zipStore, descargar } from '../cuenca/exportar.js?v=2';
-import { construirMalla2D } from '../hidraulica/malla2d.js?v=2';
-import { resolver2D } from '../hidraulica/solver2d.js?v=2';
-import { ensureKoiWasm, makeSolverWasm, makePersistentSolverWasm } from '../../lib/portico/wasm_solve.js?v=2';
-import { resumenPeligrosidad, exportarCSV, exportarGeoJSON } from '../hidraulica/peligrosidad2d.js?v=2';
-import { getConfig } from '../config.js?v=2';
-import { setActivo } from '../ui/seleccion.js?v=2';
-import { toast, busyStart, busyEnd } from '../ui/toast.js?v=2';
-import { stampTerreno, pilaEnSeccion, puntoEnPoligono } from '../estructuras/estructuras.js?v=2';
+import { leerDXF, sugerirCapas } from './dxf.js?v=3';
+import { construirDEMmetrico } from './interp.js?v=3';
+import { demMetricoAGrid, footprint, elevAtMetrico, metricoDesdeLonLat, autoElevar, anclaInicial } from './place.js?v=3';
+import { fusionar } from './fusion.js?v=3';
+import { detectarSistema } from './proj.js?v=3';
+import { nivelNormal } from '../hidraulica/manning.js?v=3';
+import { evaluarSocavacion } from '../hidraulica/socavacion.js?v=3';
+import { ejeRemanso, ejeMixto } from '../hidraulica/remanso.js?v=3';
+import { analisisCompleto, salidaCSV } from '../hidraulica/salida.js?v=3';
+import { perfilTransporte } from '../hidro/sedimentos.js?v=3';
+import { wktUTM, demArcASCII, sdfGeometria, csvSecciones } from './hecras.js?v=3';
+import { exportarDXF } from './dxf_export.js?v=3';
+import { fetchDEM } from '../cuenca/dem_tiles.js?v=3';
+import { elevAt } from '../hidraulica/secciones.js?v=3';
+import { zipStore, descargar } from '../cuenca/exportar.js?v=3';
+import { construirMalla2D } from '../hidraulica/malla2d.js?v=3';
+import { resolver2D } from '../hidraulica/solver2d.js?v=3';
+import { ensureKoiWasm, makeSolverWasm, makePersistentSolverWasm } from '../../lib/portico/wasm_solve.js?v=3';
+import { resumenPeligrosidad, exportarCSV, exportarGeoJSON } from '../hidraulica/peligrosidad2d.js?v=3';
+import { getConfig } from '../config.js?v=3';
+import { setActivo } from '../ui/seleccion.js?v=3';
+import { toast, busyStart, busyEnd } from '../ui/toast.js?v=3';
+import { stampTerreno, pilaEnSeccion, puntoEnPoligono } from '../estructuras/estructuras.js?v=3';
 
 const f2 = (v) => (v == null || !isFinite(v) ? '—' : (Math.abs(v) < 10 ? v.toFixed(2) : v.toFixed(1)));
 const f3 = (v) => (v == null || !isFinite(v) ? '—' : (v === 0 ? '0' : v.toExponential(2)));

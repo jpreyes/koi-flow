@@ -10,11 +10,11 @@
 // si un módulo no se corrió, la sección muestra la metodología + "pendiente".
 // Documento HTML imprimible (→ PDF). Propiedad: JPReyes / Conmuta.cl.
 // ─────────────────────────────────────────────────────────────────────────────
-import { estacionesCercanas, cargarSerie } from '../datos/dga.js?v=2';
-import { analizar } from '../hidro/frecuencia.js?v=2';
-import { correrPipelinePunto } from '../hidro/pipeline.js?v=2';
-import { F } from './formulas.js?v=2';
-import { figuraCuencaMapa } from './mapa_fig.js?v=2';
+import { estacionesCercanas, cargarSerie } from '../datos/dga.js?v=3';
+import { analizar } from '../hidro/frecuencia.js?v=3';
+import { correrPipelinePunto } from '../hidro/pipeline.js?v=3';
+import { F } from './formulas.js?v=3';
+import { figuraCuencaMapa } from './mapa_fig.js?v=3';
 
 const f = (v, d = 2) => (v == null || !isFinite(v) ? '—' : (Math.abs(v) >= 1000 ? v.toFixed(0) : v.toFixed(d)));
 const esc = (s) => String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
@@ -117,7 +117,7 @@ export async function generarInformeWord(koi) {
     let datos = {};
     try { datos = await reunirDatos(koi); } catch (e) { console.warn('informe word:', e.message); }
     const proj = koi.project || {};
-    const { informeADocx } = await import('./docx.js?v=2');
+    const { informeADocx } = await import('./docx.js?v=3');
     const blob = await informeADocx(contenido(koi, datos));
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
     a.download = `${(proj.name || 'informe').replace(/\s+/g, '_')}.docx`; a.click();

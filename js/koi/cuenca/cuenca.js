@@ -4,8 +4,8 @@
 // cuenca toca el borde del DEM (es mayor que la ventana), amplía la ventana (y baja
 // la resolución) y reintenta. Así el DEM se dimensiona solo según el tamaño de cuenca.
 // ─────────────────────────────────────────────────────────────────────────────
-import { fetchDEM, bboxEntorno } from './dem_tiles.js?v=2';
-import { delinear } from './delineacion.js?v=2';
+import { fetchDEM, bboxEntorno } from './dem_tiles.js?v=3';
+import { delinear } from './delineacion.js?v=3';
 
 export async function delinearAuto(lon, lat, opts = {}, onProgress) {
   // ±~0.9 km (caja ~1.8 km) → DEM MUY denso (z15 ≈4.7 m) para cuencas chicas (0.1 km²).
