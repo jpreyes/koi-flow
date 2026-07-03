@@ -7,25 +7,35 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { hidrogramaRotura } from './breach.js?v=2';
 import { registrar } from '../informe/registro.js?v=2';
-import { fijarCrecida } from '../ui/seleccion.js?v=2';
+import { fijarCrecida, getActivo } from '../ui/seleccion.js?v=2';
 
 const f = (v, d = 2) => (v == null || !isFinite(v) ? '—' : (Math.abs(v) >= 1000 ? v.toFixed(0) : v.toFixed(d)));
+
+// Presa activa (si el objeto seleccionado es una presa/depósito) → Vw y altura del vaso.
+function presaActiva(koi) {
+  const a = getActivo();
+  return a?.tipo === 'presa' ? (koi.presas || []).find((p) => p.id === a.id) || null : null;
+}
 
 export function abrirBreachHUD(koi, huds) {
   const hud = huds.open('breach', { title: '💥 Rotura de presa / relaves (Froehlich)', w: 480, h: 640 });
   if (hud._brWired) { hud.focus?.(); return hud; }
-  hud.setBody(form());
+  hud.setBody(form(koi));
   wire(hud, koi);
   hud._brWired = true;
   return hud;
 }
 
-function form() {
+function form(koi) {
+  const pr = presaActiva(koi);
+  const vw = pr ? Math.round(pr.volumen) : 500000;
+  const hb = pr ? (pr.altura || 15) : 15;
   return `
+    ${pr ? `<div class="ins-desfase">Usando el vaso de <b>${pr.nombre}</b> (del DEM): <b>${(pr.volumen / 1e6).toFixed(2)} Mm³</b> · muro ${pr.altura} m. La onda entrará al 2D en la posición de la presa.</div>` : '<p class="hud-note">Colocá una <b>presa/depósito</b> (menú Riesgo) y selecciónala para sacar Vw y la altura del vaso desde el DEM; si no, ingrésalos a mano.</p>'}
     <div class="cfg-grp">Embalse / depósito y modo de falla</div>
     <div class="cfg-form">
-      <label title="Volumen almacenado al momento de la falla (agua o relave licuado)">Volumen Vw [m³]<input id="br-vw" type="number" step="10000" value="500000"></label>
-      <label title="Altura desde el fondo de la brecha final hasta el nivel del agua/relave">Altura de brecha hb [m]<input id="br-hb" type="number" step="0.5" value="15"></label>
+      <label title="Volumen almacenado al momento de la falla (agua o relave licuado)">Volumen Vw [m³]<input id="br-vw" type="number" step="10000" value="${vw}"></label>
+      <label title="Altura desde el fondo de la brecha final hasta el nivel del agua/relave">Altura de brecha hb [m]<input id="br-hb" type="number" step="0.5" value="${hb}"></label>
       <label title="Carga sobre el fondo de la brecha (= hb si el nivel llega al coronamiento)">Carga hw [m]<input id="br-hw" type="number" step="0.5" placeholder="= hb"></label>
       <label>Modo de falla<select id="br-modo">
         <option value="sobrevertimiento">Sobrevertimiento (overtopping)</option>
@@ -71,7 +81,11 @@ function wire(hud, koi) {
 
     const esRelave = $('#br-mat').value === 'relave';
     const reologia = esRelave ? { tauY: +$('#br-ty').value || 0, mu: +$('#br-mu').value || 0, Cv: +$('#br-cv').value || 0.45, K: +$('#br-k').value || 24 } : null;
-    fijarCrecida(koi, { hidrograma: r.out, reologia, fuente: 'breach' });   // → momentum 2D / tránsito / embalse; se guarda en el objeto activo
+    fijarCrecida(koi, { hidrograma: r.out, reologia, fuente: 'breach' });   // → momentum 2D / tránsito / embalse
+    // Si hay una presa activa: la crecida vive EN la presa y la onda entra al 2D en su muro.
+    const pr = presaActiva(koi);
+    if (pr) { pr.crecida = { hidrograma: r.out, reologia, fuente: 'breach' }; pr.entrada2D = [pr.lon, pr.lat]; koi.entradaCrecida = [pr.lon, pr.lat]; }
+    else koi.entradaCrecida = null;
     registrar('breach', { modo: $('#br-modo').value, Vw: r.Vw, hb: r.hb, Bavg: r.Bavg, tfMin: r.tf / 60, Qp: r.QpUsado });
 
     out.innerHTML = `

@@ -928,6 +928,10 @@ export class BatiPanel {
     const st = this.body.querySelector('#bp-2d-momst');
     if (!this.mesh2d) { if (st) st.textContent = ' genera la malla primero'; return; }
     if (!this.eje || this.eje.length < 2) { if (st) st.textContent = ' dibuja el eje (define entrada/salida)'; return; }
+    // Si la crecida activa viene de una PRESA, la onda entra al 2D en la posición del muro.
+    if (this.body.querySelector('#bp-m-crec')?.checked && window.__koi?.entradaCrecida && this.cauces[this.iCauce]) {
+      this.cauces[this.iCauce].entrada = window.__koi.entradaCrecida;
+    }
     const { entrada, salida } = this._bordes2D(this.mesh2d);
     if (!entrada.length || !salida.length) { if (st) st.textContent = ' el eje debe tocar el borde del dominio'; return; }
     const _c = this.cauces[this.iCauce];
