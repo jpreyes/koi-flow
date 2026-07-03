@@ -4,12 +4,16 @@
 // marcado como abierto (localStorage), cuyo estado se reconstruye. El usuario crea
 // proyectos («Nuevo»), importa tramos (KMZ/KML) y guarda/abre desde localStorage.
 // ─────────────────────────────────────────────────────────────────────────────
-import { getOpen, loadProjectState } from './proyectos.js?v=6';
+import { getOpen, setOpen, loadProjectState } from './proyectos.js?v=7';
 
 const EMPTY_FC = () => ({ type: 'FeatureCollection', features: [] });
 
 export async function loadProject() {
-  const open = getOpen();
+  let open = getOpen();
+  // 'demo' es un id LEGADO: el proyecto demo (Tarapacá) se quitó en R2, pero un puntero
+  // `koi_open='demo'` viejo seguía restaurando ese proyecto al arrancar y re-centrando el
+  // mapa en Tarapacá. Se ignora y se limpia para que la app abra en la vista de Chile.
+  if (open === 'demo') { setOpen(null); open = null; }
   if (open) {
     const st = loadProjectState(open);
     if (st) {

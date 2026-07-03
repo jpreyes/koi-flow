@@ -4,7 +4,7 @@
 // resultados) y el informe lo lee de koi.reg.<modulo>. Vive en memoria (no se
 // persiste): el informe refleja lo calculado en la sesión actual.
 // ─────────────────────────────────────────────────────────────────────────────
-import { emit } from '../ui/bus.js?v=6';
+import { emit } from '../ui/bus.js?v=7';
 
 export function registrar(modulo, datos) {
   const k = window.__koi;

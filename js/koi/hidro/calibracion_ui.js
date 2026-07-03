@@ -4,9 +4,9 @@
 // Modo demo (experimento gemelo): genera una serie "observada" desde parámetros
 // "verdaderos" + ruido y verifica que la calibración los recupera. Acepta Qobs pegada.
 // ─────────────────────────────────────────────────────────────────────────────
-import { serieSintetica, simularContinuo } from './continuo.js?v=6';
-import { calibrarContinuo } from './calibracion.js?v=6';
-import { registrar } from '../informe/registro.js?v=6';
+import { serieSintetica, simularContinuo } from './continuo.js?v=7';
+import { calibrarContinuo } from './calibracion.js?v=7';
+import { registrar } from '../informe/registro.js?v=7';
 
 const f = (v, d = 2) => (v == null || !isFinite(v) ? '—' : v.toFixed(d));
 

@@ -3,9 +3,9 @@
 // Muskingum-Cunge (desde geometría del tramo). Entra un hidrograma triangular y sale
 // el hidrograma laminado con atenuación y desfase. Complementa el ruteo en embalse.
 // ─────────────────────────────────────────────────────────────────────────────
-import { muskingum, muskingumCunge } from './routing.js?v=6';
-import { hidrogramaTriangular } from './embalse.js?v=6';
-import { registrar } from '../informe/registro.js?v=6';
+import { muskingum, muskingumCunge } from './routing.js?v=7';
+import { hidrogramaTriangular } from './embalse.js?v=7';
+import { registrar } from '../informe/registro.js?v=7';
 
 let _koi = null;
 

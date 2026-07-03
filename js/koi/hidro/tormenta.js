@@ -12,7 +12,7 @@
 // lo gobierna la transposición fluviométrica del cauce (ver pipeline). La tormenta
 // sirve para la forma del hidrograma y el tránsito, no para fijar el caudal punta.
 // ─────────────────────────────────────────────────────────────────────────────
-import { cd } from './idf.js?v=6';
+import { cd } from './idf.js?v=7';
 
 // Método de bloques alternos a partir de la IDF (coeficientes de duración).
 //   pp24: precipitación de diseño de 24 h [mm] (ya amplificada ×1.10 si aplica).

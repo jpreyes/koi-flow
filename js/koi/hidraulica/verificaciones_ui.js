@@ -3,9 +3,9 @@
 // retorno de diseño por tipo de obra (MC-V3 3.702) y chequeo de revancha / gálibo
 // bajo el tablero (MC-V3 3.707.4). Puede fijar el T por defecto del proyecto.
 // ─────────────────────────────────────────────────────────────────────────────
-import { PERIODOS_RETORNO, sugerirT, chequeoRevancha, revanchaRecomendada } from './normas.js?v=6';
-import { getConfig, setConfig } from '../config.js?v=6';
-import { registrar } from '../informe/registro.js?v=6';
+import { PERIODOS_RETORNO, sugerirT, chequeoRevancha, revanchaRecomendada } from './normas.js?v=7';
+import { getConfig, setConfig } from '../config.js?v=7';
+import { registrar } from '../informe/registro.js?v=7';
 
 const f = (v, d = 2) => (v == null || !isFinite(v) ? '—' : v.toFixed(d));
 
