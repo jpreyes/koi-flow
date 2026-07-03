@@ -6,10 +6,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { Terrain } from './terrain.js?v=3';
-import { makeProjection, bboxCenter } from './geo.js?v=3';
-import { tableroSobre } from './estructuras/estructuras.js?v=3';
-import { fetchJSON } from './datos/fetch_json.js?v=3';
+import { Terrain } from './terrain.js?v=4';
+import { makeProjection, bboxCenter } from './geo.js?v=4';
+import { tableroSobre } from './estructuras/estructuras.js?v=4';
+import { fetchJSON } from './datos/fetch_json.js?v=4';
 
 export class SceneView {
   constructor(container) {

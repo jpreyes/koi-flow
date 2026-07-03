@@ -4,9 +4,9 @@
 // tirante aguas abajo → régimen, cota de energía aguas arriba, reparto
 // presión/vertedero, velocidad por el vano, afección (remanso) y revancha/gálibo.
 // ─────────────────────────────────────────────────────────────────────────────
-import { puentePresion, curvaPuente } from './puente_presion.js?v=3';
-import { socavacionEstribo } from './socavacion.js?v=3';
-import { registrar } from '../informe/registro.js?v=3';
+import { puentePresion, curvaPuente } from './puente_presion.js?v=4';
+import { socavacionEstribo } from './socavacion.js?v=4';
+import { registrar } from '../informe/registro.js?v=4';
 
 const f = (v, d = 2) => (v == null || !isFinite(v) ? '—' : v.toFixed(d));
 

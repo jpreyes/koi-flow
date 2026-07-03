@@ -4,21 +4,21 @@
 // → PP diseño → IDF → Tc → caudales (pluviales REFERENCIALES + transposición que
 // GOBIERNA) → adoptados. Look & feel koi (variables de css/koi.css).
 // ─────────────────────────────────────────────────────────────────────────────
-import { correrPipelinePunto } from './pipeline.js?v=3';
-import { analizar } from './frecuencia.js?v=3';
-import { transponer, transponerRegional } from './transposicion.js?v=3';
-import { caudalesHU } from './hidrograma.js?v=3';
-import { ppDiseno, grunsky } from './idf.js?v=3';
-import { racional, verniKing, dgaAC } from './caudales.js?v=3';
-import { estacionesCercanas, estacionRecomendada, cargarSerie, centroideTramo, resetCatalogo, descargarSerieDGA } from '../datos/dga.js?v=3';
-import { fetchJSON } from '../datos/fetch_json.js?v=3';
-import { calcular as tcCalcular } from './tc.js?v=3';
-import { cuencaGeoJSON, cuencaKMZ, descargar } from '../cuenca/exportar.js?v=3';
-import { cuencaShapefileZip } from '../cuenca/shapefile.js?v=3';
-import { suavizar } from '../cuenca/delineacion.js?v=3';
-import { perfilDesdeLinea } from '../hidraulica/secciones.js?v=3';
-import { nivelNormal } from '../hidraulica/manning.js?v=3';
-import { evaluarSocavacion } from '../hidraulica/socavacion.js?v=3';
+import { correrPipelinePunto } from './pipeline.js?v=4';
+import { analizar } from './frecuencia.js?v=4';
+import { transponer, transponerRegional } from './transposicion.js?v=4';
+import { caudalesHU } from './hidrograma.js?v=4';
+import { ppDiseno, grunsky } from './idf.js?v=4';
+import { racional, verniKing, dgaAC } from './caudales.js?v=4';
+import { estacionesCercanas, estacionRecomendada, cargarSerie, centroideTramo, resetCatalogo, descargarSerieDGA } from '../datos/dga.js?v=4';
+import { fetchJSON } from '../datos/fetch_json.js?v=4';
+import { calcular as tcCalcular } from './tc.js?v=4';
+import { cuencaGeoJSON, cuencaKMZ, descargar } from '../cuenca/exportar.js?v=4';
+import { cuencaShapefileZip } from '../cuenca/shapefile.js?v=4';
+import { suavizar } from '../cuenca/delineacion.js?v=4';
+import { perfilDesdeLinea } from '../hidraulica/secciones.js?v=4';
+import { nivelNormal } from '../hidraulica/manning.js?v=4';
+import { evaluarSocavacion } from '../hidraulica/socavacion.js?v=4';
 
 const TS = [2, 5, 10, 25, 50, 100, 150, 200];
 const f1 = (v) => (v == null || isNaN(v) ? '—' : Math.abs(v) < 10 ? Number(v).toFixed(2) : Number(v).toFixed(1));
@@ -37,7 +37,7 @@ export class HydroPanel {
     this.hosts = dock.hosts;
     this.elBody = dock.hosts.hidro;     // host activo por defecto
     // botón "Calcular hidrología" (modo tramo) en la cabecera del host hidro
-    this.hosts.dem.innerHTML = '<p class="hp-note">Selecciona un tramo (mapa/árbol) para gestionar su relieve, o un punto de análisis.</p>';
+    this._renderDEM(null);   // la red de drenaje (vista del mapa) está disponible sin proyecto/tramo
   }
 
   setMap(map) { this.map = map; }
@@ -45,8 +45,8 @@ export class HydroPanel {
     this.tramo = t;
     if (!this.hosts) return;
     if (this.dock && this.dock.active !== 'bati') this.dock.setSub(t ? `Sector: ${t.name}` : '—');
+    this._renderDEM(t);   // t puede ser null: la red de drenaje se muestra igual (opera sobre la vista)
     if (!t) return;
-    this._renderDEM(t);
     this.hosts.hidraulica.innerHTML = ''; this.elBody = this.hosts.hidraulica; this._seccionEje(t);
     this._renderSocav();
   }
@@ -325,23 +325,44 @@ export class HydroPanel {
   _renderDEM(t) {
     const host = this.hosts?.dem; if (!host) return;
     host.innerHTML = ''; const prev = this.elBody; this.elBody = host;
-    const s = this._section('Relieve del sector (DEM)');
-    const has = !!(t?.dem || t?.demGrid) && !t?.relieveOff;
-    s.appendChild(el('div', 'hp-kv', `
-      <div><span>Sector</span><b>${t?.name || '—'}</b></div>
-      <div><span>Relieve</span><b>${has ? 'activo' : 'sin descargar'}</b></div>`));
-    const b = el('button', 'hp-run', has ? '↻ Re-descargar relieve' : '⬇ Descargar relieve del sector');
-    const st = el('span', 'hp-dl-status'); b.appendChild(st);
-    b.addEventListener('click', async () => {
-      if (!this.getDemGrid || !t) return;
-      st.textContent = ' …';
-      try { await this.getDemGrid(t, (m) => { st.textContent = ' ' + m; }); st.textContent = ' ✓'; this._renderDEM(t); }
-      catch (e) { st.textContent = ' ✗ ' + e.message; }
-    });
-    s.appendChild(b);
-    s.appendChild(el('p', 'hp-note', 'El relieve (DEM Terrarium) se usa para delinear cuencas y extraer la sección del cruce. También se activa con la 🏔️ del árbol o el botón Relieve 3D.'));
+    // Relieve del tramo activo — solo si hay un tramo seleccionado.
+    if (t) {
+      const s = this._section('Relieve del sector (DEM)');
+      const has = !!(t?.dem || t?.demGrid) && !t?.relieveOff;
+      s.appendChild(el('div', 'hp-kv', `
+        <div><span>Sector</span><b>${t?.name || '—'}</b></div>
+        <div><span>Relieve</span><b>${has ? 'activo' : 'sin descargar'}</b></div>`));
+      const b = el('button', 'hp-run', has ? '↻ Re-descargar relieve' : '⬇ Descargar relieve del sector');
+      const st = el('span', 'hp-dl-status'); b.appendChild(st);
+      b.addEventListener('click', async () => {
+        if (!this.getDemGrid || !t) return;
+        st.textContent = ' …';
+        try { await this.getDemGrid(t, (m) => { st.textContent = ' ' + m; }); st.textContent = ' ✓'; this._renderDEM(t); }
+        catch (e) { st.textContent = ' ✗ ' + e.message; }
+      });
+      s.appendChild(b);
+      s.appendChild(el('p', 'hp-note', 'El relieve (DEM Terrarium) se usa para delinear cuencas y extraer la sección del cruce. También se activa con la 🏔️ del árbol o el botón Relieve 3D.'));
+    } else {
+      // Habilitación progresiva: la capacidad NO se oculta, se muestra DESACTIVADA (gris) hasta
+      // que exista su prerequisito (un tramo). El color vivo dice "hazme"; el gris, "todavía no".
+      const s = this._section('Relieve del sector (DEM)');
+      s.appendChild(el('div', 'hp-kv', `
+        <div><span>Sector</span><b>—</b></div>
+        <div><span>Relieve</span><b>necesita un tramo</b></div>`));
+      const b = el('button', 'hp-run', '⬇ Descargar relieve del sector');
+      b.disabled = true; b.style.opacity = '.45'; b.style.cursor = 'not-allowed';
+      b.title = 'Selecciona o dibuja un tramo/cauce primero (barra izquierda)';
+      s.appendChild(b);
+      s.appendChild(el('p', 'hp-note', 'Selecciona o dibuja un tramo/cauce (barra izquierda → «Tramo») para habilitar su relieve. La 🌊 red de drenaje de abajo funciona sin proyecto abierto.'));
+    }
+    // Red de drenaje / afluentes — SIEMPRE (opera sobre la vista del mapa, no necesita tramo ni proyecto).
+    this._renderRedDrenaje();
+    this.elBody = prev;
+  }
 
-    // Red de drenaje / afluentes (como QGIS) — sobre la VISTA ACTUAL del mapa.
+  // Red de drenaje / afluentes (como QGIS) — sobre la VISTA ACTUAL del mapa. No requiere tramo
+  // ni proyecto: es justo la herramienta para VER los cauces y pinchar el punto en el correcto.
+  _renderRedDrenaje() {
     const sr = this._section('Red de drenaje (afluentes)', { cls: 'gov', txt: 'QGIS-like' });
     sr.appendChild(el('p', 'hp-note', 'Calcula los cauces del DEM en la vista actual del mapa (acumulación de flujo). Sirve para VER dónde están los afluentes y pinchar el punto justo sobre el cauce correcto.'));
     const fr = el('div', 'hp-form');
@@ -385,7 +406,6 @@ export class HydroPanel {
     const bclr = el('button', 'hp-mini-btn', '✖ Limpiar red');
     bclr.addEventListener('click', () => this.limpiarRed?.());
     sr.appendChild(bclr);
-    this.elBody = prev;
   }
 
   // ── Pestaña SOCAVACIÓN (a partir del último eje hidráulico) ──────────────────
@@ -789,7 +809,7 @@ export class HydroPanel {
       const A = num('pf_a');
       if (!(A > 0)) throw new Error('Ingresa el área A.');
       if (!this._sel.pluvio) throw new Error('Elige una estación pluvial.');
-      const coef = await fetchJSON('data/coef_hidro.json?v=3', { contexto: 'Coeficientes hidrológicos' });
+      const coef = await fetchJSON('data/coef_hidro.json?v=4', { contexto: 'Coeficientes hidrológicos' });
       const sp = await cargarSerie(this._sel.pluvio);
       const an = analizar(Object.values(sp.serie), { T: TSL });
       const pp = ppDiseno(an.resultados[an.mejor].quantiles, 1.10);

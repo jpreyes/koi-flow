@@ -6,9 +6,9 @@
 // DEM y asigna la rugosidad de Manning por zona (cauce vs planicie). Reusa los
 // mesheadores de portico-core (js/lib/portico). Trabaja en métrico local (equirect).
 // ─────────────────────────────────────────────────────────────────────────────
-import { earClip, delaunayFlips, adaptiveRefine } from '../../lib/portico/mesh_free.js?v=3';
-import { boundaryNodes, laplacianSmooth } from '../../lib/portico/mesh_quality.js?v=3';
-import { elevAt } from './secciones.js?v=3';
+import { earClip, delaunayFlips, adaptiveRefine } from '../../lib/portico/mesh_free.js?v=4';
+import { boundaryNodes, laplacianSmooth } from '../../lib/portico/mesh_quality.js?v=4';
+import { elevAt } from './secciones.js?v=4';
 
 // distancia de (x,y) al segmento a-b (métrico).
 function distSeg(x, y, ax, ay, bx, by) {

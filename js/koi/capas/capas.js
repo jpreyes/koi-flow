@@ -5,12 +5,12 @@
 // Estaciones DGA, Referencias (río/ciudad/camino) e Importados. Cada capa se puede
 // mostrar/ocultar (casilla) y sus entidades ir/borrar. Estilo cercano a wind-shm.
 // ─────────────────────────────────────────────────────────────────────────────
-import { leerKMLoKMZ } from './kml.js?v=3';
-import { toast } from '../ui/toast.js?v=3';
-import { bus } from '../ui/bus.js?v=3';
-import { listProjects, saveProject, removeProject, setOpen, newProjectId } from '../proyectos.js?v=3';
-import { escribirKoi, leerKoi } from '../proyecto/koi_file.js?v=3';
-import { infoTipo, getActivo } from '../ui/seleccion.js?v=3';
+import { leerKMLoKMZ } from './kml.js?v=4';
+import { toast } from '../ui/toast.js?v=4';
+import { bus } from '../ui/bus.js?v=4';
+import { listProjects, saveProject, removeProject, setOpen, newProjectId } from '../proyectos.js?v=4';
+import { escribirKoi, leerKoi } from '../proyecto/koi_file.js?v=4';
+import { infoTipo, getActivo } from '../ui/seleccion.js?v=4';
 
 // Módulos de koi.reg → acción de menú (para reabrir el HUD) y etiqueta del chip.
 const REG_INFO = {
@@ -102,6 +102,7 @@ export class Capas {
     tools.innerHTML = `
       <div class="cap-toolbar">
         <button class="cap-tool" id="cap-pt" title="Agregar punto de análisis (clic en el mapa)">${ico('point')}<span>Punto</span></button>
+        <button class="cap-tool" id="cap-tramo" title="Dibujar un tramo/cauce (clic = vértices · doble-clic / clic-derecho / Esc = terminar)">${ico('wave')}<span>Tramo</span></button>
         <button class="cap-tool" id="cap-lbl" title="Agregar etiqueta referencial (río / ciudad / camino)">${ico('label')}<span>Etiqueta</span></button>
         <button class="cap-tool" id="cap-import" title="Importar KMZ/KML">${ico('folder')}<span>Importar</span></button>
       </div>
@@ -119,6 +120,7 @@ export class Capas {
     this.cont.appendChild(this.tree);
 
     tools.querySelector('#cap-pt').addEventListener('click', () => this._agregarPunto());
+    tools.querySelector('#cap-tramo').addEventListener('click', () => this._dibujarTramo());
     tools.querySelector('#cap-lbl').addEventListener('click', () => this._colocarEtiqueta());
     tools.querySelector('#cap-import').addEventListener('click', () => tools.querySelector('#cap-file').click());
     tools.querySelector('#cap-file').addEventListener('change', (e) => this._importar(e.target.files));
@@ -293,6 +295,30 @@ export class Capas {
     this.map.setPickMode(on);
     document.getElementById('btn-pick')?.classList.toggle('active', on);
     this.cont.querySelector('#cap-pt')?.classList.toggle('active', on);
+  }
+  // Dibuja un tramo/cauce a mano (clic = vértice, doble-clic/Esc termina) → tramo de
+  // primera clase, igual que un cauce importado (seleccionable, con relieve/eje/hidrología).
+  _dibujarTramo() {
+    const btn = this.cont.querySelector('#cap-tramo');
+    if (this.map.enDibujo?.()) { this.map.cancelarDibujo?.(); btn?.classList.remove('active'); return; }
+    btn?.classList.add('active');
+    this.map.dibujar('line', '#e23b5a', (pts) => {
+      btn?.classList.remove('active');
+      if (!pts || pts.length < 2) return;
+      const n = (this.project?.tramos || []).length + 1;
+      const base = prompt('Nombre del tramo / cauce:', `Cauce ${n}`);
+      if (base == null) return;
+      const nombre = this._nombreTramoUnico((base || `Cauce ${n}`).trim());
+      const feature = { type: 'Feature', properties: { name: nombre }, geometry: { type: 'LineString', coordinates: pts } };
+      const tramo = { name: nombre, feature, npts: pts.length, dem: null };
+      this.project = this.project || { id: 'nuevo', name: 'Proyecto', tramos: [] };
+      (this.project.tramos = this.project.tramos || []).push(tramo);
+      this.map.addTramo(feature, { zoom: false });
+      this.render();
+      this._selTramo(nombre);
+      this.onSelectTramo?.(tramo);
+      toast(`Tramo "${nombre}" creado (${pts.length} vértices). Queda seleccionado para analizarlo.`, 'ok');
+    });
   }
   _colocarEtiqueta() {
     const tipo = this.cont.querySelector('#cap-lbl-tipo')?.value || 'rio';

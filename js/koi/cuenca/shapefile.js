@@ -3,7 +3,7 @@
 // Genera .shp + .shx + .dbf + .prj (WGS84) y los empaca en un ZIP descargable.
 // Pensado para una cuenca (un polígono con atributos de morfometría).
 // ─────────────────────────────────────────────────────────────────────────────
-import { zipStore } from './exportar.js?v=3';
+import { zipStore } from './exportar.js?v=4';
 
 const PRJ = 'GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["Degree",0.017453292519943295]]';
 

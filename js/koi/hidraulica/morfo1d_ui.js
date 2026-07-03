@@ -3,9 +3,9 @@
 // hidrograma por un tramo y muestra la evolución del lecho (erosión/depósito) por
 // nodo y en el tiempo. Usa el hidrograma de crecida (convolución) o uno triangular.
 // ─────────────────────────────────────────────────────────────────────────────
-import { morfo1d, tramoPrismatico } from './morfo1d.js?v=3';
-import { hidrogramaTriangular } from '../hidro/embalse.js?v=3';
-import { registrar } from '../informe/registro.js?v=3';
+import { morfo1d, tramoPrismatico } from './morfo1d.js?v=4';
+import { hidrogramaTriangular } from '../hidro/embalse.js?v=4';
+import { registrar } from '../informe/registro.js?v=4';
 
 const f = (v, d = 2) => (v == null || !isFinite(v) ? '—' : v.toFixed(d));
 let _koi = null;

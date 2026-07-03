@@ -4,9 +4,9 @@
 // convolución del HU Linsley. Deja el hidrograma en koi.hidrogramaCrecida para que el
 // tránsito en cauce y el embalse lo usen en vez del triangular.
 // ─────────────────────────────────────────────────────────────────────────────
-import { hidrogramaTormenta } from './convolucion.js?v=3';
-import { registrar } from '../informe/registro.js?v=3';
-import { fijarCrecida } from '../ui/seleccion.js?v=3';
+import { hidrogramaTormenta } from './convolucion.js?v=4';
+import { registrar } from '../informe/registro.js?v=4';
+import { fijarCrecida } from '../ui/seleccion.js?v=4';
 
 const f = (v, d = 1) => (v == null || !isFinite(v) ? '—' : v.toFixed(d));
 
