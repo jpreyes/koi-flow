@@ -9,6 +9,7 @@ import { leerKMLoKMZ } from './kml.js?v=2';
 import { toast } from '../ui/toast.js?v=2';
 import { bus } from '../ui/bus.js?v=2';
 import { listProjects, saveProject, removeProject, setOpen, newProjectId } from '../proyectos.js?v=2';
+import { escribirKoi, leerKoi } from '../proyecto/koi_file.js?v=2';
 
 // Módulos de koi.reg → acción de menú (para reabrir el HUD) y etiqueta del chip.
 const REG_INFO = {
@@ -429,24 +430,41 @@ export class Capas {
     return { puntos, importados, etiquetas, tramos, estructuras, eje: bati?.eje || null, dominio: bati?.dominio || null };
   }
 
-  guardarProyecto() {
+  // Proyecto COMPLETO para el archivo .koi: el estado ligero (geometría) + los
+  // resultados (koi.reg) + los datos PESADOS que existan (DEM por tramo, malla y
+  // campos del 2D). Los TypedArrays los guarda koi_file.js como binario comprimido.
+  _proyectoKoi(id, name) {
+    const st = this._estadoActual();
+    const src = this.project?.tramos || [];
+    st.tramos = st.tramos.map((t) => { const o = src.find((x) => x.name === t.name); return o?.demGrid ? { ...t, demGrid: o.demGrid } : t; });
+    const bati = window.__koi?.bati;
+    const bati2d = bati ? {
+      demM: bati.demM || null, mesh2d: bati.mesh2d || null, eje: bati.eje || null, dominio: bati.dominio || null,
+      result2d: bati.result2d || null, resultMom2d: bati.resultMom2d || null, resultMorfo2d: bati.resultMorfo2d || null,
+    } : null;
+    return { app: 'koi-flow', formato: 1, proyecto: id, name, ...st, reg: window.__koi?.reg || {}, bati2d };
+  }
+
+  async guardarProyecto() {
     const cur = this.project?.name;
     const name = prompt('Nombre del proyecto:', (cur && cur !== 'Proyecto nuevo') ? cur : '');
     if (name == null) return;
     let id = this.project?.id;
     if (!id || id === 'nuevo') id = newProjectId();
     const st = this._estadoActual();
-    const state = { id, name: name || id, ...st };
-    saveProject(state); setOpen(id);
+    // Índice ligero en localStorage (reapertura rápida; SIN los datos pesados).
+    saveProject({ id, name: name || id, ...st }); setOpen(id);
     if (this.project) { this.project.id = id; this.project.name = name || id; }
     const nm = this.cont.querySelector('.cap-proj-name'); if (nm) nm.textContent = name || id;
-    // descarga de respaldo (.json)
-    const proj = { app: 'koi-flow', version: 1, fecha: new Date().toISOString(), proyecto: id, name: name || id, ...st };
-    const blob = new Blob([JSON.stringify(proj, null, 1)], { type: 'application/json' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-    a.download = `${id}_koi.json`; a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    toast(`Proyecto guardado: ${name || id}`, 'ok');
+    // Archivo .koi (binario, con DEM/mallas/resultados si los hay).
+    try {
+      const bytes = await escribirKoi(this._proyectoKoi(id, name || id), { name: name || id });
+      const blob = new Blob([bytes], { type: 'application/octet-stream' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = `${(name || id).replace(/[^\w.-]+/g, '_')}.koi`; a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      toast(`Proyecto guardado: ${name || id} (${(bytes.length / 1e6).toFixed(2)} MB .koi)`, 'ok');
+    } catch (e) { toast('No se pudo escribir el .koi: ' + e.message, 'error'); }
   }
 
   // Aplica un estado (puntos/cuencas/importados/etiquetas) sobre el mapa. Usado al
@@ -476,9 +494,45 @@ export class Capas {
 
   async _abrir(file) {
     if (!file) return;
-    let data; try { data = JSON.parse(await file.text()); } catch { return toast('Archivo de proyecto inválido.', 'error'); }
-    if (data.app !== 'koi-flow') return toast('No es un proyecto koi-flow.', 'error');
+    const esKoi = /\.koi$/i.test(file.name) && !/\.koi\.json$/i.test(file.name);
+    let data;
+    try {
+      if (esKoi) { const r = await leerKoi(await file.arrayBuffer()); data = r.proyecto; }
+      else data = JSON.parse(await file.text());
+    } catch (e) { return toast('Archivo de proyecto inválido: ' + e.message, 'error'); }
+    if (!data || data.app !== 'koi-flow') return toast('No es un proyecto koi-flow.', 'error');
     this.aplicarEstado(data);
-    toast(`Proyecto cargado: ${data.puntos?.length || 0} puntos, ${data.importados?.length || 0} capas, ${data.etiquetas?.length || 0} referencias.`, 'ok');
+    this._restaurarPesados(data);
+    toast(`Proyecto cargado: ${data.puntos?.length || 0} puntos, ${data.importados?.length || 0} capas, ${data.etiquetas?.length || 0} referencias${data.bati2d?.mesh2d ? ' + malla 2D' : ''}.`, 'ok');
+  }
+
+  // Restaura los datos PESADOS de un .koi: resultados (koi.reg → chips/informe), los
+  // DEM por tramo, y la malla + campos + mancha del 2D si venían en el archivo.
+  _restaurarPesados(data) {
+    if (data.reg && window.__koi) { window.__koi.reg = { ...(window.__koi.reg || {}), ...data.reg }; bus.emit('reg:actualizado', { modulo: 'proyecto' }); }
+    // tramos: los que no estén ya en el proyecto se agregan y se dibujan.
+    this.project = this.project || { tramos: [] }; this.project.tramos = this.project.tramos || [];
+    for (const t of data.tramos || []) {
+      const dst = this.project.tramos.find((x) => x.name === t.name);
+      if (dst) { if (t.demGrid) dst.demGrid = t.demGrid; }
+      else if (t.feature) {
+        this.project.tramos.push({ name: t.name, feature: t.feature, npts: t.feature.geometry?.coordinates?.length || 0, dem: t.dem || null, demGrid: t.demGrid || null });
+        this.map.addTramo?.(t.feature);
+      }
+    }
+    const bati = window.__koi?.bati, b = data.bati2d;
+    if (bati && b) {
+      if (b.demM) bati.demM = b.demM;
+      if (b.mesh2d) bati.mesh2d = b.mesh2d;
+      if (b.result2d) bati.result2d = b.result2d;
+      if (b.resultMom2d) bati.resultMom2d = b.resultMom2d;
+      if (b.resultMorfo2d) bati.resultMorfo2d = b.resultMorfo2d;
+      const r = b.resultMom2d || b.result2d;
+      try {
+        if (b.mesh2d && r?.h) this.map.showInundacion?.(b.mesh2d, r.h, { cauce: b.eje });
+        else if (b.dominio) this.map.showMalla2D?.({ dominio: b.dominio, cauce: b.eje });
+      } catch {}
+    }
+    this.render();
   }
 }
