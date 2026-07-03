@@ -452,7 +452,8 @@ export class Capas {
     const es = window.__koi?.estr?.estructuras || [];
     const estructuras = es.map((e) => ({ id: e.id, tipo: e.tipo, nombre: e.nombre, forma: e.forma, solido: e.solido, center: e.center, planta: e.planta, params: { ...e.params }, dz: e.dz || 0, zBase: e.zBase ?? null }));
     const bati = window.__koi?.bati;
-    return { puntos, importados, etiquetas, tramos, estructuras, eje: bati?.eje || null, dominio: bati?.dominio || null };
+    const presas = (window.__koi?.presas || []).map((p) => ({ ...p }));   // vaso/curva son serializables
+    return { puntos, importados, etiquetas, tramos, estructuras, presas, eje: bati?.eje || null, dominio: bati?.dominio || null };
   }
 
   // Proyecto COMPLETO para el archivo .koi: el estado ligero (geometría) + los
@@ -503,6 +504,11 @@ export class Capas {
       if (p.cuenca) this.map.showCuenca(pt.id, p.cuenca.polygonSuave || p.cuenca.polygon);
     }
     for (const lb of data.etiquetas || []) { const id = this.map.addLabel(lb); this.labels.push({ id, ...lb }); }
+    // presas / depósitos (con su vaso desde el DEM ya calculado)
+    if (data.presas?.length && window.__koi) {
+      window.__koi.presas = data.presas.map((p) => ({ ...p }));
+      for (const p of window.__koi.presas) this.map.showPresa?.(p, { onClick: () => bus.emit('seleccion:cambio', { tipo: 'presa', id: p.id, nombre: p.nombre, meta: `vaso ${(p.volumen / 1e6).toFixed(2)} Mm³` }) });
+    }
     // estructuras
     const estrP = window.__koi?.estr;
     if (estrP && data.estructuras?.length) { estrP.estructuras = data.estructuras.map((e) => ({ ...e, params: { ...e.params } })); estrP._render?.(); estrP._draw?.(); }

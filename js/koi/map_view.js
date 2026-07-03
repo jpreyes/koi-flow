@@ -49,6 +49,7 @@ export class MapView {
       malla2d: L.layerGroup().addTo(this.map),
       labels: L.layerGroup().addTo(this.map),
       estructuras: L.layerGroup().addTo(this.map),
+      presas: L.layerGroup().addTo(this.map),
     };
     this.importLayers = new Map();   // id -> { group, name, bounds }
     this._impSeq = 0;
@@ -168,6 +169,30 @@ export class MapView {
     if (!this.cuencaLayers) return;
     if (id == null) { for (const p of this.cuencaLayers.values()) this.groups.cuencas.removeLayer(p); this.cuencaLayers.clear(); return; }
     const p = this.cuencaLayers.get(id); if (p) { this.groups.cuencas.removeLayer(p); this.cuencaLayers.delete(id); }
+  }
+
+  // ── Presa / depósito (embalse o relave): vaso (polígono) + muro (marcador) ─────
+  showPresa(presa, { onClick } = {}) {
+    const L = window.L;
+    this.presaLayers = this.presaLayers || new Map();
+    this.clearPresa(presa.id);
+    const g = L.layerGroup();
+    if (presa.vaso?.length) {
+      const latlngs = presa.vaso.map(([lo, la]) => [la, lo]);
+      g.addLayer(L.polygon(latlngs, { color: '#d97706', weight: 2, fillColor: '#f59e0b', fillOpacity: 0.28 })
+        .bindTooltip(`Vaso de ${presa.nombre} · ${(presa.volumen / 1e6).toFixed(2)} Mm³`, { sticky: true }));
+    }
+    const icon = L.divIcon({ className: 'koi-presa', html: '⛰', iconSize: [26, 26], iconAnchor: [13, 13] });
+    const mk = L.marker([presa.lat, presa.lon], { icon, zIndexOffset: 700 }).bindTooltip(presa.nombre, { direction: 'top' });
+    if (onClick) mk.on('click', () => onClick(presa));
+    g.addLayer(mk);
+    g.addTo(this.map);
+    this.presaLayers.set(presa.id, g);
+  }
+  clearPresa(id) {
+    if (!this.presaLayers) return;
+    if (id == null) { for (const g of this.presaLayers.values()) this.map.removeLayer(g); this.presaLayers.clear(); return; }
+    const g = this.presaLayers.get(id); if (g) { this.map.removeLayer(g); this.presaLayers.delete(id); }
   }
 
   // ── Estaciones DGA en el mapa ───────────────────────────────────────────────

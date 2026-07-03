@@ -48,6 +48,7 @@ import { extraerRed, trazarCauce } from './cuenca/red_drenaje.js?v=2';
 import { routD8 } from './cuenca/delineacion.js?v=2';
 import { bus } from './ui/bus.js?v=2';
 import { setActivo, infoTipo } from './ui/seleccion.js?v=2';
+import { curvaAlturaVolumen, vasoANivel } from './hidro/presa.js?v=2';
 
 export const KOI_VER = 'v2';
 
@@ -167,6 +168,36 @@ async function startBoot() {
     }, 550);
   };
   map.map.on('moveend', () => { if (hydro._autoCauce) hydro._autoTick(); });
+
+  // Colocar una PRESA/DEPÓSITO: clic en el muro → se saca el VASO del DEM (aguas
+  // arriba, tipo bañera) + la curva altura-volumen. Objeto seleccionable (tipo presa),
+  // que alimenta la rotura de presa (Vw) y, luego, la entrada del hidrograma al 2D.
+  hydro.colocarPresa = () => {
+    map.pickOnce(async (lon, lat) => {
+      try {
+        toast('Calculando el vaso desde el DEM…', 'info');
+        let st = hydro.redState;
+        const dentro = (g) => g && lon >= g.bbox.west && lon <= g.bbox.east && lat >= g.bbox.south && lat <= g.bbox.north;
+        if (!dentro(st?.grid)) {
+          const b = map.map.getBounds();
+          const dw = Math.max((b.getEast() - b.getWest()) * 0.75, 0.05), dh = Math.max((b.getNorth() - b.getSouth()) * 0.75, 0.05);
+          const grid = await fetchDEM({ west: lon - dw, east: lon + dw, south: lat - dh, north: lat + dh }, { maxDim: 512 });
+          st = hydro.redState = { grid, rout: await routD8Async(grid), zoom: map.map.getZoom() };
+        }
+        const altura = 20;   // altura de muro por defecto [m] (editable luego)
+        const cav = curvaAlturaVolumen(st.grid, st.rout, lon, lat, { alturaMax: 60, dz: 4 });
+        const vaso = vasoANivel(st.grid, st.rout, lon, lat, cav.zBase + altura);
+        const koi = window.__koi; koi.presas = koi.presas || [];
+        const id = 'presa' + Date.now().toString(36);
+        const presa = { id, tipo: 'presa', nombre: 'Presa ' + (koi.presas.length + 1), lon, lat, zBase: cav.zBase, altura, volumen: vaso.volumen, area: vaso.area, vaso: vaso.polygon, curva: cav.curva };
+        koi.presas.push(presa);
+        const activar = () => setActivo({ tipo: 'presa', id, nombre: presa.nombre, meta: `vaso ${(presa.volumen / 1e6).toFixed(2)} Mm³ · muro ${altura} m` });
+        map.showPresa(presa, { onClick: activar });
+        activar();
+        toast(`Presa colocada: vaso ${(presa.volumen / 1e6).toFixed(2)} Mm³ (muro ${altura} m) desde el DEM.`, 'ok');
+      } catch (e) { toast('No se pudo calcular el vaso: ' + e.message, 'error'); }
+    }, 'Clic en el muro de la presa (sobre el cauce)');
+  };
   // Cuenca aportante completa (HydroBASINS) a pedido, para cualquier punto.
   hydro.cuencaCompleta = async (p) => {
     await cargarHydroBasins();
@@ -360,6 +391,7 @@ async function startBoot() {
     'calibracion': () => abrirCalibracionHUD(window.__koi, huds),
     'modclark': () => abrirModClarkHUD(window.__koi, huds),
     'morfo1d': () => abrirMorfoHUD(window.__koi, huds),
+    'colocar-presa': () => hydro.colocarPresa(),
     'breach': () => abrirBreachHUD(window.__koi, huds),
     'sismo-estribo': () => abrirSismoEstriboHUD(window.__koi, huds),
     'ayuda': () => abrirAyudaHUD(huds),
