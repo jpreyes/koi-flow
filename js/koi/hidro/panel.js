@@ -171,6 +171,19 @@ export class HydroPanel {
 
   setPuntos(puntos) { this._puntos = puntos || []; }
 
+  // Recalcula la cuenca de un punto: borra la actual (mapa + datos) y vuelve a
+  // delinear con el snap actual. Se abre la pestaña Cuenca para ver el progreso.
+  async recalcularCuenca(p) {
+    if (!p) return;
+    this.map?.selectPoint?.(p.id);
+    this.map?.clearCuenca?.(p.id);
+    p.cuenca = null; p.cuencaHB = null;
+    this._punto = p;
+    this.dock.show('cuenca');
+    this._renderCuenca(p);          // deja el input #cu-snap disponible
+    await this._calcularCuenca(p);
+  }
+
   async _calcularCuenca(p) {
     if (!this.calcularCuenca) return;
     const sm = parseFloat(this.elPanel.querySelector('#cu-snap')?.value);
@@ -246,7 +259,7 @@ export class HydroPanel {
       exp.querySelector('[data-x="shp"]').addEventListener('click', () => descargar(`${base}_shp.zip`, cuencaShapefileZip(polyExp, props, base)));
       exp.querySelector('[data-x="kmz"]').addEventListener('click', () => descargar(`${base}.kmz`, cuencaKMZ(polyExp, props)));
       exp.querySelector('[data-x="geojson"]').addEventListener('click', () => descargar(`${base}.geojson`, JSON.stringify(cuencaGeoJSON(polyExp, props), null, 1), 'application/geo+json'));
-      exp.querySelector('[data-x="re"]').addEventListener('click', () => { p.cuenca = null; this._calcularCuenca(p); });
+      exp.querySelector('[data-x="re"]').addEventListener('click', () => this.recalcularCuenca(p));
 
       // ── Tiempo de concentración (todos los métodos) ──────────────────────────
       const sTc = this._section('Tiempo de concentración');
