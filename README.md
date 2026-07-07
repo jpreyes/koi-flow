@@ -51,6 +51,14 @@ python -m http.server 8765
 
 Luego abre <http://localhost:8765>.
 
+La base DGA usada por la app es estática: `data/estaciones_dga.json` y
+`data/series/dga/*.json` se sirven directamente desde el hosting. Si se necesita
+actualizarla desde CR2/DGA, ejecutar:
+
+```bash
+node tools/export_dga_static.mjs
+```
+
 ## Estructura
 
 ```
@@ -64,7 +72,7 @@ tools/                · scripts Python/Node para preparar datos (DGA, DEM, Hydr
 ## Datos y créditos
 
 - Relieve: teselas **Terrarium** (Mapzen/AWS Open Data).
-- Estaciones y series: **DGA** de Chile vía **CR2** (`tools/fetch_dga.py`).
+- Estaciones y series: **DGA** de Chile vía **CR2** (`tools/export_dga_static.mjs`).
 - Cuencas de referencia: **HydroBASINS** (HydroSHEDS / WWF).
 - Metodologías: **Manual de Carreteras** Vol. 3 (MC-V3) y guías DGA.
 

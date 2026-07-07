@@ -1,0 +1,1 @@
+{"nombre":"Canal Caracha En Bocatoma","bna":"4711002","tipo":"fluviometrica","variable":"Maximo anual de caudal medio diario","unidad":"m3/s","altitud_m":500,"lat":-31.7833,"lon":-70.9667,"cuenca":"Rio Choapa","subcuenca":"Rio Choapa Medio (Entre Rios Cuncumen E Illapel)","fuente":"CR2 (DGA) - cr2_qflxDaily_2018.txt","n_anios":3,"serie":{"1985":2.8,"1986":10.4,"1987":3.3}}

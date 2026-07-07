@@ -5,9 +5,9 @@
 // las distribuciones del MC y sus cuantiles por período de retorno. Reutiliza
 // cargarSerie (dga.js) y analizar (frecuencia.js).
 // ─────────────────────────────────────────────────────────────────────────────
-import { cargarSerie, descargarSerieDGA } from './dga.js?v=8';
-import { analizar } from '../hidro/frecuencia.js?v=8';
-import { KoiDataError } from './fetch_json.js?v=8';
+import { cargarSerie } from './dga.js?v=13';
+import { analizar } from '../hidro/frecuencia.js?v=13';
+import { KoiDataError } from './fetch_json.js?v=13';
 
 const f = (v) => (v == null || !isFinite(v) ? '—' : (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(1)));
 const DIST = { normal: 'Normal', lognormal: 'Log-Normal', pearson3: 'Pearson III', logpearson3: 'Log-Pearson III', gumbel: 'Gumbel', gamma: 'Gamma' };
@@ -21,7 +21,7 @@ export async function abrirEstacionHUD(huds, est, { onLink } = {}) {
   return hud;
 }
 
-// Carga la serie y pinta el HUD; si no hay serie, ofrece descargarla y reintenta.
+// Carga la serie y pinta el HUD desde la base DGA estática.
 async function pintarSerie(hud, est, uni, fluvio, onLink) {
   hud.setBody('<p class="hud-note">Cargando serie…</p>');
   let raw;
@@ -30,21 +30,7 @@ async function pintarSerie(hud, est, uni, fluvio, onLink) {
   } catch (e) {
     const msg = e instanceof KoiDataError ? e.message : 'No hay serie descargada para esta estación.';
     hud.setBody(metaHTML(est) +
-      `<p class="hud-note" style="color:var(--red)">${msg}</p>` +
-      `<button class="hud-link" id="hud-dl">⬇ Descargar serie DGA</button>` +
-      `<span class="hud-note" id="hud-dl-st"></span>`);
-    hud.body.querySelector('#hud-dl')?.addEventListener('click', async () => {
-      const st = hud.body.querySelector('#hud-dl-st');
-      const btn = hud.body.querySelector('#hud-dl');
-      btn.disabled = true; st.textContent = ' descargando desde el CR2… (puede tardar)';
-      try {
-        await descargarSerieDGA({ lon: est.lon, lat: est.lat }, est.tipo);
-        await pintarSerie(hud, est, uni, fluvio, onLink);   // reintenta con la serie ya bajada
-      } catch (err) {
-        btn.disabled = false;
-        st.textContent = ' ✗ ' + (err?.message || 'falló la descarga');
-      }
-    });
+      `<p class="hud-note" style="color:var(--red)">${msg}</p>`);
     return;
   }
 

@@ -1,0 +1,1 @@
+{"nombre":"Estero Melipeuco","bna":"9402002","tipo":"fluviometrica","variable":"Maximo anual de caudal medio diario","unidad":"m3/s","altitud_m":1000,"lat":-38.85,"lon":-71.7667,"cuenca":"Rio Tolten","subcuenca":"Rio Allipen","fuente":"CR2 (DGA) - cr2_qflxDaily_2018.txt","n_anios":5,"serie":{"1952":18.7,"1953":74.8,"1954":50,"1955":26.4,"1956":23.4}}

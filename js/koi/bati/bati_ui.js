@@ -5,29 +5,29 @@
 // ver en 3D → trazar secciones → eje hidráulico (Manning) + socavación → exportar
 // a HEC-RAS (.sdf / .asc / .prj / CSV). Reutiliza los módulos bati/* e hidraulica/*.
 // ─────────────────────────────────────────────────────────────────────────────
-import { leerDXF, sugerirCapas } from './dxf.js?v=8';
-import { construirDEMmetrico } from './interp.js?v=8';
-import { demMetricoAGrid, footprint, elevAtMetrico, metricoDesdeLonLat, autoElevar, anclaInicial } from './place.js?v=8';
-import { fusionar } from './fusion.js?v=8';
-import { detectarSistema } from './proj.js?v=8';
-import { nivelNormal } from '../hidraulica/manning.js?v=8';
-import { evaluarSocavacion } from '../hidraulica/socavacion.js?v=8';
-import { ejeRemanso, ejeMixto } from '../hidraulica/remanso.js?v=8';
-import { analisisCompleto, salidaCSV } from '../hidraulica/salida.js?v=8';
-import { perfilTransporte } from '../hidro/sedimentos.js?v=8';
-import { wktUTM, demArcASCII, sdfGeometria, csvSecciones } from './hecras.js?v=8';
-import { exportarDXF } from './dxf_export.js?v=8';
-import { fetchDEM } from '../cuenca/dem_tiles.js?v=8';
-import { elevAt } from '../hidraulica/secciones.js?v=8';
-import { zipStore, descargar } from '../cuenca/exportar.js?v=8';
-import { construirMalla2D } from '../hidraulica/malla2d.js?v=8';
-import { resolver2D } from '../hidraulica/solver2d.js?v=8';
-import { ensureKoiWasm, makeSolverWasm, makePersistentSolverWasm } from '../../lib/portico/wasm_solve.js?v=8';
-import { resumenPeligrosidad, exportarCSV, exportarGeoJSON } from '../hidraulica/peligrosidad2d.js?v=8';
-import { getConfig } from '../config.js?v=8';
-import { setActivo } from '../ui/seleccion.js?v=8';
-import { toast, busyStart, busyEnd } from '../ui/toast.js?v=8';
-import { stampTerreno, pilaEnSeccion, puntoEnPoligono } from '../estructuras/estructuras.js?v=8';
+import { leerDXF, sugerirCapas } from './dxf.js?v=13';
+import { construirDEMmetrico } from './interp.js?v=13';
+import { demMetricoAGrid, footprint, elevAtMetrico, metricoDesdeLonLat, autoElevar, anclaInicial } from './place.js?v=13';
+import { fusionar } from './fusion.js?v=13';
+import { detectarSistema } from './proj.js?v=13';
+import { nivelNormal } from '../hidraulica/manning.js?v=13';
+import { evaluarSocavacion } from '../hidraulica/socavacion.js?v=13';
+import { ejeRemanso, ejeMixto } from '../hidraulica/remanso.js?v=13';
+import { analisisCompleto, salidaCSV } from '../hidraulica/salida.js?v=13';
+import { perfilTransporte } from '../hidro/sedimentos.js?v=13';
+import { wktUTM, demArcASCII, sdfGeometria, csvSecciones } from './hecras.js?v=13';
+import { exportarDXF } from './dxf_export.js?v=13';
+import { fetchDEM } from '../cuenca/dem_tiles.js?v=13';
+import { elevAt } from '../hidraulica/secciones.js?v=13';
+import { zipStore, descargar } from '../cuenca/exportar.js?v=13';
+import { construirMalla2D } from '../hidraulica/malla2d.js?v=13';
+import { resolver2D } from '../hidraulica/solver2d.js?v=13';
+import { ensureKoiWasm, makeSolverWasm, makePersistentSolverWasm } from '../../lib/portico/wasm_solve.js?v=13';
+import { resumenPeligrosidad, exportarCSV, exportarGeoJSON } from '../hidraulica/peligrosidad2d.js?v=13';
+import { getConfig } from '../config.js?v=13';
+import { setActivo } from '../ui/seleccion.js?v=13';
+import { toast, busyStart, busyEnd } from '../ui/toast.js?v=13';
+import { stampTerreno, pilaEnSeccion, puntoEnPoligono } from '../estructuras/estructuras.js?v=13';
 
 const f2 = (v) => (v == null || !isFinite(v) ? '—' : (Math.abs(v) < 10 ? v.toFixed(2) : v.toFixed(1)));
 const f3 = (v) => (v == null || !isFinite(v) ? '—' : (v === 0 ? '0' : v.toExponential(2)));
@@ -85,6 +85,34 @@ export class BatiPanel {
   toggle() { if (this.dock?.isOpen() && this.dock.active === 'bati') this.dock.close(); else this.dock?.show('bati'); }
   open() { this.dock?.show('bati'); }
   close() { this.dock?.close(); }
+
+  focusTool(tool) {
+    this.open();
+    const twoD = ['malla2d', 'difusiva', 'transiente', 'momentum', 'morfo'].includes(tool);
+    if (twoD) this.motor = '2d';
+    if (['remanso1d', 'inun1d'].includes(tool)) this.motor = '1d';
+    this._detOpen = this._detOpen || {};
+    if (tool === 'difusiva') this._detOpen.difusiva = true;
+    if (tool === 'transiente') this._detOpen.transiente = true;
+    if (tool === 'momentum') this._detOpen.momentum = true;
+    if (tool === 'morfo') this._detOpen.morfo = true;
+    this._render();
+    this._dibujarSecciones();
+    const targets = {
+      remanso1d: '#bp-remanso',
+      inun1d: '#bp-inun1d',
+      malla2d: '#bp-2d-gen',
+      difusiva: '#bp-2d-sim',
+      transiente: '#bp-2d-trans',
+      momentum: '#bp-2d-mom',
+      morfo: '#bp-2d-mf',
+    };
+    setTimeout(() => {
+      const el = this.body?.querySelector(targets[tool] || '');
+      el?.scrollIntoView?.({ block: 'center' });
+      el?.focus?.({ preventScroll: true });
+    }, 40);
+  }
 
   // ── Render principal según estado ────────────────────────────────────────────
   _render() {
@@ -792,7 +820,7 @@ export class BatiPanel {
     const so = parseFloat(this.body.querySelector('#f2-so').value);
     const dt = +this.body.querySelector('#f2-dt').value || 60;
     const nPasos = +this.body.querySelector('#f2-steps').value || 300;
-    const solver = this.body.querySelector('#f2-solver')?.value || 'banda';
+    let solver = this.body.querySelector('#f2-solver')?.value || 'banda';
     // Controles de convergencia no lineal (Picard); vacíos → defaults del solver.
     const _relax = parseFloat(this.body.querySelector('#f2-relax')?.value);
     const _picard = parseInt(this.body.querySelector('#f2-picard')?.value, 10);
@@ -808,8 +836,9 @@ export class BatiPanel {
       if (solver === 'wasm') {
         if (st) st.textContent = ' cargando WASM…';
         try { await ensureKoiWasm(); wasmSolve = makeSolverWasm; wasmPersist = makePersistentSolverWasm; }
-        catch (e) { if (st) st.textContent = ' ✗ WASM: ' + e.message + ' (usando JS)'; }
+        catch (e) { if (st) st.textContent = ' ✗ WASM: ' + e.message + ' (usando PCG-JS)'; }
       }
+      if (solver === 'wasm' && !wasmSolve && !wasmPersist) solver = 'pcg';
       const t0 = performance.now();
       const r = resolver2D(this.mesh2d, { Q, entrada, salida, stageSalida: isFinite(so) ? so : undefined, dt, nPasos, solver, wasmSolve, wasmPersist, ...picardOpts, onProgress: (p, N, d) => { if (st) st.textContent = ` paso ${p}/${N} (Δ=${d.toExponential(1)})`; } });
       r._tTotalMs = performance.now() - t0;

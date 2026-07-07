@@ -4,8 +4,8 @@
 // D50 por método (Isbash / Maynord-HEC-11 / HEC-23), D50 adoptado, peso de la roca,
 // espesor de capa, granulometría y empotramiento del pie. MC-V3 3.707/3.708.
 // ─────────────────────────────────────────────────────────────────────────────
-import { dimensionarEnrocado } from './enrocado.js?v=8';
-import { registrar } from '../informe/registro.js?v=8';
+import { dimensionarEnrocado } from './enrocado.js?v=13';
+import { registrar } from '../informe/registro.js?v=13';
 
 const f = (v, d = 2) => (v == null || !isFinite(v) ? '—' : v.toFixed(d));
 

@@ -4,6 +4,8 @@
 // Adaptado de la lógica de wind-shm/js/shm/map_view.js (jpreyes), simplificado.
 // `window.L` lo provee lib/leaflet/leaflet.js (cargado antes que los módulos).
 // ─────────────────────────────────────────────────────────────────────────────
+import { ensurePointContext } from './punto_contexto.js?v=13';
+
 export class MapView {
   constructor(container, { onSelect, onPointAdd, onPointSelect, onStationClick } = {}) {
     this.el = container;
@@ -20,8 +22,9 @@ export class MapView {
     this._seq = 0;
 
     const L = window.L;
-    this.map = L.map(container, { zoomControl: true, attributionControl: true, maxZoom: 22 })
+    this.map = L.map(container, { zoomControl: true, attributionControl: true, maxZoom: 22, preferCanvas: true })
       .setView([-35.5, -71.2], 5);   // vista inicial: gran parte de Chile (no un sector puntual)
+    this.canvasRenderer = L.canvas({ padding: 0.5 });
     this.map.on('click', (e) => { if (this.pickMode) this.addPoint(e.latlng.lng, e.latlng.lat); });
     // Encuadra Chile continental de forma robusta según el tamaño de la ventana (Arica→Chiloé
     // aprox.), independiente del aspecto de pantalla. Si falla, queda el setView de arriba.
@@ -495,6 +498,31 @@ export class MapView {
     this.groups.red.clearLayers();
     if (!fc?.features?.length) return;
     let maxA = 0; for (const f of fc.features) maxA = Math.max(maxA, f.properties.areaKm2);
+    const buckets = Array.from({ length: 7 }, () => []);
+    for (const f of fc.features) {
+      const coords = f.geometry?.coordinates;
+      if (!coords || coords.length < 2) continue;
+      const a = f.properties.areaKm2 || 0;
+      const t = maxA > 0 ? Math.min(1, Math.log10(1 + a) / Math.log10(1 + maxA)) : 0;
+      const k = Math.max(0, Math.min(buckets.length - 1, Math.floor(t * (buckets.length - 1))));
+      buckets[k].push(coords.map(([lon, lat]) => [lat, lon]));
+    }
+    const fastLayer = L.layerGroup();
+    buckets.forEach((lines, k) => {
+      if (!lines.length) return;
+      const t = buckets.length === 1 ? 0 : k / (buckets.length - 1);
+      L.polyline(lines, {
+        renderer: this.canvasRenderer,
+        interactive: false,
+        color: `hsl(${200 - 60 * t}, 85%, ${45 + 20 * t}%)`,
+        weight: 0.7 + 3.3 * t,
+        opacity: 0.9,
+      }).addTo(fastLayer);
+    });
+    this.groups.red.addLayer(fastLayer);
+    this._redLayer = fastLayer;
+    this._redMeta = fc.meta;
+    return;
     const layer = L.geoJSON(fc, {
       style: (f) => {
         const a = f.properties.areaKm2, t = Math.min(1, Math.log10(1 + a) / Math.log10(1 + maxA));
@@ -569,13 +597,19 @@ export class MapView {
     const L = window.L;
     const id = ++this._seq;
     const p = { id, lon, lat, nombre: nombre || `Punto ${id}` };
+    ensurePointContext(p);
     const icon = L.divIcon({ className: 'koi-pt', html: `<span>${id}</span>`, iconSize: [24, 24], iconAnchor: [12, 12] });
     const mk = L.marker([lat, lon], { icon, draggable: true });
     const tip = () => `${p.nombre}<br>${p.lat.toFixed(5)}, ${p.lon.toFixed(5)}`;
     mk.bindTooltip(tip(), { direction: 'top', offset: [0, -10] });
     this.groups.puntos.addLayer(mk);
     mk.on('click', (e) => { window.L.DomEvent.stop(e); this.selectPoint(id); this.onPointSelect?.(p); });
-    mk.on('dragend', () => { const ll = mk.getLatLng(); p.lon = ll.lng; p.lat = ll.lat; p.cuenca = null; mk.setTooltipContent(tip()); this.onPointSelect?.(p); });
+    mk.on('dragend', () => {
+      const ll = mk.getLatLng();
+      p.lon = ll.lng; p.lat = ll.lat; p.cuenca = null; p.cuencaHB = null;
+      const c = ensurePointContext(p); c.red = null; c.estaciones.cercanas = [];
+      mk.setTooltipContent(tip()); this.onPointSelect?.(p);
+    });
     this.points.push(p);
     this.pointLayers.set(id, mk);
     this.selectPoint(id);
@@ -584,17 +618,28 @@ export class MapView {
   }
 
   // Restaura un punto guardado (con su cuenca) sin disparar la delineación.
-  restorePoint(lon, lat, nombre, cuenca) {
+  restorePoint(lon, lat, nombre, cuenca, extra = {}) {
     const L = window.L;
-    const id = ++this._seq;
-    const p = { id, lon, lat, nombre: nombre || `Punto ${id}`, cuenca: cuenca || null };
+    const id = extra.id != null ? Number(extra.id) : ++this._seq;
+    this._seq = Math.max(this._seq, id);
+    const p = {
+      id, lon, lat, nombre: nombre || `Punto ${id}`, cuenca: cuenca || null,
+      tramo: extra.tramo || null, contexto: extra.contexto || null, cuencaHB: extra.cuencaHB || null,
+      snapMeters: extra.snapMeters ?? null,
+    };
+    ensurePointContext(p);
     const icon = L.divIcon({ className: 'koi-pt', html: `<span>${id}</span>`, iconSize: [24, 24], iconAnchor: [12, 12] });
     const mk = L.marker([lat, lon], { icon, draggable: true });
     const tip = () => `${p.nombre}<br>${p.lat.toFixed(5)}, ${p.lon.toFixed(5)}`;
     mk.bindTooltip(tip(), { direction: 'top', offset: [0, -10] });
     this.groups.puntos.addLayer(mk);
     mk.on('click', (e) => { window.L.DomEvent.stop(e); this.selectPoint(id); this.onPointSelect?.(p); });
-    mk.on('dragend', () => { const ll = mk.getLatLng(); p.lon = ll.lng; p.lat = ll.lat; p.cuenca = null; mk.setTooltipContent(tip()); this.onPointSelect?.(p); });
+    mk.on('dragend', () => {
+      const ll = mk.getLatLng();
+      p.lon = ll.lng; p.lat = ll.lat; p.cuenca = null; p.cuencaHB = null;
+      const c = ensurePointContext(p); c.red = null; c.estaciones.cercanas = [];
+      mk.setTooltipContent(tip()); this.onPointSelect?.(p);
+    });
     this.points.push(p);
     this.pointLayers.set(id, mk);
     return p;

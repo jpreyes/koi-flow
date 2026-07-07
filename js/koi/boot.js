@@ -7,48 +7,50 @@
 // (Three.js, sector con DEM). El resto (hidrología, cuencas, secciones, socavación)
 // se monta sobre este esqueleto en fases siguientes.
 // ─────────────────────────────────────────────────────────────────────────────
-import { SceneView } from './scene_view.js?v=8';
-import { toast } from './ui/toast.js?v=8';
-import { MapView } from './map_view.js?v=8';
-import { Capas } from './capas/capas.js?v=8';
-import { loadProject } from './data.js?v=8';
-import { HydroPanel } from './hidro/panel.js?v=8';
-import { BatiPanel } from './bati/bati_ui.js?v=8';
-import { Dock } from './ui/dock.js?v=8';
-import { HudManager } from './ui/hud.js?v=8';
-import { abrirEstacionHUD } from './datos/estacion_hud.js?v=8';
-import { abrirConfigHUD } from './ui/config_ui.js?v=8';
-import { generarInforme, generarInformeWord } from './informe/informe.js?v=8';
-import { abrirAyudaHUD } from './ui/ayuda.js?v=8';
-import { setupMenubar } from './ui/menubar.js?v=8';
-import { abrirEmbalseHUD } from './hidro/embalse_ui.js?v=8';
-import { abrirAlcantarillaHUD } from './hidraulica/alcantarilla_ui.js?v=8';
-import { abrirPuenteHUD } from './hidraulica/puente_presion_ui.js?v=8';
-import { abrirEnrocadoHUD } from './hidraulica/enrocado_ui.js?v=8';
-import { abrirVerificacionesHUD } from './hidraulica/verificaciones_ui.js?v=8';
-import { abrirDegradacionHUD } from './hidraulica/degradacion_ui.js?v=8';
-import { abrirRoutingHUD } from './hidro/routing_ui.js?v=8';
-import { abrirConvolucionHUD } from './hidro/convolucion_ui.js?v=8';
-import { abrirTormentaHUD } from './hidro/tormenta_ui.js?v=8';
-import { abrirRedHUD } from './hidro/red_ui.js?v=8';
-import { abrirMorfoHUD } from './hidraulica/morfo1d_ui.js?v=8';
-import { abrirContinuoHUD } from './hidro/continuo_ui.js?v=8';
-import { abrirCalibracionHUD } from './hidro/calibracion_ui.js?v=8';
-import { abrirModClarkHUD } from './hidro/modclark_ui.js?v=8';
-import { abrirBreachHUD } from './hidro/breach_ui.js?v=8';
-import { abrirSismoEstriboHUD } from './hidraulica/sismo_estribo_ui.js?v=8';
-import { Flujo2D } from './hidraulica/panel2d.js?v=8';
-import { EstructurasPanel } from './estructuras/panel.js?v=8';
-import { delinearAuto } from './cuenca/cuenca.js?v=8';
-import { delinearEnGrid, morfometria } from './cuenca/delineacion.js?v=8';
-import { fetchDEM } from './cuenca/dem_tiles.js?v=8';
-import { estacionesCercanas } from './datos/dga.js?v=8';
-import { cargarHydroBasins, cuencaHydroBasins } from './cuenca/hydrobasins.js?v=8';
-import { extraerRed, trazarCauce } from './cuenca/red_drenaje.js?v=8';
-import { routD8 } from './cuenca/delineacion.js?v=8';
-import { bus } from './ui/bus.js?v=8';
-import { setActivo, infoTipo, getActivo } from './ui/seleccion.js?v=8';
-import { curvaAlturaVolumen, vasoANivel } from './hidro/presa.js?v=8';
+import { SceneView } from './scene_view.js?v=13';
+import { toast } from './ui/toast.js?v=13';
+import { MapView } from './map_view.js?v=13';
+import { Capas } from './capas/capas.js?v=13';
+import { loadProject } from './data.js?v=13';
+import { HydroPanel } from './hidro/panel.js?v=13';
+import { BatiPanel } from './bati/bati_ui.js?v=13';
+import { Dock } from './ui/dock.js?v=13';
+import { HudManager } from './ui/hud.js?v=13';
+import { abrirEstacionHUD } from './datos/estacion_hud.js?v=13';
+import { abrirConfigHUD } from './ui/config_ui.js?v=13';
+import { generarInforme, generarInformeWord } from './informe/informe.js?v=13';
+import { abrirAyudaHUD } from './ui/ayuda.js?v=13';
+import { setupMenubar } from './ui/menubar.js?v=13';
+import { renderAnalysisMenu } from './capabilities.js?v=13';
+import { abrirEmbalseHUD } from './hidro/embalse_ui.js?v=13';
+import { abrirAlcantarillaHUD } from './hidraulica/alcantarilla_ui.js?v=13';
+import { abrirPuenteHUD } from './hidraulica/puente_presion_ui.js?v=13';
+import { abrirEnrocadoHUD } from './hidraulica/enrocado_ui.js?v=13';
+import { abrirVerificacionesHUD } from './hidraulica/verificaciones_ui.js?v=13';
+import { abrirDegradacionHUD } from './hidraulica/degradacion_ui.js?v=13';
+import { abrirRoutingHUD } from './hidro/routing_ui.js?v=13';
+import { abrirConvolucionHUD } from './hidro/convolucion_ui.js?v=13';
+import { abrirTormentaHUD } from './hidro/tormenta_ui.js?v=13';
+import { abrirRedHUD } from './hidro/red_ui.js?v=13';
+import { abrirMorfoHUD } from './hidraulica/morfo1d_ui.js?v=13';
+import { abrirContinuoHUD } from './hidro/continuo_ui.js?v=13';
+import { abrirCalibracionHUD } from './hidro/calibracion_ui.js?v=13';
+import { abrirModClarkHUD } from './hidro/modclark_ui.js?v=13';
+import { abrirBreachHUD } from './hidro/breach_ui.js?v=13';
+import { abrirSismoEstriboHUD } from './hidraulica/sismo_estribo_ui.js?v=13';
+import { Flujo2D } from './hidraulica/panel2d.js?v=13';
+import { EstructurasPanel } from './estructuras/panel.js?v=13';
+import { delinearAuto } from './cuenca/cuenca.js?v=13';
+import { delinearEnGrid, morfometria } from './cuenca/delineacion.js?v=13';
+import { fetchDEM } from './cuenca/dem_tiles.js?v=13';
+import { estacionesCercanas } from './datos/dga.js?v=13';
+import { cargarHydroBasins, cuencaHydroBasins } from './cuenca/hydrobasins.js?v=13';
+import { redDesdeRout, trazarCauce } from './cuenca/red_drenaje.js?v=13';
+import { routD8 } from './cuenca/delineacion.js?v=13';
+import { bus } from './ui/bus.js?v=13';
+import { setActivo, infoTipo, getActivo } from './ui/seleccion.js?v=13';
+import { curvaAlturaVolumen, vasoANivel } from './hidro/presa.js?v=13';
+import { ensurePointContext, redLite } from './punto_contexto.js?v=13';
 
 export const KOI_VER = 'v2';
 
@@ -66,7 +68,7 @@ async function startBoot() {
   const huds = new HudManager($('viewport-wrap'));   // ventanas flotantes de resultados
   const map = new MapView($('map-container'), {
     onSelect: (f) => onTramoSelect(byName(f.properties.name)),
-    onPointAdd: (p) => { hydro.setPuntos(map.getPoints()); hydro.analizarPunto(p); capas.render(); activarPunto(p); },
+    onPointAdd: (p) => { p.tramo = current?.name || p.tramo || null; ensurePointContext(p); hydro.setPuntos(map.getPoints()); hydro.analizarPunto(p); capas.render(); activarPunto(p); },
     onPointSelect: (p) => { hydro.setPuntos(map.getPoints()); hydro.analizarPunto(p); capas.render(); activarPunto(p); },
     onStationClick: (e) => abrirEstacionHUD(huds, e, { onLink: () => window.__koi?.dock?.show?.('hidro') }),
   });
@@ -99,7 +101,7 @@ async function startBoot() {
     onProgress?.('Descargando DEM de la vista…');
     const grid = await fetchDEM(bbox, { maxDim: 512 });
     onProgress?.('Calculando red de drenaje…');
-    const fc = extraerRed(grid, { umbralKm2: umbralKm2 || 0.25 });
+    const fc = redDesdeRout(grid, await routD8Async(grid), { umbralKm2: umbralKm2 || 0.25 });
     map.showRedDrenaje(fc);
     hydro.redState = { grid: fc.grid, rout: fc.rout };   // para delinear RESPETANDO estos flujos
     capas.render();
@@ -123,7 +125,12 @@ async function startBoot() {
   // no toda la red de la vista. Reusa el ruteo cacheado si cubre el punto; si no,
   // baja un DEM alrededor (con holgura) y lo rutea EN UN WORKER. El umbral se puede
   // re-pasar en vivo (barato: no re-rutea). Deja la traza en el mapa y devuelve meta.
-  hydro.cauceEnPunto = async (lon, lat, umbralKm2, onProgress) => {
+  hydro.cauceEnPunto = async (target, latArg, umbralArg, progressArg) => {
+    const p = typeof target === 'object' ? target : null;
+    const lon = p ? p.lon : target;
+    const lat = p ? p.lat : latArg;
+    const umbralKm2 = p ? latArg : umbralArg;
+    const onProgress = p ? umbralArg : progressArg;
     let st = hydro.redState;
     const dentro = (g) => g && lon >= g.bbox.west && lon <= g.bbox.east && lat >= g.bbox.south && lat <= g.bbox.north;
     if (!dentro(st?.grid)) {
@@ -138,7 +145,9 @@ async function startBoot() {
     onProgress?.('Trazando el cauce del punto…');
     const fc = trazarCauce(st.grid, st.rout, lon, lat, { umbralKm2: umbralKm2 || 0.05 });
     map.showRedDrenaje(fc);
-    hydro._ultimoCauce = { lon, lat };
+    hydro._ultimoCauce = { lon, lat, puntoId: p?.id || puntoActivo()?.id || null };
+    const pp = p || puntoActivo();
+    if (pp) ensurePointContext(pp).red = redLite({ fc, meta: fc.meta, umbralKm2: umbralKm2 || 0.05, actualizado: new Date().toISOString() });
     capas.render();
     return fc.meta;
   };
@@ -154,12 +163,13 @@ async function startBoot() {
   hydro.cauceDelPuntoActivo = async (onProgress) => {
     const um = () => parseFloat(document.getElementById('rd_umbral')?.value) || 0.05;
     const p = puntoActivo();
-    if (p) return hydro.cauceEnPunto(p.lon, p.lat, um(), onProgress);
+    if (p) return hydro.cauceEnPunto(p, um(), onProgress);
     // sin punto → colocar EL punto de análisis (dispara onPointAdd → analiza + activa) y trazar
     return new Promise((resolve) => {
       map.pickOnce((lon, lat) => {
         map.addPoint(lon, lat);
-        hydro.cauceEnPunto(lon, lat, um(), onProgress).then(resolve).catch(() => resolve(null));
+        const np = puntoActivo();
+        hydro.cauceEnPunto(np || { lon, lat }, um(), onProgress).then(resolve).catch(() => resolve(null));
       }, 'Clic para colocar el punto de análisis (sirve para la cuenca y la red de drenaje)');
     });
   };
@@ -183,7 +193,8 @@ async function startBoot() {
         if (!map.map.getBounds().contains([c.lat, c.lon])) return;
         if (hydro.redState && Math.abs(z - (hydro.redState.zoom ?? z)) >= 1) hydro.redState = null; // refina por zoom
         const um = parseFloat(document.getElementById('rd_umbral')?.value) || 0.05;
-        await hydro.cauceEnPunto(c.lon, c.lat, um);
+        const p = c.puntoId ? map.getPoints().find((x) => x.id === c.puntoId) : null;
+        await hydro.cauceEnPunto(p || c.lon, p ? um : c.lat, p ? undefined : um);
       } catch (e) { console.warn('auto-cauce:', e.message); }
       finally { hydro._autoBusy = false; }
     }, 550);
@@ -226,8 +237,26 @@ async function startBoot() {
     if (hb) { p.cuencaHB = hb; map.showCuencaMulti(p.id, hb.multipolygon); }
     return hb;
   };
-  hydro.irAPunto = (id) => { const p = map.getPoints().find((x) => x.id === id); if (p) { map.selectPoint(id); hydro.analizarPunto(p); activarPunto(p); } };
-  hydro.borrarPunto = (id) => { map.removePoint(id); map.clearCuenca(id); hydro.setPuntos(map.getPoints()); capas.render(); };
+  hydro.irAPunto = (id) => {
+    const p = map.getPoints().find((x) => x.id === id);
+    if (p) {
+      const c = ensurePointContext(p);
+      map.selectPoint(id);
+      if (p.cuenca) map.showCuenca(p.id, p.cuenca.polygonSuave || p.cuenca.polygon);
+      if (c.red?.fc) map.showRedDrenaje(c.red.fc);
+      if (c.estaciones?.cercanas?.length) map.showStations(c.estaciones.cercanas);
+      hydro.analizarPunto(p);
+      activarPunto(p);
+    }
+  };
+  hydro.borrarPunto = (id) => {
+    map.removePoint(id);
+    map.clearCuenca(id);
+    capas.labels = (capas.labels || []).filter((lb) => { if (lb.pointId !== id) return true; map.removeLabel(lb.id); return false; });
+    capas.imports = (capas.imports || []).filter((im) => { if (im.pointId !== id) return true; map.removeImport(im.id); return false; });
+    hydro.setPuntos(map.getPoints());
+    capas.render();
+  };
   // Área de la cuenca de una estación de control (Apc) por delineación automática.
   hydro.delinearArea = async (lon, lat, onProgress) => {
     const r = await delinearAuto(lon, lat, {}, onProgress);
@@ -410,6 +439,18 @@ async function startBoot() {
     'tab-hidro': () => dock.show('hidro'),
     'tab-hidraulica': () => dock.show('hidraulica'),
     'tab-estructuras': () => dock.show('estructuras'),
+    'estructuras-place': () => dock.show('estructuras'),
+    'cuenca-delinear': () => dock.show('cuenca'),
+    'afluentes-punto': () => dock.show('cuenca'),
+    'estaciones-dga': () => dock.show('hidro'),
+    'frecuencia': () => dock.show('hidro'),
+    'remanso1d': () => bati.focusTool('remanso1d'),
+    'inun1d': () => bati.focusTool('inun1d'),
+    'malla2d': () => bati.focusTool('malla2d'),
+    'difusiva2d': () => bati.focusTool('difusiva'),
+    'transiente2d': () => bati.focusTool('transiente'),
+    'momentum2d': () => bati.focusTool('momentum'),
+    'morfo2d': () => bati.focusTool('morfo'),
     'embalse': () => abrirEmbalseHUD(window.__koi, huds),
     'alcantarilla': () => abrirAlcantarillaHUD(window.__koi, huds),
     'puente-presion': () => abrirPuenteHUD(window.__koi, huds),
@@ -433,7 +474,13 @@ async function startBoot() {
         <p class="hud-note">Software propiedad de <b>JPReyes / Conmuta.cl</b>. Licencia <b>AGPL-3.0</b>.</p>
         <p class="hud-note">PWA sin build · JS ES-modules + Three.js + Leaflet.</p>` }),
   };
+  const refreshAnalysisMenu = () => renderAnalysisMenu(acciones, window.__koi);
+  refreshAnalysisMenu();
   setupMenubar(acciones);
+  bus.on('seleccion:cambio', refreshAnalysisMenu);
+  bus.on('reg:actualizado', refreshAnalysisMenu);
+  bus.on('proyecto:abierto', refreshAnalysisMenu);
+  setInterval(refreshAnalysisMenu, 1500);
   // Los chips de "Resultados calculados" (árbol) reabren su HUD por el bus.
   bus.on('abrir:analisis', (a) => acciones[a]?.());
   // Aviso al proyecto abierto (por si algún panel quiere reaccionar).

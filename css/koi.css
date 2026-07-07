@@ -45,8 +45,9 @@ body { font: 14px/1.45 system-ui, "Segoe UI", Roboto, sans-serif; background: va
 .menu-item { display: block; width: 100%; text-align: left; background: transparent; border: 0; color: var(--text);
   font-size: 13px; padding: 8px 12px; border-radius: 7px; cursor: pointer; white-space: nowrap; }
 .menu-item:hover { background: var(--bg3); color: var(--accent); }
-.menu-item.disabled { color: var(--text2); opacity: .45; cursor: default; }
+.menu-item.disabled { color: var(--text2); opacity: .58; cursor: help; }
 .menu-item.on::after { content: ' ✓'; color: var(--accent); font-weight: 700; }
+.menu-need { margin: -4px 12px 5px 24px; color: var(--text2); font-size: 11px; line-height: 1.25; white-space: normal; max-width: 280px; }
 .menu-sep { height: 1px; background: var(--border); margin: 5px 8px; }
 /* menú Análisis agrupado: cabeceras de grupo no clicables + columnas si es muy alto */
 .menu-grp { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--text2);
@@ -122,6 +123,13 @@ body { font: 14px/1.45 system-ui, "Segoe UI", Roboto, sans-serif; background: va
 .cap-ico { font-size: 13px; }
 .cap-children { list-style: none; margin: 0 0 2px; padding: 0 0 0 22px; }
 .cap-leaf { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 6px; cursor: pointer; font-size: 12.5px; }
+.cap-leaf.cap-folder, .cap-leaf.cap-has-children, .cap-leaf.cap-point-node { flex-wrap: wrap; align-items: flex-start; }
+.cap-leaf > .cap-children { flex: 0 0 100%; margin: 3px 0 0 12px; padding-left: 16px; border-left: 1px solid color-mix(in srgb, var(--text2) 24%, transparent); }
+.cap-folder > .cap-caret { width: 12px; text-align: center; color: var(--text2); }
+.cap-tramos-folder, .cap-points-folder { background: color-mix(in srgb, var(--bg2) 72%, transparent); }
+.cap-point-assets .cap-sub { color: var(--text2); font-size: 12px; padding-top: 3px; padding-bottom: 3px; }
+.cap-point-assets .cap-pending { opacity: .72; border: 1px dashed color-mix(in srgb, var(--text2) 26%, transparent); cursor: help; }
+.cap-point-assets .cap-pending .cap-meta { font-style: italic; }
 .cap-leaf:hover { background: var(--bg3); }
 .cap-leaf.sel { background: color-mix(in srgb, var(--accent) 16%, transparent); }
 .cap-lbl { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

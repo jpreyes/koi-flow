@@ -1,0 +1,1 @@
+{"nombre":"Quebrada Malo En Puente Viejo","bna":"7100001","tipo":"fluviometrica","variable":"Maximo anual de caudal medio diario","unidad":"m3/s","altitud_m":1500,"lat":-35.1333,"lon":-70.5289,"cuenca":"Rio Mataquito","subcuenca":"Rio Teno","fuente":"CR2 (DGA) - cr2_qflxDaily_2018.txt","n_anios":4,"serie":{"1947":8.6,"1948":10,"1949":9.5,"1950":8.9}}

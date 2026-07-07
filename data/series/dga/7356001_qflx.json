@@ -1,0 +1,1 @@
+{"nombre":"Rio Achibueno En San Francisco","bna":"7356001","tipo":"fluviometrica","variable":"Maximo anual de caudal medio diario","unidad":"m3/s","altitud_m":127,"lat":-35.85,"lon":-71.6667,"cuenca":"Rio Maule","subcuenca":"Rio Loncomilla","fuente":"CR2 (DGA) - cr2_qflxDaily_2018.txt","n_anios":6,"serie":{"1975":146,"1976":532,"1977":827,"1978":859,"1979":1008,"1980":445}}

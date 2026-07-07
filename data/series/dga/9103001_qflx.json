@@ -1,0 +1,1 @@
+{"nombre":"Rio Lumaco En Chanco","bna":"9103001","tipo":"fluviometrica","variable":"Maximo anual de caudal medio diario","unidad":"m3/s","altitud_m":65,"lat":-38.25,"lon":-72.9333,"cuenca":"Rio Imperial","subcuenca":"Rio Lumaco","fuente":"CR2 (DGA) - cr2_qflxDaily_2018.txt","n_anios":3,"serie":{"1947":31.4,"1948":148,"1949":197}}

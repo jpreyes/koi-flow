@@ -1,0 +1,1 @@
+{"nombre":"Rio Cruces En Paico","bna":"10135001","tipo":"fluviometrica","variable":"Maximo anual de caudal medio diario","unidad":"m3/s","altitud_m":17,"lat":-39.5833,"lon":-73.1,"cuenca":"Rio Valdivia","subcuenca":"Rio Cruces","fuente":"CR2 (DGA) - cr2_qflxDaily_2018.txt","n_anios":4,"serie":{"1929":232,"1930":230,"1931":230,"1932":173}}

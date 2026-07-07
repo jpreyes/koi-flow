@@ -4,7 +4,7 @@
 // marcado como abierto (localStorage), cuyo estado se reconstruye. El usuario crea
 // proyectos («Nuevo»), importa tramos (KMZ/KML) y guarda/abre desde localStorage.
 // ─────────────────────────────────────────────────────────────────────────────
-import { getOpen, setOpen, loadProjectState } from './proyectos.js?v=8';
+import { getOpen, setOpen, loadProjectState } from './proyectos.js?v=13';
 
 const EMPTY_FC = () => ({ type: 'FeatureCollection', features: [] });
 
@@ -17,7 +17,14 @@ export async function loadProject() {
   if (open) {
     const st = loadProjectState(open);
     if (st) {
-      const tramos = (st.tramos || []).map((t) => ({ name: t.name, feature: t.feature, npts: t.feature?.geometry?.coordinates?.length || 0, dem: t.dem || null }));
+      const tramos = (st.tramos || []).map((t) => ({
+        name: t.name,
+        feature: t.feature,
+        npts: t.feature?.geometry?.coordinates?.length || 0,
+        dem: t.dem || null,
+        demGrid: t.demGrid || null,
+        puntos: t.puntos || [],
+      }));
       const fc = { type: 'FeatureCollection', features: tramos.map((t) => t.feature).filter(Boolean) };
       return { project: { id: st.id, name: st.name, tramos }, fc, state: st };
     }

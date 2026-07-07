@@ -1,0 +1,1 @@
+{"nombre":"Rio Putagan En Santa Rosa","bna":"7358003","tipo":"fluviometrica","variable":"Maximo anual de caudal medio diario","unidad":"m3/s","altitud_m":125,"lat":-35.7833,"lon":-71.6167,"cuenca":"Rio Maule","subcuenca":"Rio Loncomilla","fuente":"CR2 (DGA) - cr2_qflxDaily_2018.txt","n_anios":4,"serie":{"1946":40.3,"1947":87.5,"1948":157,"1949":101}}

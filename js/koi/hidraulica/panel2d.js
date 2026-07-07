@@ -6,10 +6,10 @@
 //   3) Generar la MALLA triangular (portico-core) con z del DEM y n por zona.
 // El solver difusivo (Fase B) y los resultados (Fase C) se montan sobre esto.
 // ─────────────────────────────────────────────────────────────────────────────
-import { construirMalla2D } from './malla2d.js?v=8';
-import { resolver2D } from './solver2d.js?v=8';
-import { ensureKoiWasm, makeSolverWasm, makePersistentSolverWasm } from '../../lib/portico/wasm_solve.js?v=8';
-import { fetchDEM } from '../cuenca/dem_tiles.js?v=8';
+import { construirMalla2D } from './malla2d.js?v=13';
+import { resolver2D } from './solver2d.js?v=13';
+import { ensureKoiWasm, makeSolverWasm, makePersistentSolverWasm } from '../../lib/portico/wasm_solve.js?v=13';
+import { fetchDEM } from '../cuenca/dem_tiles.js?v=13';
 
 const f1 = (v) => (v == null || !isFinite(v) ? '—' : Math.abs(v) < 10 ? (+v).toFixed(2) : (+v).toFixed(0));
 
@@ -139,6 +139,7 @@ export class Flujo2D {
         try { await ensureKoiWasm(); wasmSolve = makeSolverWasm; wasmPersist = makePersistentSolverWasm; }
         catch (e) { st.textContent = ' ✗ WASM: ' + e.message + ' (usando JS)'; }
       }
+      if (solver === 'wasm' && !wasmSolve && !wasmPersist) solver = 'pcg';
       const t0 = performance.now();
       const r = resolver2D(this.mesh, { Q, entrada, salida, stageSalida: stage, dt, nPasos, solver, wasmSolve, wasmPersist, onProgress: (p, N, d) => { st.textContent = ` paso ${p}/${N} (Δ=${d.toExponential(1)})`; } });
       r._tTotalMs = performance.now() - t0;

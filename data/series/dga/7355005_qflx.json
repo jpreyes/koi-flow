@@ -1,0 +1,1 @@
+{"nombre":"Rio Ancoa En Las Vegas","bna":"7355005","tipo":"fluviometrica","variable":"Maximo anual de caudal medio diario","unidad":"m3/s","altitud_m":300,"lat":-35.9131,"lon":-71.4025,"cuenca":"Rio Maule","subcuenca":"Rio Loncomilla","fuente":"CR2 (DGA) - cr2_qflxDaily_2018.txt","n_anios":6,"serie":{"1947":50.5,"1948":153,"1949":200,"1950":152,"1951":370,"1952":65.9}}

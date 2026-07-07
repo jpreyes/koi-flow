@@ -33,11 +33,11 @@ FUENTES = {
     "pr":   {"landing": "https://www.cr2.cl/download/cr2_prdaily_2018-zip/",
              "referer": "https://www.cr2.cl/datos-de-precipitacion/",
              "tipo": "pluviometrica", "variable": "Máximo anual de PP diaria", "unidad": "mm"},
-    "qflx": {"landing": "https://www.cr2.cl/download/cr2-qflxdaily-2019-zip/",
+    "qflx": {"landing": "https://www.cr2.cl/download/cr2_qflxdaily_2018-zip/",
              "referer": "https://www.cr2.cl/datos-de-caudales/",
              "tipo": "fluviometrica", "variable": "Máximo anual de caudal medio diario", "unidad": "m3/s"},
 }
-UA = "Mozilla/5.0 (koi-flow fetch_dga)"
+UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36"
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 

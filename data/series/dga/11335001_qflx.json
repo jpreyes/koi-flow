@@ -1,0 +1,1 @@
+{"nombre":"Rio Blanco Bajo Junta Riesco","bna":"11335001","tipo":"fluviometrica","variable":"Maximo anual de caudal medio diario","unidad":"m3/s","altitud_m":16,"lat":-45.5333,"lon":-72.6667,"cuenca":"Rio Aisen","subcuenca":"Rio Riesco","fuente":"CR2 (DGA) - cr2_qflxDaily_2018.txt","n_anios":4,"serie":{"1969":751,"1970":2043,"1971":1836,"1972":1150}}

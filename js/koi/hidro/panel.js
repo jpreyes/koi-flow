@@ -4,21 +4,22 @@
 // → PP diseño → IDF → Tc → caudales (pluviales REFERENCIALES + transposición que
 // GOBIERNA) → adoptados. Look & feel koi (variables de css/koi.css).
 // ─────────────────────────────────────────────────────────────────────────────
-import { correrPipelinePunto } from './pipeline.js?v=8';
-import { analizar } from './frecuencia.js?v=8';
-import { transponer, transponerRegional } from './transposicion.js?v=8';
-import { caudalesHU } from './hidrograma.js?v=8';
-import { ppDiseno, grunsky } from './idf.js?v=8';
-import { racional, verniKing, dgaAC } from './caudales.js?v=8';
-import { estacionesCercanas, estacionRecomendada, cargarSerie, centroideTramo, resetCatalogo, descargarSerieDGA } from '../datos/dga.js?v=8';
-import { fetchJSON } from '../datos/fetch_json.js?v=8';
-import { calcular as tcCalcular } from './tc.js?v=8';
-import { cuencaGeoJSON, cuencaKMZ, descargar } from '../cuenca/exportar.js?v=8';
-import { cuencaShapefileZip } from '../cuenca/shapefile.js?v=8';
-import { suavizar } from '../cuenca/delineacion.js?v=8';
-import { perfilDesdeLinea } from '../hidraulica/secciones.js?v=8';
-import { nivelNormal } from '../hidraulica/manning.js?v=8';
-import { evaluarSocavacion } from '../hidraulica/socavacion.js?v=8';
+import { correrPipelinePunto } from './pipeline.js?v=13';
+import { analizar } from './frecuencia.js?v=13';
+import { transponer, transponerRegional } from './transposicion.js?v=13';
+import { caudalesHU } from './hidrograma.js?v=13';
+import { ppDiseno, grunsky } from './idf.js?v=13';
+import { racional, verniKing, dgaAC } from './caudales.js?v=13';
+import { estacionesCercanas, estacionRecomendada, cargarSerie, centroideTramo } from '../datos/dga.js?v=13';
+import { fetchJSON } from '../datos/fetch_json.js?v=13';
+import { calcular as tcCalcular } from './tc.js?v=13';
+import { cuencaGeoJSON, cuencaKMZ, descargar } from '../cuenca/exportar.js?v=13';
+import { cuencaShapefileZip } from '../cuenca/shapefile.js?v=13';
+import { suavizar } from '../cuenca/delineacion.js?v=13';
+import { perfilDesdeLinea } from '../hidraulica/secciones.js?v=13';
+import { nivelNormal } from '../hidraulica/manning.js?v=13';
+import { evaluarSocavacion } from '../hidraulica/socavacion.js?v=13';
+import { ensurePointContext, stationLite } from '../punto_contexto.js?v=13';
 
 const TS = [2, 5, 10, 25, 50, 100, 150, 200];
 const f1 = (v) => (v == null || isNaN(v) ? '—' : Math.abs(v) < 10 ? Number(v).toFixed(2) : Number(v).toFixed(1));
@@ -92,7 +93,7 @@ export class HydroPanel {
 
     const s = this._section('Datos DGA cercanos', { cls: 'gov', txt: 'fuente CR2/DGA' });
     if (!pluvio.length && !fluvio.length) {
-      s.appendChild(el('p', 'hp-note', 'No hay catálogo DGA cargado. Genera datos con tools/fetch_dga.py.'));
+      s.appendChild(el('p', 'hp-note', 'No hay catálogo DGA cargado. Genera datos con tools/export_dga_static.py.'));
       return;
     }
     this.map?.showStations([...pluvio, ...fluvio]);
@@ -486,7 +487,8 @@ export class HydroPanel {
   // ── Análisis en un PUNTO de la quebrada (picking en el visor) ───────────────
   async analizarPunto(p) {
     this._punto = p;
-    this._sel = this._sel || {};
+    const ctx = ensurePointContext(p);
+    this._sel = ctx.estaciones.seleccion || {};
     if (!this.dock.isOpen()) this.dock.show('hidro');
     this.dock.setSub(`Análisis · ${p.nombre}`);
     this._clearHosts(['cuenca', 'hidro', 'hidraulica', 'socav']);
@@ -506,8 +508,8 @@ export class HydroPanel {
       <div><span>Coordenadas</span><b>${p.lat.toFixed(4)}, ${p.lon.toFixed(4)}</b></div>
       <div><span>Cuenca</span><b>${p.cuenca?.morfometria ? p.cuenca.morfometria.A + ' km² (pestaña Cuenca)' : 'sin delinear → pestaña ⬡ Cuenca'}</b></div>`));
     const dl = el('div', 'hp-dl');
-    dl.innerHTML = `<button class="hp-mini-btn" data-var="pr">⬇ Lluvia DGA</button>
-      <button class="hp-mini-btn" data-var="qflx">⬇ Caudal DGA</button>
+    dl.innerHTML = `<button class="hp-mini-btn" data-var="pr">Lluvia DGA</button>
+      <button class="hp-mini-btn" data-var="qflx">Caudal DGA</button>
       <span class="hp-dl-status"></span>`;
     sc.appendChild(dl);
     dl.querySelectorAll('.hp-mini-btn').forEach((b) =>
@@ -557,9 +559,11 @@ export class HydroPanel {
   }
 
   async _renderEstacionesPunto(p) {
-    this._sel = this._sel || {};
+    const ctx = ensurePointContext(p);
+    this._sel = ctx.estaciones.seleccion || {};
     const pluvio = await estacionesCercanas([p.lon, p.lat], { tipo: 'pluviometrica', n: 4 });
     const fluvio = await estacionesCercanas([p.lon, p.lat], { tipo: 'fluviometrica', n: 4 });
+    ctx.estaciones.cercanas = [...fluvio, ...pluvio].map(stationLite).filter(Boolean);
     this.map?.showStations([...pluvio, ...fluvio]);
     const s = this._section('Estaciones DGA cercanas');
     const tag = el('div', 'hp-kv', `
@@ -576,6 +580,7 @@ export class HydroPanel {
         // clic = SELECCIONAR (no vuela); no resalta en el mapa panéandolo
         tr.addEventListener('click', () => {
           if (tipo === 'fluvio') this._sel.ctrl = arr[i]; else this._sel.pluvio = arr[i];
+          ctx.estaciones.seleccion = this._sel;
           s.querySelector('#hp-ctrl').textContent = this._sel.ctrl?.nombre || '—';
           s.querySelector('#hp-plu').textContent = this._sel.pluvio?.nombre || '—';
           [...s.querySelectorAll(`tbody tr.sel-${tipo}`)].forEach((x) => x.classList.remove('sel', `sel-${tipo}`));
@@ -657,6 +662,14 @@ export class HydroPanel {
         pp: { estacion: plu.nombre, serie: ppSerie },
         fluvio: ctrl && Apc > 0 ? { estacion: ctrl.nombre, serie: fluvioSerie, Apc } : null,
       });
+      ensurePointContext(p).resultados.pipeline = {
+        caso: r.caso,
+        nieve: r.nieve,
+        precipitacion: r.precipitacion,
+        tc: r.tc,
+        caudales: r.caudales,
+        actualizado: new Date().toISOString(),
+      };
       this._render(r);   // vista completa (limpia el body)
       const back = el('button', 'hp-run', `← Volver al punto ${p.nombre}`);
       back.style.margin = '0 0 10px'; back.addEventListener('click', () => this.analizarPunto(p));
@@ -710,6 +723,11 @@ export class HydroPanel {
       const perfil = perfilDesdeLinea(t.feature.geometry.coordinates, grid, 120);
       const res = nivelNormal(perfil.puntos, { Q, n, J });
       this._ejeRes = res; this._ejePerfil = perfil;    // insumo de la pestaña Socavación
+      if (this._punto) ensurePointContext(this._punto).resultados.ejeHidraulico = {
+        tramo: t.name, Q, n, J,
+        WSE: res.WSE, profMax: res.profMax, B: res.B, A: res.A, V: res.V, Fr: res.Fr, regimen: res.regimen,
+        actualizado: new Date().toISOString(),
+      };
       this._renderSocav();
       if (statusEl) statusEl.textContent = '';
       this._ejeHost.innerHTML = '';
@@ -817,7 +835,7 @@ export class HydroPanel {
       const A = num('pf_a');
       if (!(A > 0)) throw new Error('Ingresa el área A.');
       if (!this._sel.pluvio) throw new Error('Elige una estación pluvial.');
-      const coef = await fetchJSON('data/coef_hidro.json?v=8', { contexto: 'Coeficientes hidrológicos' });
+      const coef = await fetchJSON('data/coef_hidro.json?v=13', { contexto: 'Coeficientes hidrológicos' });
       const sp = await cargarSerie(this._sel.pluvio);
       const an = analizar(Object.values(sp.serie), { T: TSL });
       const pp = ppDiseno(an.resultados[an.mejor].quantiles, 1.10);
@@ -847,16 +865,29 @@ export class HydroPanel {
       [[`Q [${unidad}]`, ...TSL.map((T) => f1(res[T]))]]));
     wrap.appendChild(el('p', 'hp-note', nota));
     this._resPunto.appendChild(wrap);
+    if (this._punto) ensurePointContext(this._punto).resultados.metodo = {
+      metodo: m, titulo, unidad, nota, valores: res, actualizado: new Date().toISOString(),
+    };
   }
 
   async _descargarDatos(p, varname, statusEl) {
-    statusEl.textContent = ' descargando…';
+    statusEl.textContent = ' cargando…';
     try {
-      await descargarSerieDGA({ lon: p.lon, lat: p.lat }, varname === 'qflx' ? 'fluviometrica' : 'pluviometrica');
-      statusEl.textContent = ' ✓ listo';
-      await this._renderEstacionesPunto(p);   // refresca con lo nuevo
+      const tipo = varname === 'qflx' ? 'fluviometrica' : 'pluviometrica';
+      const ests = await estacionesCercanas([p.lon, p.lat], { tipo, n: 8 });
+      const ctx = ensurePointContext(p);
+      const actuales = new Map((ctx.estaciones.cercanas || []).map((e) => [e.bna + '_' + e.tipo, e]));
+      for (const e of ests) actuales.set(e.bna + '_' + e.tipo, stationLite(e));
+      ctx.estaciones.cercanas = [...actuales.values()];
+      let ok = 0;
+      for (const est of ests) {
+        try { await cargarSerie(est); ok += 1; } catch (_) {}
+      }
+      if (!ok) throw new Error('no hay series estáticas disponibles cerca del punto');
+      statusEl.textContent = ` listo (${ok} series)`;
+      await this._renderEstacionesPunto(p);
     } catch (e) {
-      statusEl.textContent = ' ✗ ' + e.message;
+      statusEl.textContent = ' ' + e.message;
     }
   }
 

@@ -5,12 +5,13 @@
 // Estaciones DGA, Referencias (río/ciudad/camino) e Importados. Cada capa se puede
 // mostrar/ocultar (casilla) y sus entidades ir/borrar. Estilo cercano a wind-shm.
 // ─────────────────────────────────────────────────────────────────────────────
-import { leerKMLoKMZ } from './kml.js?v=8';
-import { toast } from '../ui/toast.js?v=8';
-import { bus } from '../ui/bus.js?v=8';
-import { listProjects, saveProject, removeProject, setOpen, newProjectId } from '../proyectos.js?v=8';
-import { escribirKoi, leerKoi } from '../proyecto/koi_file.js?v=8';
-import { infoTipo, getActivo } from '../ui/seleccion.js?v=8';
+import { leerKMLoKMZ } from './kml.js?v=13';
+import { toast } from '../ui/toast.js?v=13';
+import { bus } from '../ui/bus.js?v=13';
+import { listProjects, saveProject, removeProject, setOpen, newProjectId } from '../proyectos.js?v=13';
+import { escribirKoi, leerKoi } from '../proyecto/koi_file.js?v=13';
+import { infoTipo, getActivo } from '../ui/seleccion.js?v=13';
+import { ensurePointContext, migrateProjectPoints, pointImportLite, pointRefLite, serializePoint } from '../punto_contexto.js?v=13';
 
 // Módulos de koi.reg → acción de menú (para reabrir el HUD) y etiqueta del chip.
 const REG_INFO = {
@@ -32,6 +33,11 @@ const REG_INFO = {
 };
 
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+const descargarJSON = (name, data) => {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
 
 // ── Set de iconos SVG (stroke currentColor) ──────────────────────────────────
 const P = {
@@ -149,8 +155,97 @@ export class Capas {
     return node;
   }
 
+  _puntoActivo() {
+    const pts = this.map?.getPoints?.() || [];
+    const a = getActivo();
+    if (a && (a.tipo === 'punto' || a.tipo === 'cuenca')) {
+      const p = pts.find((x) => x.id === a.id);
+      if (p) return p;
+    }
+    return pts.length === 1 ? pts[0] : null;
+  }
+
+  _puntosPorTramo() {
+    const m = new Map();
+    for (const p of this.map?.getPoints?.() || []) {
+      const k = p.tramo || '';
+      if (!m.has(k)) m.set(k, []);
+      m.get(k).push(p);
+    }
+    return m;
+  }
+
+  _assetLeaf(icon, label, meta, onClick, cls = '') {
+    const li = el('li', `cap-leaf cap-sub ${cls}`.trim());
+    li.innerHTML = `<span class="cap-ico">${icon}</span><span class="cap-lbl">${label}</span><span class="cap-meta">${meta || ''}</span>`;
+    if (onClick) li.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
+    return li;
+  }
+
+  _folderLeaf(icon, label, meta, children = [], cls = '') {
+    const li = el('li', `cap-leaf cap-folder ${cls}`.trim());
+    li.innerHTML = `<span class="cap-caret ${children.length ? '' : 'empty'}">${children.length ? '▾' : ''}</span><span class="cap-ico">${icon}</span><span class="cap-lbl">${label}</span><span class="cap-meta">${meta || ''}</span>`;
+    if (children.length) {
+      const ul = el('ul', 'cap-children');
+      for (const c of children) ul.appendChild(c);
+      li.appendChild(ul);
+      li.querySelector('.cap-caret').addEventListener('click', (e) => { e.stopPropagation(); ul.style.display = ul.style.display === 'none' ? '' : 'none'; });
+    }
+    return li;
+  }
+
+  _pointAssets(p) {
+    const c = ensurePointContext(p);
+    const selectPoint = () => this.hydro?.irAPunto?.(p.id);
+    const openTool = (accion) => { selectPoint(); bus.emit('abrir:analisis', accion); };
+    const out = [];
+    if (p.cuenca) {
+      out.push(this._assetLeaf(ico('basin'), 'Cuenca', `${p.cuenca.morfometria?.A ?? '?'}km²`, () => this.map.showCuenca(p.id, p.cuenca.polygonSuave || p.cuenca.polygon)));
+    }
+    if (c.red?.fc) {
+      out.push(this._assetLeaf(ico('wave'), 'Red de drenaje', `${c.red.meta?.nLineas ?? c.red.fc.features?.length ?? 0} cauces`, () => this.map.showRedDrenaje(c.red.fc)));
+    }
+    const nEst = c.estaciones?.cercanas?.length || 0;
+    if (nEst || c.estaciones?.seleccion?.ctrl || c.estaciones?.seleccion?.pluvio) {
+      const sel = [c.estaciones.seleccion?.ctrl?.nombre, c.estaciones.seleccion?.pluvio?.nombre].filter(Boolean).length;
+      out.push(this._assetLeaf(ico('station'), 'Estaciones DGA', `${nEst} cerca${sel ? ` - ${sel} sel.` : ''}`, () => this.map.showStations(c.estaciones.cercanas || [])));
+    }
+    if (c.referencias?.length) out.push(this._assetLeaf(ico('label'), 'Referencias', String(c.referencias.length)));
+    if (c.importados?.length) out.push(this._assetLeaf(ico('folder'), 'Importados', String(c.importados.length)));
+    const nRes = Object.keys(c.resultados || {}).length;
+    if (nRes) out.push(this._assetLeaf(ico('open'), 'Resultados', String(nRes)));
+    if (!p.cuenca) out.push(this._assetLeaf(ico('basin'), 'Cuenca delineada', 'pendiente', () => openTool('cuenca-delinear'), 'cap-pending'));
+    if (!c.red?.fc) out.push(this._assetLeaf(ico('wave'), 'Red de drenaje', 'pendiente', () => openTool('afluentes-punto'), 'cap-pending'));
+    if (!nEst && !c.estaciones?.seleccion?.ctrl && !c.estaciones?.seleccion?.pluvio) out.push(this._assetLeaf(ico('station'), 'Estaciones DGA', 'sin buscar', () => openTool('estaciones-dga'), 'cap-pending'));
+    if (!c.referencias?.length) out.push(this._assetLeaf(ico('label'), 'Referencias', '0', null, 'cap-pending'));
+    if (!c.importados?.length) out.push(this._assetLeaf(ico('folder'), 'Importados', '0', null, 'cap-pending'));
+    if (!nRes) out.push(this._assetLeaf(ico('open'), 'Resultados', '0', null, 'cap-pending'));
+    out.push(this._assetLeaf(ico('save'), 'Exportar punto', 'JSON', () => descargarJSON(`punto_${(p.nombre || p.id).replace(/[^\w.-]+/g, '_')}.json`, serializePoint(p))));
+    return out;
+  }
+
+  _pointLeaf(p) {
+    const li = el('li', 'cap-leaf cap-point-node');
+    li.title = `${p.lat.toFixed(5)}, ${p.lon.toFixed(5)}`;
+    li.dataset.objTipo = 'punto'; li.dataset.objId = p.id;
+    li.innerHTML = `<span class="cap-ico" style="color:${infoTipo('punto').color}">${ico('point')}</span><span class="cap-lbl">${p.nombre}</span>
+      <span class="cap-act" data-gopt="${p.id}" title="Ir">${ico('locate')}</span><span class="cap-act" data-delpt="${p.id}" title="Borrar punto">${ico('trash')}</span>
+      <span class="cap-meta">${p.cuenca ? p.cuenca.morfometria.A + 'km²' : p.lat.toFixed(3) + ',' + p.lon.toFixed(3)}</span>`;
+    li.querySelector('[data-gopt]').addEventListener('click', (e) => { e.stopPropagation(); this.hydro?.irAPunto?.(p.id); });
+    li.querySelector('[data-delpt]').addEventListener('click', (e) => { e.stopPropagation(); this.hydro?.borrarPunto?.(p.id); this.render(); });
+    li.addEventListener('click', (e) => { e.stopPropagation(); this.hydro?.irAPunto?.(p.id); });
+    const assets = this._pointAssets(p);
+    if (assets.length) {
+      const ul = el('ul', 'cap-children cap-point-assets');
+      for (const a of assets) ul.appendChild(a);
+      li.appendChild(ul);
+    }
+    return li;
+  }
+
   render() {
     this.tree.innerHTML = '';
+    const puntosPorTramo = this._puntosPorTramo();
     // Proyecto → tramos (clic = seleccionar, relieve, borrar)
     const tramos = (this.project?.tramos || []).map((t) => {
       const has = !!(t.dem || t.demGrid) && !t.relieveOff;
@@ -169,12 +264,22 @@ export class Capas {
         else if (e.target.closest('[data-deltramo]')) { e.stopPropagation(); this._quitarTramo(t.name); }
         else { this._selTramo(t.name); this.onSelectTramo?.(t); }
       });
+      const pts = puntosPorTramo.get(t.name) || [];
+      const pointLeaves = pts.map((p) => this._pointLeaf(p));
+      li.classList.add('cap-has-children');
+      const ul = el('ul', 'cap-children cap-tramo-puntos');
+      ul.appendChild(this._folderLeaf(ico('point'), 'Puntos de análisis', String(pointLeaves.length), pointLeaves, 'cap-points-folder'));
+      li.appendChild(ul);
       return li;
     });
-    this.tree.appendChild(this._grupo('tramos', ico('project'), this.project?.name || 'Proyecto', tramos));
+    const tramosChildren = tramos.length ? tramos : [this._folderLeaf(ico('point'), 'Puntos de análisis', '0', [], 'cap-points-folder')];
+    const tramosFolder = [this._folderLeaf(ico('wave'), 'Tramos', String(tramos.length), tramosChildren, 'cap-tramos-folder')];
+    this.tree.appendChild(this._grupo('tramos', ico('project'), this.project?.name || 'Proyecto', tramosFolder));
 
     // Puntos de análisis (lista, ir/borrar)
-    const puntos = (this.map?.getPoints?.() || []).map((p) => {
+    const puntosSinTramo = (puntosPorTramo.get('') || []).map((p) => this._pointLeaf(p));
+    if (puntosSinTramo.length) this.tree.appendChild(this._grupo('puntos', ico('point'), `Puntos sin tramo (${puntosSinTramo.length})`, puntosSinTramo));
+    /*
       const li = el('li', 'cap-leaf');
       li.title = `${p.lat.toFixed(5)}, ${p.lon.toFixed(5)}`;
       li.dataset.objTipo = 'punto'; li.dataset.objId = p.id;
@@ -187,6 +292,7 @@ export class Capas {
       return li;
     });
     this.tree.appendChild(this._grupo('puntos', ico('point'), `Puntos de análisis (${puntos.length})`, puntos));
+    */
 
     // Cuencas delineadas (puntos con cuenca)
     const cuencas = (this.map?.getPoints?.() || []).filter((p) => p.cuenca).map((p) => {
@@ -204,12 +310,11 @@ export class Capas {
       li.addEventListener('click', irCuenca);   // clic en la hoja = seleccionar
       return li;
     });
-    this.tree.appendChild(this._grupo('cuencas', ico('basin'), `Cuencas delineadas (${cuencas.length})`, cuencas));
-    this.tree.appendChild(this._grupo('red', ico('wave'), 'Red de drenaje (afluentes)'));
-    this.tree.appendChild(this._grupo('estaciones', ico('station'), 'Estaciones DGA'));
+    // Cuencas, red de drenaje y estaciones se muestran como hijos de cada punto de analisis.
 
     // Referencias (etiquetas río/ciudad/camino)
-    const labels = this.labels.map((lb) => {
+    const labelsGlobales = this.labels.filter((lb) => !lb.pointId);
+    const labels = labelsGlobales.map((lb) => {
       const li = el('li', 'cap-leaf');
       li.title = `${lb.tipo} · ${lb.lat.toFixed(5)}, ${lb.lon.toFixed(5)}`;
       li.innerHTML = `<span class="cap-ico">${ico(lb.tipo)}</span><span class="cap-lbl">${lb.name}</span>
@@ -270,9 +375,10 @@ export class Capas {
 
     // Importados
     const grp = el('div', 'cap-grp');
-    grp.appendChild(el('div', 'cap-node', `<span class="cap-caret empty"></span><span class="cap-ico">${ico('folder')}</span> Importados <span class="cap-meta">${this.imports.length}</span>`));
+    const importsGlobales = this.imports.filter((im) => !im.pointId);
+    grp.appendChild(el('div', 'cap-node', `<span class="cap-caret empty"></span><span class="cap-ico">${ico('folder')}</span> Importados <span class="cap-meta">${importsGlobales.length}</span>`));
     const ul = el('ul', 'cap-children'); grp.appendChild(ul);
-    for (const im of this.imports) {
+    for (const im of importsGlobales) {
       const li = el('li', 'cap-leaf imp');
       const edI = this._editImp === im.id;
       li.innerHTML = `<label><input type="checkbox" checked data-imp="${im.id}"> <span class="cap-ico">${ico('file')}</span>${im.name}</label>
@@ -325,8 +431,11 @@ export class Capas {
     this.map.pickOnce((lon, lat) => {
       const name = prompt(`Nombre (${tipo}):`, '');
       if (name == null) return;
-      const id = this.map.addLabel({ lon, lat, name: name || tipo, tipo });
-      this.labels.push({ id, name: name || tipo, tipo, lon, lat });
+      const p = this._puntoActivo();
+      const lb = { name: name || tipo, tipo, lon, lat, pointId: p?.id || null };
+      const id = this.map.addLabel(lb);
+      this.labels.push({ id, ...lb });
+      if (p) ensurePointContext(p).referencias.push(pointRefLite(lb));
       this.render();
     }, `Clic para colocar la etiqueta (${tipo})`);
   }
@@ -399,6 +508,7 @@ export class Capas {
     if (!confirm(`¿Quitar el tramo "${name}" del proyecto?`)) return;
     this.map.removeTramo?.(name);
     if (this.project?.tramos) this.project.tramos = this.project.tramos.filter((t) => t.name !== name);
+    for (const p of this.map?.getPoints?.() || []) if (p.tramo === name) p.tramo = null;
     this.render();
   }
 
@@ -425,6 +535,7 @@ export class Capas {
         // como capa de referencia importada.
         const lineas = (gj.features || []).filter((ft) => ft.geometry?.type === 'LineString' && ft.geometry.coordinates?.length >= 2);
         const resto = (gj.features || []).filter((ft) => !(ft.geometry?.type === 'LineString' && ft.geometry.coordinates?.length >= 2));
+        this.project = this.project || { id: 'nuevo', name: 'Proyecto', tramos: [] };
 
         lineas.forEach((ft, i) => {
           const nombre = this._nombreTramoUnico(ft.properties?.name || (lineas.length > 1 ? `${base} (${i + 1})` : base));
@@ -437,8 +548,12 @@ export class Capas {
         });
 
         if (resto.length) {
-          const id = this.map.addImport(f.name, { type: 'FeatureCollection', features: resto });
-          this.imports.push({ id, name: f.name });
+          const p = this._puntoActivo();
+          const geojson = { type: 'FeatureCollection', features: resto };
+          const id = this.map.addImport(f.name, geojson);
+          const im = { id, name: f.name, pointId: p?.id || null };
+          this.imports.push(im);
+          if (p) ensurePointContext(p).importados.push(pointImportLite({ name: f.name, geojson }));
           if (!lineas.length) this.map.zoomImport(id);
           nRef += resto.length;
         }
@@ -463,17 +578,19 @@ export class Capas {
 
   // ── Guardar / abrir proyecto (localStorage + archivo) ───────────────────────
   _estadoActual() {
-    const puntos = (this.map.getPoints() || []).map((p) => ({
-      lon: p.lon, lat: p.lat, nombre: p.nombre,
-      crecida: p.crecida || null,   // cada punto/cuenca lleva SU hidrograma+reología
-      cuenca: p.cuenca ? { polygon: p.cuenca.polygon, polygonSuave: p.cuenca.polygonSuave || null, morfometria: p.cuenca.morfometria } : null,
-    }));
-    const importados = [...this.map.importLayers.entries()].map(([id, it]) => {
+    const puntos = (this.map.getPoints() || []).map(serializePoint);
+    const porTramo = new Map();
+    for (const p of puntos) {
+      const k = p.tramo || '';
+      if (!porTramo.has(k)) porTramo.set(k, []);
+      porTramo.get(k).push(p);
+    }
+    const importados = [...this.map.importLayers.entries()].filter(([id]) => !this.imports.find((im) => im.id === id)?.pointId).map(([id, it]) => {
       let gj = null; try { gj = it.group.toGeoJSON(); } catch {}
       return { name: it.name, geojson: gj };
     });
-    const etiquetas = this.labels.map(({ name, tipo, lon, lat }) => ({ name, tipo, lon, lat }));
-    const tramos = (this.project?.tramos || []).map((t) => ({ name: t.name, feature: t.feature, dem: t.dem || null }));
+    const etiquetas = this.labels.filter((lb) => !lb.pointId).map(({ name, tipo, lon, lat }) => ({ name, tipo, lon, lat }));
+    const tramos = (this.project?.tramos || []).map((t) => ({ name: t.name, feature: t.feature, dem: t.dem || null, puntos: porTramo.get(t.name) || [] }));
     // resultados/geometría de batimetría-hidráulica (para que persistan si se guarda)
     const es = window.__koi?.estr?.estructuras || [];
     const estructuras = es.map((e) => ({ id: e.id, tipo: e.tipo, nombre: e.nombre, forma: e.forma, solido: e.solido, center: e.center, planta: e.planta, params: { ...e.params }, dz: e.dz || 0, zBase: e.zBase ?? null }));
@@ -523,13 +640,25 @@ export class Capas {
   // abrir un archivo y al cargar un proyecto guardado en el arranque.
   aplicarEstado(data) {
     if (!data) return;
-    for (const im of data.importados || []) { if (im.geojson) { const id = this.map.addImport(im.name, im.geojson); this.imports.push({ id, name: im.name }); } }
-    for (const p of data.puntos || []) {
-      const pt = this.map.restorePoint(p.lon, p.lat, p.nombre, p.cuenca);
+    for (const im of data.importados || []) { if (im.geojson) { const id = this.map.addImport(im.name, im.geojson); this.imports.push({ id, name: im.name, pointId: null }); } }
+    for (const p of migrateProjectPoints(data)) {
+      const pt = this.map.restorePoint(p.lon, p.lat, p.nombre, p.cuenca, {
+        id: p.id, tramo: p.tramo || null, contexto: p.contexto || null, cuencaHB: p.cuencaHB || null, snapMeters: p.snapMeters ?? null,
+      });
+      ensurePointContext(pt);
       if (pt && p.crecida) pt.crecida = p.crecida;   // restaura el hidrograma del objeto
       if (p.cuenca) this.map.showCuenca(pt.id, p.cuenca.polygonSuave || p.cuenca.polygon);
+      for (const ref of pt.contexto?.referencias || []) {
+        const id = this.map.addLabel(ref);
+        this.labels.push({ id, ...ref, pointId: pt.id });
+      }
+      for (const im of pt.contexto?.importados || []) {
+        if (!im.geojson) continue;
+        const id = this.map.addImport(im.name, im.geojson);
+        this.imports.push({ id, name: im.name, pointId: pt.id });
+      }
     }
-    for (const lb of data.etiquetas || []) { const id = this.map.addLabel(lb); this.labels.push({ id, ...lb }); }
+    for (const lb of data.etiquetas || []) { const id = this.map.addLabel(lb); this.labels.push({ id, ...lb, pointId: null }); }
     // presas / depósitos (con su vaso desde el DEM ya calculado)
     if (data.presas?.length && window.__koi) {
       window.__koi.presas = data.presas.map((p) => ({ ...p }));

@@ -3,8 +3,8 @@
 // Genera un año diario sintético (P estacional + T sinusoidal) y corre el balance de
 // humedad con deshielo por grado-día → hidrograma continuo, manto nival y estadísticos.
 // ─────────────────────────────────────────────────────────────────────────────
-import { serieSintetica, simularContinuo } from './continuo.js?v=8';
-import { registrar } from '../informe/registro.js?v=8';
+import { serieSintetica, simularContinuo } from './continuo.js?v=13';
+import { registrar } from '../informe/registro.js?v=13';
 
 const f = (v, d = 1) => (v == null || !isFinite(v) ? '—' : v.toFixed(d));
 

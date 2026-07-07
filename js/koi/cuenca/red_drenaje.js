@@ -5,14 +5,17 @@
 // (área de drenaje mínima). Sirve para (a) VER los cauces/afluentes en el mapa y
 // (b) pinchar el punto justo sobre el cauce correcto. Reusa el D8 de delineacion.js.
 // ─────────────────────────────────────────────────────────────────────────────
-import { routD8, cellSize, colRowToLonLat, lonLatToColRow, snapOutlet, watershed } from './delineacion.js?v=8';
+import { routD8, cellSize, colRowToLonLat, lonLatToColRow, snapOutlet, watershed } from './delineacion.js?v=13';
 
 // Extrae la red de drenaje de una grilla DEM (formato fetchDEM).
 //   opts.umbralKm2: área de drenaje mínima para considerar "cauce" (def 0.25 km²).
 // Devuelve GeoJSON FeatureCollection de LineStrings (segmentos celda→receptor),
 // cada uno con { accum, areaKm2 } para estilar (más grueso = cauce mayor).
 export function extraerRed(grid, opts = {}) {
-  const rout = routD8(grid);                       // MISMO ruteo que usará la delineación
+  return redDesdeRout(grid, routD8(grid), opts);
+}
+
+export function redDesdeRout(grid, rout, opts = {}) {
   const { elev, recv, accum } = rout;
   const { nx, ny } = grid;
   const cs = cellSize(grid);

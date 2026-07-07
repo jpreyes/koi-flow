@@ -3,8 +3,8 @@
 // Tc + R + tormenta + sesgo espacial de lluvia → hidrograma por traslación tiempo-área
 // y ruteo por reservorio lineal. El sesgo mueve el pico (lluvia cerca/lejos del cierre).
 // ─────────────────────────────────────────────────────────────────────────────
-import { hidrogramaModClark } from './modclark.js?v=8';
-import { registrar } from '../informe/registro.js?v=8';
+import { hidrogramaModClark } from './modclark.js?v=13';
+import { registrar } from '../informe/registro.js?v=13';
 
 const f = (v, d = 1) => (v == null || !isFinite(v) ? '—' : v.toFixed(d));
 

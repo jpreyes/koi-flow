@@ -15,12 +15,18 @@ export function setupMenubar(actions = {}) {
     btn.addEventListener('click', (e) => { e.stopPropagation(); if (open === m) close(); else abrir(m); });
     btn.addEventListener('mouseenter', () => { if (open) abrir(m); });
   }
-  bar.querySelectorAll('.menu-item').forEach((it) => it.addEventListener('click', (e) => {
+  bar.addEventListener('click', (e) => {
+    const it = e.target.closest('.menu-item');
+    if (!it || !bar.contains(it)) return;
     e.stopPropagation();
-    if (it.classList.contains('disabled')) return;
+    if (it.classList.contains('disabled') || it.getAttribute('aria-disabled') === 'true') {
+      const msg = it.title || it.nextElementSibling?.textContent;
+      if (msg) window.__koiToast?.(msg, 'warn');
+      return;
+    }
     close();
     actions[it.dataset.action]?.();
-  }));
+  });
   document.addEventListener('click', close);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
 }

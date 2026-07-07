@@ -1,0 +1,1 @@
+{"nombre":"Canal Maule Sur En Los Lirios","bna":"7322003","tipo":"fluviometrica","variable":"Maximo anual de caudal medio diario","unidad":"m3/s","altitud_m":320,"lat":-35.6667,"lon":-71.3333,"cuenca":"Rio Maule","subcuenca":"Rio Maule Medio (Entre Rio Claro Y Rio Loncomilla)","fuente":"CR2 (DGA) - cr2_qflxDaily_2018.txt","n_anios":3,"serie":{"1982":25.7,"1983":25.4,"1984":7.4}}

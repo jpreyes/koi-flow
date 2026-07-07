@@ -1,0 +1,1 @@
+{"nombre":"Rio Elqui En Puclaro","bna":"4323002","tipo":"fluviometrica","variable":"Maximo anual de caudal medio diario","unidad":"m3/s","altitud_m":445,"lat":-30,"lon":-70.85,"cuenca":"Rio Elqui","subcuenca":"Rio Elqui Medio (Jta Turbio, Claro Y Q El Arrayan)","fuente":"CR2 (DGA) - cr2_qflxDaily_2018.txt","n_anios":3,"serie":{"1963":25.9,"1964":26.1,"1965":23.8}}
