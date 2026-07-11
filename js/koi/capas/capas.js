@@ -445,17 +445,73 @@ export class Capas {
     const saved = listProjects().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
     menu.innerHTML = `
       <button class="cap-proj-item" id="pm-new">${ico('file')} Nuevo proyecto (vacío)</button>
-      ${saved.length ? '<div class="cap-proj-hd">Guardados</div>' : '<div class="cap-proj-hd">Sin proyectos guardados</div>'}
+      <button class="cap-proj-item" id="pm-save-nube">☁ Guardar en la nube</button>
+      <div class="cap-proj-hd">☁ Nube (tu organización)</div>
+      <div id="pm-nube"><div class="cap-proj-empty">Cargando…</div></div>
+      ${saved.length ? '<div class="cap-proj-hd">En este equipo</div>' : ''}
       ${saved.map((p) => `<div class="cap-proj-row">
         <button class="cap-proj-open" data-open="${p.id}" title="Abrir">${ico('open')}<span>${p.name}</span></button>
         <span class="cap-act" data-delproj="${p.id}" title="Borrar proyecto">${ico('trash')}</span></div>`).join('')}`;
     menu.querySelector('#pm-new').addEventListener('click', () => this._nuevoProyecto());
+    menu.querySelector('#pm-save-nube').addEventListener('click', () => this.guardarEnNube());
     menu.querySelectorAll('[data-open]').forEach((b) => b.addEventListener('click', () => this._abrirProyecto(b.dataset.open)));
     menu.querySelectorAll('[data-delproj]').forEach((b) => b.addEventListener('click', () => {
       const id = b.dataset.delproj;
       if (!confirm('¿Borrar el proyecto guardado? Esta acción no se puede deshacer.')) return;
       removeProject(id); this._renderProyectos(menu);
     }));
+    this._pintarNube(menu);
+  }
+
+  // Lista los proyectos de la nube (RLS: solo los de tu organización) dentro del menú.
+  async _pintarNube(menu) {
+    const cont = menu.querySelector('#pm-nube'); if (!cont) return;
+    try {
+      const { listarNube, borrarNube } = await import('../auth/proyectos_nube.js?v=13');
+      const rows = await listarNube();
+      if (!rows.length) { cont.innerHTML = '<div class="cap-proj-empty">Sin proyectos en la nube todavía.</div>'; return; }
+      cont.innerHTML = rows.map((p) => `<div class="cap-proj-row">
+        <button class="cap-proj-open" data-opennube="${p.id}" title="Abrir de la nube">${ico('open')}<span>${p.nombre}</span></button>
+        <span class="cap-act" data-delnube="${p.id}" title="Borrar de la nube">${ico('trash')}</span></div>`).join('');
+      cont.querySelectorAll('[data-opennube]').forEach((b) => b.addEventListener('click', () => this.abrirDeNube(rows.find((r) => r.id === b.dataset.opennube))));
+      cont.querySelectorAll('[data-delnube]').forEach((b) => b.addEventListener('click', async () => {
+        const p = rows.find((r) => r.id === b.dataset.delnube);
+        if (!confirm(`¿Borrar "${p.nombre}" de la nube? No se puede deshacer.`)) return;
+        try { await borrarNube(p); this._pintarNube(menu); toast('Proyecto borrado de la nube.', 'ok'); }
+        catch (e) { toast(e.message, 'error'); }
+      }));
+    } catch (e) { cont.innerHTML = `<div class="cap-proj-empty">Nube no disponible: ${e.message}</div>`; }
+  }
+
+  // Guarda el proyecto actual en la nube (Storage + tabla), reusando el mismo .koi binario.
+  async guardarEnNube() {
+    try {
+      const cur = this.project?.name;
+      const name = prompt('Nombre del proyecto (nube):', (cur && cur !== 'Proyecto nuevo') ? cur : '');
+      if (name == null || !name.trim()) return;
+      const bytes = await escribirKoi(this._proyectoKoi(this.project?.id || 'nube', name.trim()), { name: name.trim() });
+      const { guardarNube } = await import('../auth/proyectos_nube.js?v=13');
+      const r = await guardarNube(name.trim(), bytes, this.project?.nubeId || null);
+      if (this.project) { this.project.nubeId = r.id; this.project.name = name.trim(); }
+      const nm = this.cont.querySelector('.cap-proj-name'); if (nm) nm.textContent = name.trim();
+      toast(`Guardado en la nube: ${name.trim()} (${(bytes.length / 1e6).toFixed(2)} MB).`, 'ok');
+    } catch (e) { toast('No se pudo guardar en la nube: ' + e.message, 'error'); }
+  }
+
+  // Abre un proyecto desde la nube: descarga el .koi y lo restaura como al abrir un archivo.
+  async abrirDeNube(project) {
+    if (!project) return;
+    try {
+      const { abrirNube } = await import('../auth/proyectos_nube.js?v=13');
+      const bytes = await abrirNube(project);
+      const r = await leerKoi(bytes); const data = r.proyecto;
+      if (!data || data.app !== 'koi-flow') return toast('El archivo en la nube no es un proyecto válido.', 'error');
+      this.aplicarEstado(data); this._restaurarPesados(data);
+      if (this.project) { this.project.nubeId = project.id; this.project.name = project.nombre; }
+      const nm = this.cont.querySelector('.cap-proj-name'); if (nm) nm.textContent = project.nombre;
+      const menu = document.getElementById('cap-proj-menu'); if (menu) menu.hidden = true;
+      toast(`Proyecto abierto de la nube: ${project.nombre}.`, 'ok');
+    } catch (e) { toast('No se pudo abrir de la nube: ' + e.message, 'error'); }
   }
   _renombrarProyecto() {
     const cur = this.project?.name || '';
