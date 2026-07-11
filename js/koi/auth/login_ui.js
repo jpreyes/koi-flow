@@ -5,22 +5,24 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { registrar, login, resetPassword, estaAutenticado, usuario } from './auth.js?v=13';
 
+// Tema PROPIO fijo (oscuro): la puerta de acceso NO hereda las variables de tema de la app
+// (corre antes que la app; en tema claro daba texto claro sobre fondo claro = invisible).
 const CSS = `
 .koi-auth-ov{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;
-  background:var(--bg,#0e1116);color:var(--fg,#e6e9ef);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:20px}
-.koi-auth-card{width:min(400px,94vw);background:var(--panel,#171b22);border:1px solid var(--border,#2a2f3a);
+  background:#0e1116;color:#e6e9ef;font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:20px;color-scheme:dark}
+.koi-auth-card{width:min(400px,94vw);background:#171b22;border:1px solid #2a2f3a;
   border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.45);padding:28px 26px}
 .koi-auth-brand{display:flex;align-items:baseline;gap:6px;font-size:26px;font-weight:800;margin:0 0 2px}
 .koi-auth-brand .k{color:#e23b5a}.koi-auth-brand .f{color:#31c3ce}
-.koi-auth-sub{margin:0 0 20px;color:var(--muted,#8b93a3);font-size:13px}
-.koi-auth-tabs{display:flex;gap:4px;margin-bottom:18px;background:var(--bg,#0e1116);border-radius:9px;padding:4px}
-.koi-auth-tab{flex:1;padding:8px;border:0;border-radius:6px;background:transparent;color:var(--muted,#8b93a3);
+.koi-auth-sub{margin:0 0 20px;color:#8b93a3;font-size:13px}
+.koi-auth-tabs{display:flex;gap:4px;margin-bottom:18px;background:#0e1116;border-radius:9px;padding:4px}
+.koi-auth-tab{flex:1;padding:8px;border:0;border-radius:6px;background:transparent;color:#8b93a3;
   font-weight:600;cursor:pointer;font-size:14px}
-.koi-auth-tab.on{background:var(--panel,#171b22);color:var(--fg,#e6e9ef);box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.koi-auth-tab.on{background:#171b22;color:#e6e9ef;box-shadow:0 1px 3px rgba(0,0,0,.3)}
 .koi-auth-f{display:block;margin-bottom:14px}
-.koi-auth-f span{display:block;font-size:12px;color:var(--muted,#8b93a3);margin-bottom:5px}
-.koi-auth-f input{width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1px solid var(--border,#2a2f3a);
-  background:var(--bg,#0e1116);color:var(--fg,#e6e9ef);font-size:15px}
+.koi-auth-f span{display:block;font-size:12px;color:#8b93a3;margin-bottom:5px}
+.koi-auth-f input{width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1px solid #2a2f3a;
+  background:#0e1116;color:#e6e9ef;font-size:15px;-webkit-text-fill-color:#e6e9ef}
 .koi-auth-f input:focus{outline:0;border-color:#31c3ce}
 .koi-auth-btn{width:100%;padding:11px;border:0;border-radius:8px;background:#e23b5a;color:#fff;font-weight:700;
   font-size:15px;cursor:pointer;margin-top:4px}
