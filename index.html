@@ -147,19 +147,13 @@
 <script type="module">
   // Puerta de acceso (Fase A): la app (boot.js) SOLO se carga con sesión válida.
   import { montarPuertaAuth } from './js/koi/auth/login_ui.js?v=13';
-  import { onAuth, logout } from './js/koi/auth/auth.js?v=13';
+  import { montarPerfil } from './js/koi/auth/perfil_ui.js?v=13';
   let cargada = false;
   const entrar = () => { if (cargada) return; cargada = true; import('./js/koi/boot.js?v=13'); };
   montarPuertaAuth({ onEntrar: entrar });
-  // Correo + botón "Salir" en la barra (reemplaza el badge "Licencia demo").
-  onAuth((s) => {
-    const el = document.getElementById('brand-sub'); if (!el) return;
-    if (s?.user) {
-      el.innerHTML = `<span class="brand-user" title="${s.user.email}">${s.user.email}</span>` +
-        ` <button id="koi-logout" type="button" title="Cerrar sesión">Salir</button>`;
-      el.querySelector('#koi-logout').addEventListener('click', async () => { await logout(); location.reload(); });
-    } else { el.textContent = ''; }
-  });
+  // Control de PERFIL a la derecha del menubar: correo + organización + menú
+  // (Configuración / Cambiar tema / Ayuda / Cerrar sesión).
+  montarPerfil();
 </script>
 <script>
   if ('serviceWorker' in navigator && !navigator.webdriver) {

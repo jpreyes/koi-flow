@@ -27,6 +27,16 @@ export async function orgActiva() {
   return (_org = rows[0].org_id);
 }
 
+// Organización del usuario con nombre + rol (para el menú de perfil). null si no tiene.
+export async function perfilOrg() {
+  const res = await fetch(`${REST_URL}/org_members?select=rol,org:orgs(id,nombre)&limit=1`, { headers: await _h() });
+  if (!res.ok) throw await _err(res, 'No se pudo leer la organización');
+  const rows = await res.json();
+  if (!rows.length) return null;
+  const o = rows[0];
+  return { id: o.org?.id || null, nombre: o.org?.nombre || '—', rol: o.rol };
+}
+
 // Lista de proyectos en la nube (RLS: solo los de tus orgs), más reciente primero.
 export async function listarNube() {
   const res = await fetch(`${REST_URL}/projects?select=id,nombre,storage_path,actualizado&order=actualizado.desc`, { headers: await _h() });
