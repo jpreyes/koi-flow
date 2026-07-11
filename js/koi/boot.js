@@ -425,6 +425,8 @@ async function startBoot() {
     'proj-nuevo': () => capas._nuevoProyecto(),
     'proj-abrir': () => treeQ('#cap-proj')?.click(),
     'proj-guardar': () => capas.guardarProyecto(),
+    'nube-guardar': () => capas.guardarEnNube(),
+    'nube-abrir': () => capas.abrirNubeDialog(),
     'importar': () => treeQ('#cap-file')?.click(),
     'bati': () => { dock.show('hidraulica'); setTimeout(() => bati.body?.querySelector('#bp-file')?.click(), 60); },
     'informe': () => generarInforme(window.__koi),

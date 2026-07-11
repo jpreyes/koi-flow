@@ -513,6 +513,29 @@ export class Capas {
       toast(`Proyecto abierto de la nube: ${project.nombre}.`, 'ok');
     } catch (e) { toast('No se pudo abrir de la nube: ' + e.message, 'error'); }
   }
+
+  // Diálogo "Abrir de la nube" (para el menú Archivo): lista los proyectos cloud y abre el elegido.
+  async abrirNubeDialog() {
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5)';
+    ov.innerHTML = `<div style="width:min(440px,92vw);max-height:80vh;overflow:auto;background:var(--panel,#171b22);color:var(--fg,#e6e9ef);border:1px solid var(--border,#2a2f3a);border-radius:12px;padding:18px 20px;box-shadow:0 20px 60px rgba(0,0,0,.5)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <b>☁ Abrir de la nube</b><button class="koi-nd-x" title="Cerrar" style="background:0;border:0;color:inherit;font-size:22px;line-height:1;cursor:pointer">×</button></div>
+      <div class="koi-nd-list" style="font-size:14px">Cargando…</div></div>`;
+    document.body.appendChild(ov);
+    const cerrar = () => ov.remove();
+    ov.querySelector('.koi-nd-x').addEventListener('click', cerrar);
+    ov.addEventListener('click', (e) => { if (e.target === ov) cerrar(); });
+    const list = ov.querySelector('.koi-nd-list');
+    try {
+      const { listarNube } = await import('../auth/proyectos_nube.js?v=13');
+      const rows = await listarNube();
+      if (!rows.length) { list.innerHTML = '<div style="color:var(--muted,#8b93a3);padding:8px 0">Sin proyectos en la nube todavía. Usá «Guardar en la nube» primero.</div>'; return; }
+      list.innerHTML = rows.map((p) => `<div class="koi-nd-row" data-id="${p.id}" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--border,#2a2f3a);border-radius:8px;margin-bottom:6px;cursor:pointer">
+        <span>${p.nombre}</span><span style="color:var(--muted,#8b93a3);font-size:12px">${(p.actualizado || '').slice(0, 10)}</span></div>`).join('');
+      list.querySelectorAll('.koi-nd-row').forEach((r) => r.addEventListener('click', () => { cerrar(); this.abrirDeNube(rows.find((x) => x.id === r.dataset.id)); }));
+    } catch (e) { list.innerHTML = `<div style="color:#f4859b;padding:8px 0">Nube no disponible: ${e.message}</div>`; }
+  }
   _renombrarProyecto() {
     const cur = this.project?.name || '';
     const name = prompt('Nombre del proyecto:', cur);
