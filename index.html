@@ -29,7 +29,7 @@
     <div class="brand">
       <img class="brand-mark" src="icons/koi-symbol.svg" alt="Koi-Flow" width="26" height="26">
       <span class="brand-word"><span class="w-koi">Koi</span><span class="w-flow">Flow</span></span>
-      <span class="brand-sub">Licencia demo</span>
+      <span class="brand-sub" id="brand-sub"></span>
     </div>
     <nav id="appmenu" aria-label="Menú principal">
       <div class="menu" data-menu="archivo"><button class="menu-btn" type="button">Archivo</button>
@@ -141,7 +141,23 @@
     d.dataset.theme = next; try { localStorage.setItem('koi_theme', next); } catch (e) {}
   };
 </script>
-<script type="module" src="js/koi/boot.js?v=13"></script>
+<script type="module">
+  // Puerta de acceso (Fase A): la app (boot.js) SOLO se carga con sesión válida.
+  import { montarPuertaAuth } from './js/koi/auth/login_ui.js?v=13';
+  import { onAuth, logout } from './js/koi/auth/auth.js?v=13';
+  let cargada = false;
+  const entrar = () => { if (cargada) return; cargada = true; import('./js/koi/boot.js?v=13'); };
+  montarPuertaAuth({ onEntrar: entrar });
+  // Correo + botón "Salir" en la barra (reemplaza el badge "Licencia demo").
+  onAuth((s) => {
+    const el = document.getElementById('brand-sub'); if (!el) return;
+    if (s?.user) {
+      el.innerHTML = `<span class="brand-user" title="${s.user.email}">${s.user.email}</span>` +
+        ` <button id="koi-logout" type="button" title="Cerrar sesión">Salir</button>`;
+      el.querySelector('#koi-logout').addEventListener('click', async () => { await logout(); location.reload(); });
+    } else { el.textContent = ''; }
+  });
+</script>
 <script>
   if ('serviceWorker' in navigator && !navigator.webdriver) {
     window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
