@@ -48,12 +48,12 @@ export class Dock {
     wrap.innerHTML = `
       <div class="dock-win">
         <div class="dock-resize" title="Arrastra para redimensionar"></div>
-        <nav class="dock-tabs">
+        <nav class="dock-tabs" style="display:none">
           ${TABS.map((t) => `<button class="dock-tab" data-tab="${t.key}" title="${t.label}">${t.label}</button>`).join('')}
         </nav>
         <div class="dock-main">
           <div class="dock-topbar">
-            <div class="dock-sub"></div>
+            <div class="dock-head"><span class="dock-title" style="font-weight:600;margin-right:8px"></span><span class="dock-sub"></span></div>
             <div class="dock-winctl">
               <button class="dock-exp" title="Expandir / contraer ancho">⤢</button>
               <button class="dock-close" title="Cerrar panel">✕</button>
@@ -68,6 +68,7 @@ export class Dock {
     this.el = wrap;
     this.win = wrap.querySelector('.dock-win');
     this.subEl = wrap.querySelector('.dock-sub');
+    this.titleEl = wrap.querySelector('.dock-title');
     for (const h of HOST_KEYS) this.hosts[h] = wrap.querySelector(`[data-body="${h}"]`);
 
     wrap.querySelectorAll('.dock-tab').forEach((b) => b.addEventListener('click', () => {
@@ -118,6 +119,8 @@ export class Dock {
     this.activeTab = tabKey;
     this.el.querySelectorAll('.dock-tab').forEach((b) => b.classList.toggle('active', b.dataset.tab === tabKey));
     this.el.querySelectorAll('.dock-group').forEach((g) => g.classList.toggle('show', g.dataset.group === tabKey));
+    // El menú superior es la única navegación: el dock solo rotula QUÉ workspace muestra.
+    if (this.titleEl) this.titleEl.textContent = (TABS.find((t) => t.key === tabKey) || {}).label || '';
     this.open();
   }
 
