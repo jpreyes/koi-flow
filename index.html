@@ -61,35 +61,64 @@
           <div class="menu-sep"></div>
           <button class="menu-item" data-action="tema">Cambiar tema (claro / oscuro)</button>
         </div></div>
-      <div class="menu" data-menu="analisis"><button class="menu-btn" type="button">Análisis</button>
-        <div class="menu-dd menu-dd-wide">
-          <div class="menu-grp">Espacios de trabajo</div>
-          <button class="menu-item" data-action="tab-cuenca">Cuenca y morfometría</button>
-          <button class="menu-item" data-action="tab-hidro">Hidrología</button>
-          <button class="menu-item" data-action="tab-hidraulica">Hidráulica (batimetría · 1D / 2D)</button>
-          <button class="menu-item" data-action="tab-estructuras">Estructuras (puentes / alcantarillas)</button>
-          <div class="menu-grp">Crecidas y tránsito</div>
+      <div class="menu" data-menu="gis"><button class="menu-btn" type="button">GIS</button>
+        <div class="menu-dd">
+          <button class="menu-item" data-action="cuenca-delinear">Delinear cuenca</button>
+          <button class="menu-item" data-action="afluentes-punto">Red de drenaje / afluentes</button>
+          <div class="menu-sep"></div>
+          <button class="menu-item" data-action="add-punto">Agregar punto de análisis</button>
+          <button class="menu-item" data-action="add-etiqueta">Agregar etiqueta referencial…</button>
+          <button class="menu-item" data-action="importar">Importar KMZ / KML…</button>
+          <div class="menu-sep"></div>
+          <button class="menu-item" data-action="estaciones-dga">Estaciones DGA cercanas</button>
+        </div></div>
+      <div class="menu" data-menu="hidrologia"><button class="menu-btn" type="button">Hidrología</button>
+        <div class="menu-dd">
+          <button class="menu-item" data-action="frecuencia">Frecuencia de estaciones</button>
+          <div class="menu-sep"></div>
           <button class="menu-item" data-action="tormenta">Tormenta de diseño (hietograma)</button>
           <button class="menu-item" data-action="convolucion">Hidrograma de crecida (HU)</button>
           <button class="menu-item" data-action="routing">Tránsito en cauce (Muskingum)</button>
           <button class="menu-item" data-action="embalse">Embalse (laminación de crecida)</button>
           <button class="menu-item" data-action="red">Red de cuencas (HMS-lite)</button>
-          <div class="menu-grp">Hidrología continua</div>
+          <div class="menu-sep"></div>
           <button class="menu-item" data-action="continuo">Continua + deshielo (HMS-lite)</button>
           <button class="menu-item" data-action="calibracion">Calibración (Nelder-Mead)</button>
           <button class="menu-item" data-action="modclark">ModClark grillado (HMS-lite)</button>
-          <div class="menu-grp">Obras hidráulicas</div>
+        </div></div>
+      <div class="menu" data-menu="hidraulica"><button class="menu-btn" type="button">Hidráulica</button>
+        <div class="menu-dd">
+          <button class="menu-item" data-action="remanso1d">Secciones y eje 1D</button>
+          <button class="menu-item" data-action="malla2d">Malla 2D</button>
+          <button class="menu-item" data-action="inun1d">Inundación 1D → 2D</button>
+        </div></div>
+      <div class="menu" data-menu="estructuras"><button class="menu-btn" type="button">Estructuras</button>
+        <div class="menu-dd">
+          <button class="menu-item" data-action="estructuras-place">Colocar estructura (2D)</button>
           <button class="menu-item" data-action="alcantarilla">Alcantarilla (FHWA HDS-5)</button>
           <button class="menu-item" data-action="puente-presion">Puente (presión / vertedero)</button>
+        </div></div>
+      <div class="menu" data-menu="socavacion"><button class="menu-btn" type="button">Socavación</button>
+        <div class="menu-dd">
           <button class="menu-item" data-action="enrocado">Enrocado / defensas (MC 3.708)</button>
           <button class="menu-item" data-action="verificaciones">Verificaciones (período T · revancha)</button>
-          <button class="menu-item" data-action="sismo-estribo">Sísmica de estribos (Mononobe-Okabe)</button>
-          <div class="menu-grp">Sedimentos y lecho</div>
           <button class="menu-item" data-action="degradacion">Degradación a largo plazo</button>
           <button class="menu-item" data-action="morfo1d">Lecho móvil 1D (evolución)</button>
-          <div class="menu-grp">Riesgo y rotura</div>
+          <button class="menu-item" data-action="sismo-estribo">Sísmica de estribos (Mononobe-Okabe)</button>
+        </div></div>
+      <div class="menu" data-menu="riesgo"><button class="menu-btn" type="button">Riesgo</button>
+        <div class="menu-dd">
           <button class="menu-item" data-action="colocar-presa">Colocar presa / depósito (vaso desde DEM)</button>
           <button class="menu-item" data-action="breach">Rotura de presa / relaves (Froehlich)</button>
+        </div></div>
+      <div class="menu" data-menu="correr"><button class="menu-btn" type="button">Correr</button>
+        <div class="menu-dd">
+          <div class="menu-grp">Configurá y calculá</div>
+          <button class="menu-item" data-action="remanso1d">Eje hidráulico 1D</button>
+          <button class="menu-item" data-action="difusiva2d">2D · onda difusiva</button>
+          <button class="menu-item" data-action="transiente2d">2D · transiente</button>
+          <button class="menu-item" data-action="momentum2d">2D · momentum (Saint-Venant)</button>
+          <button class="menu-item" data-action="morfo2d">2D · morfología (Exner)</button>
         </div></div>
       <div class="menu" data-menu="ayuda"><button class="menu-btn" type="button">Ayuda</button>
         <div class="menu-dd">
