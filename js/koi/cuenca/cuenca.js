@@ -28,7 +28,7 @@ export async function delinearAuto(lon, lat, opts = {}, onProgress) {
     onProgress?.(`Descargando relieve (±${(half * 111).toFixed(0)} km)…`);
     grid = await fetchDEM(bbox, { maxDim });           // baja sus propios tiles (con fallback de zoom)
     onProgress?.(`Delineando cuenca (z${grid.zoom}, ${grid.nx}×${grid.ny}, ±${(half * 111).toFixed(0)} km)…`);
-    res = delinear(grid, lon, lat, { snapMeters: opts.snapMeters ?? 300, canalKm2: opts.canalKm2 ?? 0.05 });
+    res = delinear(grid, lon, lat, { snapMeters: opts.snapMeters ?? 300, canalKm2: opts.canalKm2 ?? 0.05, mainChannel: opts.mainChannel });
     // mientras la cuenca TOQUE el borde, amplía (sin truncar) hasta tamaño región
     if (res.tocaBorde && half < maxHalf) { half *= 2.2; continue; }
     break;

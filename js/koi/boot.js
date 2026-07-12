@@ -261,8 +261,11 @@ async function startBoot() {
     capas.render();
   };
   // Área de la cuenca de una estación de control (Apc) por delineación automática.
+  // Área de una estación de CONTROL fluviométrico (para la transposición): se engancha
+  // al CAUCE PRINCIPAL (máx acumulación, radio amplio) — la estación está sobre el río,
+  // no en un tributario. Sin esto, snappeaba a un canal minúsculo y el Apc salía absurdo.
   hydro.delinearArea = async (lon, lat, onProgress) => {
-    const r = await delinearAuto(lon, lat, {}, onProgress);
+    const r = await delinearAuto(lon, lat, { mainChannel: true, snapMeters: 1500 }, onProgress);
     return r?.morfometria?.A ?? null;
   };
   // Devuelve una grilla DEM (formato fetchDEM) para el tramo, bajándola si hace falta.

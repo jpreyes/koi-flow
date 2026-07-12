@@ -339,8 +339,13 @@ export function delinearEnGrid(grid, rout, lon, lat, opts = {}) {
   const cs = cellSize(grid); const avg = (cs.dx + cs.dy) / 2;
   const radius = Math.max(1, Math.round((opts.snapMeters ?? 60) / avg));
   const minCells = Math.max(2, Math.round((opts.canalKm2 ?? 0.05) / ((avg * avg) / 1e6)));
+  // mainChannel: engancha al CAUCE PRINCIPAL (máx acumulación en el radio), no al
+  // primer canal que cruce el umbral. Clave para estaciones de control fluviométrico:
+  // están SOBRE el río, y snappear a un tributario minúsculo daba un área de control
+  // absurdamente chica → la transposición inflaba el caudal (riachuelo → miles de m³/s).
+  const mc = opts.mainChannel ? 0 : (opts.snapMeters === 0 ? 0 : minCells);
   const outlet = opts.snap === false ? row * grid.nx + col
-    : snapOutlet(grid, accum, col, row, radius, opts.snapMeters === 0 ? 0 : minCells);
+    : snapOutlet(grid, accum, col, row, radius, mc);
   const { mask, count } = watershed(grid, recv, outlet);
   const polygon = maskToPolygon(grid, mask);
   const morf = morfometria(grid, elev, recv, accum, mask, outlet, polygon);
