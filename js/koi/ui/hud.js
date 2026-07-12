@@ -7,6 +7,8 @@
 // Inspirado en el HUD flotante de wind-shm (jpreyes). Solo DOM/overlay.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { emit } from './bus.js?v=13';
+
 let _z = 40;   // z-index incremental para traer al frente
 
 export class Hud {
@@ -19,6 +21,7 @@ export class Hud {
       <div class="hud-head">
         <span class="hud-title">${title || ''}</span>
         <div class="hud-ctl">
+          <button class="hud-btn hud-help" title="Ayuda de esta herramienta">?</button>
           <button class="hud-btn hud-min" title="Minimizar">–</button>
           <button class="hud-btn hud-close" title="Cerrar">✕</button>
         </div>
@@ -33,11 +36,13 @@ export class Hud {
     elw.addEventListener('mousedown', () => this.focus(), true);
     elw.querySelector('.hud-close').addEventListener('click', () => this.close());
     elw.querySelector('.hud-min').addEventListener('click', () => this.toggleMin());
+    // "?" → abre la ayuda contextual de esta herramienta en el panel derecho.
+    elw.querySelector('.hud-help').addEventListener('click', () => emit('ayuda:abrir', { id: this.id, title: this.titleEl.textContent }));
     this._wireDrag();
     this._wireResize();
   }
 
-  focus() { this.el.style.zIndex = ++_z; this.onFocus?.(this); }
+  focus() { this.el.style.zIndex = ++_z; this.onFocus?.(this); emit('ayuda:foco', { id: this.id, title: this.titleEl.textContent }); }
   setTitle(t) { this.titleEl.textContent = t || ''; }
   setBody(html) { this.bodyEl.innerHTML = html; this._restaurarForm(); }
   get body() { return this.bodyEl; }

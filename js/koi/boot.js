@@ -276,6 +276,8 @@ async function startBoot() {
   const scene = new SceneView($('viewport-container'));
   const dock = new Dock($('main') || document.body);
   dock.map = map.map;
+  // Fase E: panel derecho = ayuda contextual de la herramienta con foco.
+  import('./ui/ayuda_contexto.js?v=13').then((m) => m.montarAyudaContextual(dock, huds));
   // Layout del grid #main lo maneja JS (var() no resuelve en grid-template en este motor).
   let treeW = 270, dockW = 34;
   const applyGrid = () => { $('main').style.gridTemplateColumns = `${treeW}px 6px minmax(0,1fr) ${dockW}px`; map.map.invalidateSize(); };
@@ -435,6 +437,7 @@ async function startBoot() {
     'add-etiqueta': () => capas._colocarEtiqueta(),
     'dibujar-tramo': () => capas._dibujarTramo?.(),
     'config': () => abrirConfigHUD(huds),
+    'panel-ayuda': () => dock.show('ayuda'),
     'ver-2d': () => setMode('2d'),
     'ver-3d': () => { if (current && tieneRelieve(current)) { setMode('3d'); load3D(current); } else setMode('3d'); },
     'tema': () => window.__koiToggleTheme?.(),

@@ -241,6 +241,19 @@ body { font: 14px/1.45 system-ui, "Segoe UI", Roboto, sans-serif; background: va
   border-right: 2px solid var(--text2); border-bottom: 2px solid var(--text2); border-radius: 0 0 3px 0; opacity: .6; }
 .hud-note { font-size: 11px; color: var(--text2); margin: 6px 0 0; }
 
+/* Panel de ayuda contextual (Fase E) */
+.ay-wrap { padding: 4px 2px; font-size: 13px; }
+.ay-hd { display: flex; align-items: center; gap: 7px; font-weight: 700; font-size: 14px; margin-bottom: 8px; }
+.ay-hd .ti { color: var(--accent); }
+.ay-d { color: var(--text); line-height: 1.45; margin: 0 0 10px; }
+.ay-sec { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--text2); margin: 12px 0 4px; }
+.ay-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; line-height: 1.4; }
+.ay-list li { color: var(--text); }
+.ay-norm li { color: var(--accent); }
+.ay-steps li { color: var(--text); }
+.ay-foot { margin-top: 14px; padding-top: 8px; border-top: 1px solid color-mix(in srgb, var(--text2) 16%, transparent); font-size: 11px; color: var(--text2); }
+.ay-foot code, .ay-wrap code { background: var(--bg3); border-radius: 4px; padding: 1px 5px; font-size: 11px; }
+
 /* Diálogo "Correr" (pre-vuelo tipo HEC-RAS Compute) */
 .cr-hd { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--text2); margin: 12px 0 5px; }
 .cr-plan .cr-hd { margin-top: 0; }
