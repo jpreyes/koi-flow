@@ -62,7 +62,9 @@ function render(hud, estado) {
   const excl = estado.excluidos || (estado.excluidos = new Set());
   const activos = pares.filter((p) => !excl.has(p[0]));   // solo los años ELEGIDOS
   if (activos.length < 3) {
-    hud.setBody(metaHTML(est) + '<p class="hud-note">Serie insuficiente (mín. 3 años activos). Edita, importa o re-incluye años:</p>' + `${barras(pares, uni, excl)}` + editorHTML(pares, uni));
+    const gb0 = pares.length >= 4 ? grubbsBeck(pares.map((p) => p[1])) : null;
+    hud.setBody(metaHTML(est) + '<p class="hud-note">Serie insuficiente (mín. 3 años activos). Re-incluye años (desmarca «Descartar»), edita o importa:</p>' +
+      barras(pares, uni, excl, gb0) + tablaSerie(pares, uni, excl, gb0) + addRowHTML(uni) + editorAvanzado(pares, uni));
     wire(hud, estado); return;
   }
   const vals = activos.map((p) => p[1]);
@@ -85,9 +87,11 @@ function render(hud, estado) {
   const gb = grubbsBeck(vals);
   const altos = activos.filter((p) => gb.esAlto?.(p[1])).map((p) => p[0]);
   const bajos = activos.filter((p) => gb.esBajo?.(p[1])).map((p) => p[0]);
-  html += `<div class="hud-sec">Máximos anuales (${uni}) · clic en una barra = descartar/incluir</div>${barras(pares, uni, excl, gb)}`;
-  if (gb.KN != null) html += `<p class="hud-note">Datos dudosos <b>Grubbs-Beck</b> (umbral alto ${f(gb.XH)} · bajo ${f(gb.XL)} ${uni})${altos.length ? ` · <b style="color:var(--coral,#ef6c5a)">altos: ${altos.join(', ')}</b>` : ''}${bajos.length ? ` · <b style="color:var(--accent)">bajos: ${bajos.join(', ')}</b>` : ''}${!altos.length && !bajos.length ? ' · ninguno' : ' — evalúa descartarlos (clic en la barra)'}.</p>`;
-  html += editorHTML(pares, uni);
+  html += `<div class="hud-sec">Serie de máximos anuales (${uni})</div>${barras(pares, uni, excl, gb)}`;
+  if (gb.KN != null) html += `<p class="hud-note">Control estadístico <b>Grubbs-Beck</b> (Bulletin 17B): umbral alto ${f(gb.XH)} · bajo ${f(gb.XL)} ${uni}${altos.length ? ` · <b style="color:var(--coral,#ef6c5a)">atípicos altos: ${altos.join(', ')}</b>` : ''}${bajos.length ? ` · <b style="color:var(--accent)">bajos: ${bajos.join(', ')}</b>` : ''}${!altos.length && !bajos.length ? ' · sin atípicos' : ''}.</p>`;
+  html += tablaSerie(pares, uni, excl, gb, an.stats.mean, an.stats.std);
+  html += `<p class="hud-note"><b>${activos.length}</b> de ${pares.length} años activos${excl.size ? ` · ${excl.size} descartado(s)` : ''}. Marca <b>Descartar</b> para excluir un año del análisis; la columna <b>Control</b> marca los atípicos (Grubbs-Beck sobre los años activos). Edita un valor escribiéndolo en la celda.</p>`;
+  html += addRowHTML(uni) + editorAvanzado(pares, uni);
   html += `<div class="hud-sec">Distribución que gobierna</div>
     <select id="est-dist" class="hud-select">
       <option value="auto"${estado.dist === 'auto' ? ' selected' : ''}>Automática (mejor ajuste: ${DIST[an.mejor]})</option>
@@ -105,25 +109,71 @@ function render(hud, estado) {
   wire(hud, estado);
 }
 
-// Editor de la serie: textarea + importar/exportar/recalcular.
-function editorHTML(pares, uni) {
+// Grilla interactiva de la serie: una fila por año con valor editable, desviación
+// en σ, control estadístico (Grubbs-Beck) y tick de descarte. Reemplaza al textarea
+// como superficie principal de edición. `gb`, `mean`, `std` son opcionales.
+function tablaSerie(pares, uni, excl, gb, mean, std) {
+  const hayZ = isFinite(mean) && isFinite(std) && std > 0;
+  const rows = pares.map(([yr, v]) => {
+    const off = excl.has(yr);
+    const alto = !off && gb?.esAlto?.(v), bajo = !off && gb?.esBajo?.(v);
+    const cls = off ? 'off' : alto ? 'alto' : bajo ? 'bajo' : '';
+    const z = hayZ ? (v - mean) / std : null;
+    const zTxt = z == null ? '—' : `${z >= 0 ? '+' : ''}${z.toFixed(1)}σ`;
+    const zCls = z != null && Math.abs(z) >= 2 ? 'est-z hot' : 'est-z';
+    const badge = off ? '<span class="est-badge n">descartado</span>'
+      : alto ? '<span class="est-badge a">atípico alto</span>'
+      : bajo ? '<span class="est-badge b">atípico bajo</span>'
+      : gb ? '<span class="est-badge n">normal</span>' : '<span class="est-badge n">—</span>';
+    return `<tr class="${cls}" data-year="${yr}">
+      <td>${yr}</td>
+      <td><input class="est-val" data-year="${yr}" type="number" step="0.1" value="${v}" aria-label="Valor año ${yr}"></td>
+      <td class="${zCls}">${zTxt}</td>
+      <td>${badge}</td>
+      <td><input class="est-chk" data-year="${yr}" type="checkbox"${off ? ' checked' : ''} aria-label="Descartar año ${yr}"></td>
+      <td><span class="est-del" data-year="${yr}" title="Eliminar el año de la serie">✕</span></td>
+    </tr>`;
+  }).join('');
+  return `<div class="est-grid-wrap"><table class="est-grid">
+    <thead><tr>
+      <th>Año</th><th>Valor ${uni}</th>
+      <th title="Desviación respecto a la media, en desviaciones estándar σ">Desv.</th>
+      <th>Control</th><th title="Marca para excluir del análisis">Descartar</th><th></th>
+    </tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+// Alta rápida de un año + acceso a CSV / pegado masivo (queda como avanzado).
+function addRowHTML(uni) {
+  return `<div class="est-add">
+    <label class="cr-f"><span>Agregar año</span><input id="est-y" type="number" placeholder="2024"></label>
+    <label class="cr-f"><span>Valor (${uni})</span><input id="est-v" type="number" step="0.1"></label>
+    <button class="bp-b" id="est-add" style="flex:0 0 auto">＋ Agregar</button>
+  </div>
+  <div class="bp-btns" style="margin-top:8px">
+    <button class="bp-b" id="est-import">📥 Importar CSV</button>
+    <button class="bp-b" id="est-export">⬇ Exportar CSV</button>
+  </div>
+  <input type="file" id="est-csv" accept=".csv,.txt" hidden>`;
+}
+
+// Pegado masivo (Excel/CSV) — colapsado, para reemplazar la serie completa de una vez.
+function editorAvanzado(pares, uni) {
   const txt = pares.map(([y, v]) => `${y}\t${v}`).join('\n');
-  return `<details class="bp-det" style="margin-top:8px"><summary>✎ Ver / editar / importar datos (${uni})</summary>
+  return `<details class="bp-det" style="margin-top:8px"><summary>Pegar serie completa (Excel / CSV)</summary>
     <div class="bp-det-body">
-      <p class="hud-note">Un año por línea: <code>año valor</code> (separador: espacio, coma o tab). Pega desde Excel/CSV o edita a mano.</p>
-      <textarea id="est-datos" class="est-ta" spellcheck="false" rows="7">${txt}</textarea>
+      <p class="hud-note">Un año por línea: <code>año valor</code> (separador: espacio, coma o tab). Reemplaza toda la serie.</p>
+      <textarea id="est-datos" class="est-ta" spellcheck="false" rows="6">${txt}</textarea>
       <div class="bp-btns" style="margin-top:6px">
-        <button class="bp-b" id="est-recalc">↻ Recalcular</button>
-        <button class="bp-b" id="est-import">📥 Importar CSV</button>
-        <button class="bp-b" id="est-export">⬇ Exportar CSV</button>
+        <button class="bp-b" id="est-recalc">↻ Aplicar pegado (${uni})</button>
       </div>
-      <div class="cr-form" style="margin-top:8px;grid-template-columns:1fr 1fr auto;align-items:end">
-        <label class="cr-f"><span>Año</span><input id="est-y" type="number" placeholder="2024"></label>
-        <label class="cr-f"><span>Valor (${uni})</span><input id="est-v" type="number" step="0.1"></label>
-        <button class="bp-b" id="est-add">＋ Agregar año</button>
-      </div>
-      <input type="file" id="est-csv" accept=".csv,.txt" hidden>
     </div></details>`;
+}
+
+// Registra en dga.js la serie ACTIVA (sin los años descartados) → la usan este HUD
+// Y todo el pipeline (cargarSerie devuelve el override).
+function commit(estado) {
+  const activos = estado.pares.filter((p) => !estado.excluidos.has(p[0]));
+  if (activos.length >= 3) setSerieOverride(estado.est, Object.fromEntries(activos));
 }
 
 function wire(hud, estado) {
@@ -133,13 +183,26 @@ function wire(hud, estado) {
     setDistOverride(estado.est, estado.dist);   // el pipeline usará esta distribución
     render(hud, estado);
   });
-  // Clic en una barra = descartar/incluir ese año. El pipeline usa solo los activos.
-  hud.body.querySelectorAll('.est-bar').forEach((r) => r.addEventListener('click', () => {
-    const yr = +r.dataset.year;
+  const toggle = (yr) => {
     if (estado.excluidos.has(yr)) estado.excluidos.delete(yr); else estado.excluidos.add(yr);
-    const activos = estado.pares.filter((p) => !estado.excluidos.has(p[0]));
-    if (activos.length >= 3) setSerieOverride(estado.est, Object.fromEntries(activos));
-    render(hud, estado);
+    commit(estado); render(hud, estado);
+  };
+  // Descartar/incluir: checkbox de la grilla o clic en la barra del gráfico (equivalentes).
+  hud.body.querySelectorAll('.est-chk').forEach((c) => c.addEventListener('change', () => toggle(+c.dataset.year)));
+  hud.body.querySelectorAll('.est-bar').forEach((r) => r.addEventListener('click', () => toggle(+r.dataset.year)));
+  // Editar un valor inline (se aplica al salir de la celda / Enter).
+  hud.body.querySelectorAll('.est-val').forEach((inp) => inp.addEventListener('change', () => {
+    const yr = +inp.dataset.year, v = parseFloat(inp.value);
+    if (!isFinite(v)) { render(hud, estado); return; }
+    estado.pares = estado.pares.map((p) => (p[0] === yr ? [yr, v] : p));
+    commit(estado); render(hud, estado);
+  }));
+  // Eliminar un año de la serie (distinto de descartar: lo saca del registro).
+  hud.body.querySelectorAll('.est-del').forEach((d) => d.addEventListener('click', () => {
+    const yr = +d.dataset.year;
+    estado.pares = estado.pares.filter((p) => p[0] !== yr);
+    estado.excluidos.delete(yr);
+    commit(estado); render(hud, estado);
   }));
   $('#hud-hidro')?.addEventListener('click', () => estado.onLink?.(estado.est));
 
@@ -147,24 +210,26 @@ function wire(hud, estado) {
     const nuevos = parsearTexto($('#est-datos')?.value || '');
     if (nuevos.length < 3) { alert('Se necesitan al menos 3 años válidos.'); return; }
     estado.pares = nuevos;
-    // Registra el override en dga.js → lo usan este HUD Y el pipeline (cargarSerie).
-    setSerieOverride(estado.est, Object.fromEntries(nuevos));
+    setSerieOverride(estado.est, Object.fromEntries(nuevos.filter((p) => !estado.excluidos.has(p[0]))));
     render(hud, estado);
   };
   $('#est-recalc')?.addEventListener('click', recalc);
-  // Agregar (o reemplazar) un año puntual sin editar el textarea.
+  // Agregar (o reemplazar) un año puntual.
   $('#est-add')?.addEventListener('click', () => {
     const y = parseInt($('#est-y')?.value, 10), v = parseFloat($('#est-v')?.value);
     if (!isFinite(y) || !isFinite(v)) { alert('Ingresa un año y un valor válidos.'); return; }
     estado.pares = estado.pares.filter((p) => p[0] !== y).concat([[y, v]]).sort((a, b) => a[0] - b[0]);
     estado.excluidos.delete(y);
-    setSerieOverride(estado.est, Object.fromEntries(estado.pares.filter((p) => !estado.excluidos.has(p[0]))));
-    render(hud, estado);
+    commit(estado); render(hud, estado);
   });
   $('#est-import')?.addEventListener('click', () => $('#est-csv')?.click());
   $('#est-csv')?.addEventListener('change', async (e) => {
     const file = e.target.files?.[0]; if (!file) return;
-    const ta = $('#est-datos'); if (ta) { ta.value = await file.text(); recalc(); }
+    const nuevos = parsearTexto(await file.text());
+    if (nuevos.length < 3) { alert('El CSV debe tener al menos 3 años válidos.'); return; }
+    estado.pares = nuevos;
+    setSerieOverride(estado.est, Object.fromEntries(nuevos.filter((p) => !estado.excluidos.has(p[0]))));
+    render(hud, estado);
   });
   $('#est-export')?.addEventListener('click', () => {
     const csv = 'anio,valor\n' + estado.pares.map(([y, v]) => `${y},${v}`).join('\n');
