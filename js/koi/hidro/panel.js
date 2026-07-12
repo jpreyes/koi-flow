@@ -218,6 +218,13 @@ export class HydroPanel {
     if (p.cuenca?.morfometria) {
       const m = p.cuenca.morfometria;
       const sCu = this._section('Cuenca aportante (delineada)', { cls: 'gov', txt: `DEM z${p.cuenca.grid?.zoom ?? '?'}` });
+      // Acciones SIEMPRE visibles (no se esconden al existir la cuenca): recalcular / borrar.
+      const cuActs = el('div'); cuActs.style.cssText = 'display:flex;gap:8px;margin:0 0 8px';
+      const bRe = el('button', 'hp-run', '↻ Recalcular cuenca'); bRe.style.margin = '0';
+      bRe.addEventListener('click', () => this.recalcularCuenca(p));
+      const bDel = el('button', 'hp-mini-btn', '🗑 Borrar cuenca');
+      bDel.addEventListener('click', () => { if (!confirm('¿Borrar la cuenca de este punto? Podés recalcularla cuando quieras.')) return; this.map?.clearCuenca(p.id); p.cuenca = null; this._renderCuenca(p); });
+      cuActs.appendChild(bRe); cuActs.appendChild(bDel); sCu.appendChild(cuActs);
       sCu.appendChild(el('div', 'hp-kv', `
         <div><span>Punto</span><b>${p.nombre}</b></div>
         <div><span>Área</span><b>${m.A} km²</b></div>
@@ -239,7 +246,7 @@ export class HydroPanel {
       const exp = el('div', 'hp-dl');
       exp.innerHTML = `<button class="hp-mini-btn" data-x="suav">〰️ Suavizar / re-aplicar</button>
         ${suave ? '<button class="hp-mini-btn" data-x="nosuav">↩ Sin suavizar</button>' : ''}
-        <button class="hp-mini-btn" data-x="shp">⬇ Shapefile</button><button class="hp-mini-btn" data-x="kmz">⬇ KMZ</button><button class="hp-mini-btn" data-x="geojson">⬇ GeoJSON</button><button class="hp-mini-btn" data-x="re">↻ Recalcular</button>`;
+        <button class="hp-mini-btn" data-x="shp">⬇ Shapefile</button><button class="hp-mini-btn" data-x="kmz">⬇ KMZ</button><button class="hp-mini-btn" data-x="geojson">⬇ GeoJSON</button>`;
       sCu.appendChild(exp);
       const base = `cuenca_${String(p.nombre).replace(/\s+/g, '_')}`;
       const props = { nombre: p.nombre, area_km2: m.A, L_km: m.L, S: m.S, H_m: m.H, suavizado: suave ? 'si' : 'no' };
@@ -260,7 +267,6 @@ export class HydroPanel {
       exp.querySelector('[data-x="shp"]').addEventListener('click', () => descargar(`${base}_shp.zip`, cuencaShapefileZip(polyExp, props, base)));
       exp.querySelector('[data-x="kmz"]').addEventListener('click', () => descargar(`${base}.kmz`, cuencaKMZ(polyExp, props)));
       exp.querySelector('[data-x="geojson"]').addEventListener('click', () => descargar(`${base}.geojson`, JSON.stringify(cuencaGeoJSON(polyExp, props), null, 1), 'application/geo+json'));
-      exp.querySelector('[data-x="re"]').addEventListener('click', () => this.recalcularCuenca(p));
 
       // ── Tiempo de concentración (todos los métodos) ──────────────────────────
       const sTc = this._section('Tiempo de concentración');
