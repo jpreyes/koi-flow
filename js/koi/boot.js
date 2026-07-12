@@ -41,6 +41,7 @@ import { abrirSismoEstriboHUD } from './hidraulica/sismo_estribo_ui.js?v=13';
 import { Flujo2D } from './hidraulica/panel2d.js?v=13';
 import { EstructurasPanel } from './estructuras/panel.js?v=13';
 import { abrirEstructurasHUD } from './estructuras/estructuras_hud.js?v=13';
+import { DockShim } from './ui/dock_shim.js?v=13';
 import { delinearAuto } from './cuenca/cuenca.js?v=13';
 import { delinearEnGrid, morfometria } from './cuenca/delineacion.js?v=13';
 import { fetchDEM } from './cuenca/dem_tiles.js?v=13';
@@ -288,7 +289,9 @@ async function startBoot() {
   hydro.setMap(map); hydro.setDock(dock);
   hydro._renderCuenca(null);   // deja el botón "Agregar punto" visible en la pestaña Cuenca
   const bati = new BatiPanel();
-  bati.setMap(map); bati.setScene(scene); bati.setDock(dock);
+  // Fase E · E3: la Hidráulica 1D/2D vive en una ventana flotante (DockShim → HUD).
+  const batiShim = new DockShim(huds, 'hidraulica', { title: '🌊 Hidráulica 1D / 2D', tabs: [{ key: 'bati', label: 'Hidráulica' }], w: 440, h: 660 });
+  bati.setMap(map); bati.setScene(scene); bati.setDock(batiShim);
   bati.onVer3D(() => { if (current) { setMode('3d'); } });
   const flujo2d = new Flujo2D();
   flujo2d.setMap(map); flujo2d.setScene(scene); flujo2d.setDock(dock);
@@ -431,7 +434,7 @@ async function startBoot() {
     'nube-guardar': () => capas.guardarEnNube(),
     'nube-abrir': () => capas.abrirNubeDialog(),
     'importar': () => treeQ('#cap-file')?.click(),
-    'bati': () => { dock.show('hidraulica'); setTimeout(() => bati.body?.querySelector('#bp-file')?.click(), 60); },
+    'bati': () => { bati.open(); setTimeout(() => bati.body?.querySelector('#bp-file')?.click(), 80); },
     'informe': () => generarInforme(window.__koi),
     'informe-word': () => generarInformeWord(window.__koi),
     'add-punto': () => { if (mode !== '2d') setMode('2d'); map.setPickMode(!map.pickMode); },
@@ -444,7 +447,7 @@ async function startBoot() {
     'tema': () => window.__koiToggleTheme?.(),
     'tab-cuenca': () => dock.show('cuenca'),
     'tab-hidro': () => dock.show('hidro'),
-    'tab-hidraulica': () => dock.show('hidraulica'),
+    'tab-hidraulica': () => bati.open(),
     'tab-estructuras': () => abrirEstructurasHUD(window.__koi, huds),
     'estructuras-place': () => abrirEstructurasHUD(window.__koi, huds),
     'cuenca-delinear': () => dock.show('cuenca'),

@@ -18,13 +18,14 @@
 const TABS = [
   { key: 'cuenca', label: 'Cuenca',     hosts: ['dem', 'cuenca'] },
   { key: 'hidro',  label: 'Hidrología', hosts: ['hidro'] },
-  { key: 'hidraulica', label: 'Hidráulica', hosts: ['bati', 'hidraulica', 'socav'],
+  // E3: 'bati' (Hidráulica 1D/2D) migró a ventana flotante; quedan aquí el eje-sección
+  // y la socavación del cruce (HydroPanel) hasta E4.
+  { key: 'hidraulica', label: 'Hidráulica', hosts: ['hidraulica', 'socav'],
     seps: { hidraulica: 'Análisis por tramo (sobre DEM)' } },
   // Fase E: el panel derecho pasa a ser AYUDA contextual de la herramienta con foco.
-  // (Estructuras migró a ventana flotante — E2; luego migran Hidráulica y Cuenca.)
   { key: 'ayuda', label: 'Ayuda', hosts: ['ayuda'] },
 ];
-const HOST_KEYS = ['dem', 'cuenca', 'hidro', 'hidraulica', 'socav', 'bati', 'ayuda'];
+const HOST_KEYS = ['dem', 'cuenca', 'hidro', 'hidraulica', 'socav', 'ayuda'];
 // host → pestaña que lo contiene
 const TAB_OF = {};
 for (const t of TABS) for (const h of t.hosts) TAB_OF[h] = t.key;
