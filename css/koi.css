@@ -211,8 +211,21 @@ body { font: 14px/1.45 system-ui, "Segoe UI", Roboto, sans-serif; background: va
 .hud { position: absolute; display: flex; flex-direction: column; min-width: 220px; min-height: 140px;
   background: var(--bg2); border: 1px solid var(--border); border-radius: 11px; overflow: hidden;
   box-shadow: 0 10px 34px rgba(0,0,0,.30); }
-.hud.min { height: auto !important; min-height: 0; }
-.hud.min .hud-body, .hud.min .hud-resize { display: none; }
+.hud.min { display: none; }
+
+/* Barra de tareas de HUD: un chip por ventana abierta (abajo-centro del viewport). */
+.hud-bar { position: absolute; left: 50%; transform: translateX(-50%); bottom: 10px; z-index: 8000;
+  display: flex; gap: 6px; flex-wrap: wrap-reverse; justify-content: center; max-width: calc(100% - 40px); pointer-events: none; }
+.hud-chip { pointer-events: auto; display: inline-flex; align-items: center; gap: 6px; max-width: 220px;
+  padding: 5px 7px 5px 11px; background: var(--bg2); color: var(--text); border: 1px solid var(--border2);
+  border-radius: 999px; font-size: 12px; cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,.22); }
+.hud-chip:hover { border-color: var(--accent); }
+.hud-chip.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--bg2)); font-weight: 600; }
+.hud-chip.min { opacity: .58; }
+.hud-chip-t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hud-chip-x { display: inline-flex; width: 16px; height: 16px; align-items: center; justify-content: center;
+  border-radius: 50%; color: var(--text2); font-size: 10px; flex: 0 0 auto; }
+.hud-chip-x:hover { background: var(--red); color: #fff; }
 .hud-head { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 12px; cursor: grab;
   background: linear-gradient(180deg, var(--bg3), var(--bg2)); border-bottom: 1px solid var(--border); user-select: none; }
 .hud-head:active { cursor: grabbing; }

@@ -10,8 +10,8 @@
 let _z = 40;   // z-index incremental para traer al frente
 
 export class Hud {
-  constructor({ id, title, parent, x = 60, y = 60, w = 360, h = 320, onClose } = {}) {
-    this.id = id; this.parent = parent; this.onClose = onClose;
+  constructor({ id, title, parent, x = 60, y = 60, w = 360, h = 320, onClose, onFocus, onMin } = {}) {
+    this.id = id; this.parent = parent; this.onClose = onClose; this.onFocus = onFocus; this.onMin = onMin;
     const elw = document.createElement('div');
     elw.className = 'hud';
     elw.style.cssText = `left:${x}px;top:${y}px;width:${w}px;height:${h}px;z-index:${++_z}`;
@@ -37,7 +37,7 @@ export class Hud {
     this._wireResize();
   }
 
-  focus() { this.el.style.zIndex = ++_z; }
+  focus() { this.el.style.zIndex = ++_z; this.onFocus?.(this); }
   setTitle(t) { this.titleEl.textContent = t || ''; }
   setBody(html) { this.bodyEl.innerHTML = html; this._restaurarForm(); }
   get body() { return this.bodyEl; }
@@ -65,12 +65,13 @@ export class Hud {
     }
   }
 
-  toggleMin() {
-    this._min = !this._min;
+  // Minimizar ahora OCULTA la ventana; su chip en la barra de tareas la restaura.
+  toggleMin(force) {
+    this._min = (force == null) ? !this._min : !!force;
     this.el.classList.toggle('min', this._min);
-    if (this._min) { this._h = this.el.style.height; this.el.style.height = ''; }
-    else if (this._h) this.el.style.height = this._h;
-    this.el.querySelector('.hud-min').textContent = this._min ? '□' : '–';
+    this.el.style.display = this._min ? 'none' : '';
+    if (!this._min) this.el.style.zIndex = ++_z;
+    this.onMin?.(this);
   }
 
   close() { this.el.remove(); this.onClose?.(this.id); }
@@ -124,7 +125,14 @@ export class Hud {
 }
 
 export class HudManager {
-  constructor(parent) { this.parent = parent; this.huds = new Map(); }
+  constructor(parent) {
+    this.parent = parent; this.huds = new Map();
+    // Barra de tareas: un chip por HUD abierto, para que ninguna ventana se pierda
+    // detrás de otra. Vive abajo-centro del viewport; vacía → oculta.
+    this.bar = document.createElement('div');
+    this.bar.className = 'hud-bar'; this.bar.style.display = 'none';
+    parent.appendChild(this.bar);
+  }
 
   // Abre (o reutiliza si el id ya existe) una ventana HUD.
   open(id, { title, html, w = 380, h = 340, x, y } = {}) {
@@ -132,19 +140,49 @@ export class HudManager {
     if (hud && hud.el.isConnected) {
       if (title != null) hud.setTitle(title);
       if (html != null) hud.setBody(html);
-      if (hud._min) hud.toggleMin();
+      if (hud._min) hud.toggleMin(false);
       hud.focus();
+      this._sync();
       return hud;
     }
     // posición en cascada para no apilar exactamente
     const n = this.huds.size;
     const px = x ?? (24 + (n % 5) * 26), py = y ?? (24 + (n % 5) * 26);
-    hud = new Hud({ id, title, parent: this.parent, x: px, y: py, w, h, onClose: (k) => this.huds.delete(k) });
+    // Usamos el `id` capturado (no el argumento) porque varios HUD envuelven
+    // onClose para limpiar listeners y a veces llaman prev?.() sin reenviar el id.
+    hud = new Hud({
+      id, title, parent: this.parent, x: px, y: py, w, h,
+      onClose: () => { this.huds.delete(id); this._sync(); },
+      onFocus: () => this._sync(), onMin: () => this._sync(),
+    });
     if (html != null) hud.setBody(html);
     this.huds.set(id, hud);
+    this._sync();
     return hud;
   }
   get(id) { return this.huds.get(id); }
   close(id) { this.huds.get(id)?.close(); }
   closeAll() { for (const h of [...this.huds.values()]) h.close(); }
+
+  // Reconstruye los chips de la barra de tareas y marca el HUD al frente.
+  _sync() {
+    if (!this.bar) return;
+    this.bar.style.display = this.huds.size ? 'flex' : 'none';
+    let topId = null, topZ = -1;
+    for (const [id, h] of this.huds) { if (!h._min) { const z = +h.el.style.zIndex || 0; if (z > topZ) { topZ = z; topId = id; } } }
+    this.bar.innerHTML = '';
+    for (const [id, h] of this.huds) {
+      const chip = document.createElement('button');
+      chip.className = 'hud-chip' + (h._min ? ' min' : '') + (id === topId ? ' active' : '');
+      chip.title = h.titleEl.textContent;
+      chip.innerHTML = `<span class="hud-chip-t">${h.titleEl.textContent}</span><span class="hud-chip-x" title="Cerrar">✕</span>`;
+      chip.addEventListener('click', (e) => {
+        if (e.target.closest('.hud-chip-x')) { h.close(); return; }
+        if (h._min) h.toggleMin(false);            // restaurar
+        else if (id === topId) h.toggleMin(true);   // minimizar el que está al frente
+        else h.focus();                             // traer al frente
+      });
+      this.bar.appendChild(chip);
+    }
+  }
 }
