@@ -530,7 +530,7 @@ export class Capas {
     try {
       const { listarNube } = await import('../auth/proyectos_nube.js?v=13');
       const rows = await listarNube();
-      if (!rows.length) { list.innerHTML = '<div style="color:var(--muted,#8b93a3);padding:8px 0">Sin proyectos en la nube todavía. Usá «Guardar en la nube» primero.</div>'; return; }
+      if (!rows.length) { list.innerHTML = '<div style="color:var(--muted,#8b93a3);padding:8px 0">Sin proyectos en la nube todavía. Usa «Guardar en la nube» primero.</div>'; return; }
       list.innerHTML = rows.map((p) => `<div class="koi-nd-row" data-id="${p.id}" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--border,#2a2f3a);border-radius:8px;margin-bottom:6px;cursor:pointer">
         <span>${p.nombre}</span><span style="color:var(--muted,#8b93a3);font-size:12px">${(p.actualizado || '').slice(0, 10)}</span></div>`).join('');
       list.querySelectorAll('.koi-nd-row').forEach((r) => r.addEventListener('click', () => { cerrar(); this.abrirDeNube(rows.find((x) => x.id === r.dataset.id)); }));

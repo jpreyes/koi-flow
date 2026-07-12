@@ -31,7 +31,7 @@ function form(koi) {
   const vw = pr ? Math.round(pr.volumen) : 500000;
   const hb = pr ? (pr.altura || 15) : 15;
   return `
-    ${pr ? `<div class="ins-desfase">Usando el vaso de <b>${pr.nombre}</b> (del DEM): <b>${(pr.volumen / 1e6).toFixed(2)} Mm³</b> · muro ${pr.altura} m. La onda entrará al 2D en la posición de la presa.</div>` : '<p class="hud-note">Colocá una <b>presa/depósito</b> (menú Riesgo) y selecciónala para sacar Vw y la altura del vaso desde el DEM; si no, ingrésalos a mano.</p>'}
+    ${pr ? `<div class="ins-desfase">Usando el vaso de <b>${pr.nombre}</b> (del DEM): <b>${(pr.volumen / 1e6).toFixed(2)} Mm³</b> · muro ${pr.altura} m. La onda entrará al 2D en la posición de la presa.</div>` : '<p class="hud-note">Coloca una <b>presa/depósito</b> (menú Riesgo) y selecciónala para sacar Vw y la altura del vaso desde el DEM; si no, ingrésalos a mano.</p>'}
     <div class="cfg-grp">Embalse / depósito y modo de falla</div>
     <div class="cfg-form">
       <label title="Volumen almacenado al momento de la falla (agua o relave licuado)">Volumen Vw [m³]<input id="br-vw" type="number" step="10000" value="${vw}"></label>

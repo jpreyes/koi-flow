@@ -19,22 +19,22 @@ const RECETAS = {
     titulo: 'Eje hidráulico 1D',
     icono: 'ti-wave-sine',
     pasos: [
-      { id: 'cauce', t: 'Elegí el cauce', d: 'Seleccioná un tramo en el mapa o el árbol, o dibujá uno con la herramienta Tramo.', ic: 'ti-ripple',
+      { id: 'cauce', t: 'Elige el cauce', d: 'Selecciona un tramo en el mapa o el árbol, o dibuja uno con la herramienta Tramo.', ic: 'ti-ripple',
         correr: (koi) => koi.capas?._dibujarTramo?.(),
         hecho: (koi) => !!(koi.bati?.tramo || ['tramo', 'reach'].includes(activo()?.tipo)) },
-      { id: 'relieve', t: 'Descargá el relieve (DEM)', d: 'Bajá el relieve del sector: de ahí salen las secciones y las cotas.', ic: 'ti-mountain',
+      { id: 'relieve', t: 'Descarga el relieve (DEM)', d: 'Baja el relieve del sector: de ahí salen las secciones y las cotas.', ic: 'ti-mountain',
         correr: () => clickAccion('remanso1d'),
         hecho: (koi) => !!(koi.bati?.demM || koi.bati?.tramo?.demGrid || koi.bati?.fused) },
-      { id: 'secciones', t: 'Generá las secciones', d: 'Extraé las secciones transversales del cauce desde el DEM.', ic: 'ti-chart-line',
+      { id: 'secciones', t: 'Genera las secciones', d: 'Extrae las secciones transversales del cauce desde el DEM.', ic: 'ti-chart-line',
         correr: () => clickAccion('remanso1d'),
         hecho: (koi) => !!(koi.bati?.secciones?.length || koi.bati?._secciones?.length) },
-      { id: 'eje', t: 'Corré el eje 1D', d: 'Paso estándar (Manning) sobre las secciones → perfil de agua (WSE, V, Fr).', ic: 'ti-arrow-guide',
+      { id: 'eje', t: 'Corre el eje 1D', d: 'Paso estándar (Manning) sobre las secciones → perfil de agua (WSE, V, Fr).', ic: 'ti-arrow-guide',
         correr: () => clickAccion('remanso1d'),
         hecho: (koi) => !!(koi.bati?._remanso || koi.reg?.remanso || koi.bati?.result1d) },
-      { id: 'socav', t: 'Socavación (opcional)', d: 'Con el resultado del eje, calculá la socavación (HEC-18) donde haya puente/estructura.', ic: 'ti-arrow-down',
+      { id: 'socav', t: 'Socavación (opcional)', d: 'Con el resultado del eje, calcula la socavación (HEC-18) donde haya puente/estructura.', ic: 'ti-arrow-down',
         correr: (koi) => koi.dock?.show?.('hidro'),
         hecho: (koi) => !!koi.reg?.socavacion },
-      { id: 'informe', t: 'Generá el informe', d: 'Armá el informe (PDF/Word) con la cuenca, la hidrología y el eje.', ic: 'ti-file-text',
+      { id: 'informe', t: 'Genera el informe', d: 'Arma el informe (PDF/Word) con la cuenca, la hidrología y el eje.', ic: 'ti-file-text',
         correr: () => clickAccion('informe'),
         hecho: () => false },
     ],
@@ -59,7 +59,7 @@ export function abrirFlujoGuiado(koi, recetaId = 'eje') {
       <button class="koi-guia-x" title="Cerrar" aria-label="Cerrar">✕</button>
     </div>
     <div class="koi-guia-body"></div>
-    <div class="koi-guia-ft">El paso encendido es el que toca ahora. Lo hecho queda con ✓ y podés rehacerlo.</div>`;
+    <div class="koi-guia-ft">El paso encendido es el que toca ahora. Lo hecho queda con ✓ y puedes rehacerlo.</div>`;
   document.body.appendChild(_panel);
   _panel.querySelector('.koi-guia-x').addEventListener('click', () => { _panel.remove(); _panel = null; });
   hacerArrastrable(_panel, _panel.querySelector('.koi-guia-hd'));

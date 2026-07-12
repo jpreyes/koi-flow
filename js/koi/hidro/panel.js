@@ -223,7 +223,7 @@ export class HydroPanel {
       const bRe = el('button', 'hp-run', '↻ Recalcular cuenca'); bRe.style.margin = '0';
       bRe.addEventListener('click', () => this.recalcularCuenca(p));
       const bDel = el('button', 'hp-mini-btn', '🗑 Borrar cuenca');
-      bDel.addEventListener('click', () => { if (!confirm('¿Borrar la cuenca de este punto? Podés recalcularla cuando quieras.')) return; this.map?.clearCuenca(p.id); p.cuenca = null; this._renderCuenca(p); });
+      bDel.addEventListener('click', () => { if (!confirm('¿Borrar la cuenca de este punto? Puedes recalcularla cuando quieras.')) return; this.map?.clearCuenca(p.id); p.cuenca = null; this._renderCuenca(p); });
       cuActs.appendChild(bRe); cuActs.appendChild(bDel); sCu.appendChild(cuActs);
       sCu.appendChild(el('div', 'hp-kv', `
         <div><span>Punto</span><b>${p.nombre}</b></div>
