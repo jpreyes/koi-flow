@@ -145,6 +145,27 @@ body { font: 14px/1.45 system-ui, "Segoe UI", Roboto, sans-serif; background: va
 .cap-act .ic { pointer-events: none; }
 .cap-act[data-del]:hover, .cap-act[data-deltramo]:hover, .cap-act[data-delpt]:hover, .cap-act[data-delcu]:hover, .cap-act[data-dellbl]:hover { color: var(--red); }
 
+/* ── Árbol drill-in (un nivel a la vez + miga de pan) ────────────────────────── */
+.cap-level { padding-left: 0; }
+.cap-crumbs { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; padding: 2px 0 6px; }
+.cap-crumb-back { background: var(--bg3); border: 1px solid color-mix(in srgb, var(--text2) 22%, transparent); color: var(--text); border-radius: 6px; width: 22px; height: 22px; line-height: 1; cursor: pointer; font-size: 15px; flex: 0 0 auto; }
+.cap-crumb-back:hover { border-color: var(--accent); color: var(--accent); }
+.cap-crumb { background: 0; border: 0; color: var(--text2); cursor: pointer; padding: 2px 4px; border-radius: 5px; font-size: 12px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cap-crumb:hover { background: var(--bg3); color: var(--text); }
+.cap-crumb.cur { color: var(--text); font-weight: 600; cursor: default; }
+.cap-crumb-sep { color: var(--text2); font-size: 11px; }
+.cap-level-hd { display: flex; align-items: center; gap: 6px; padding: 2px 4px 6px; font-weight: 600; font-size: 13px; border-bottom: 1px solid color-mix(in srgb, var(--text2) 14%, transparent); margin-bottom: 4px; }
+.cap-level-hd .cap-lbl { flex: 0 1 auto; }
+.cap-drillable { padding-right: 4px; }
+.cap-drill { display: inline-flex; align-items: center; gap: 2px; color: var(--text2); font-size: 10.5px; padding: 1px 5px; border-radius: 10px; background: var(--bg3); flex: 0 0 auto; }
+.cap-drillable:hover .cap-drill { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.cap-chev { font-size: 14px; line-height: 1; }
+.cap-vis { display: inline-flex; align-items: center; flex: 0 0 auto; }
+.cap-vis input[type=checkbox] { accent-color: var(--accent); cursor: pointer; margin: 0; }
+.cap-empty { color: var(--text2); font-size: 12px; padding: 8px 4px; cursor: default; }
+.cap-leaf.cap-pending { opacity: .72; border: 1px dashed color-mix(in srgb, var(--text2) 26%, transparent); }
+.cap-leaf.cap-pending .cap-meta { font-style: italic; }
+
 /* Barra de herramientas GIS + iconos SVG */
 .cap-toolbar { display: flex; gap: 6px; }
 .cap-tool { flex: 1 1 0; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 6px;

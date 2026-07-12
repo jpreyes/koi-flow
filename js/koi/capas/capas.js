@@ -137,24 +137,6 @@ export class Capas {
     this.render();
   }
 
-  // nodo con casilla + etiqueta (+ hijos opcionales colapsables)
-  _grupo(layerKey, icon, label, children) {
-    const node = el('div', 'cap-grp');
-    const head = el('div', 'cap-node');
-    const hasKids = children && children.length;
-    head.innerHTML = `${hasKids ? '<span class="cap-caret">▾</span>' : '<span class="cap-caret empty"></span>'}
-      <label><input type="checkbox" checked data-layer="${layerKey}"> <span class="cap-ico">${icon}</span> ${label}</label>`;
-    node.appendChild(head);
-    head.querySelector('input').addEventListener('change', (e) => this.map.setLayerVisible(layerKey, e.target.checked));
-    if (hasKids) {
-      const ul = el('ul', 'cap-children');
-      for (const c of children) ul.appendChild(c);
-      node.appendChild(ul);
-      head.querySelector('.cap-caret').addEventListener('click', () => { ul.style.display = ul.style.display === 'none' ? '' : 'none'; });
-    }
-    return node;
-  }
-
   _puntoActivo() {
     const pts = this.map?.getPoints?.() || [];
     const a = getActivo();
@@ -175,224 +157,255 @@ export class Capas {
     return m;
   }
 
-  _assetLeaf(icon, label, meta, onClick, cls = '') {
-    const li = el('li', `cap-leaf cap-sub ${cls}`.trim());
-    li.innerHTML = `<span class="cap-ico">${icon}</span><span class="cap-lbl">${label}</span><span class="cap-meta">${meta || ''}</span>`;
-    if (onClick) li.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
-    return li;
-  }
+  // ── Árbol drill-in (miga de pan) ─────────────────────────────────────────────
+  // El árbol se navega "entrando" a los objetos, mostrando UN nivel a la vez, en
+  // vez de anidar <ul> que a 3-4 niveles se salían del ancho del panel. `_nav` es
+  // la ruta (claves) desde la raíz; render() la resuelve y pinta solo ese nivel.
 
-  _folderLeaf(icon, label, meta, children = [], cls = '') {
-    const li = el('li', `cap-leaf cap-folder ${cls}`.trim());
-    li.innerHTML = `<span class="cap-caret ${children.length ? '' : 'empty'}">${children.length ? '▾' : ''}</span><span class="cap-ico">${icon}</span><span class="cap-lbl">${label}</span><span class="cap-meta">${meta || ''}</span>`;
-    if (children.length) {
-      const ul = el('ul', 'cap-children');
-      for (const c of children) ul.appendChild(c);
-      li.appendChild(ul);
-      li.querySelector('.cap-caret').addEventListener('click', (e) => { e.stopPropagation(); ul.style.display = ul.style.display === 'none' ? '' : 'none'; });
-    }
-    return li;
-  }
+  // Una fila del nivel actual a partir de un nodo del modelo.
+  _row(node) {
+    const drill = !!(node.children && node.children.length);
+    const li = el('li', 'cap-leaf' + (node.cls ? ' ' + node.cls : '') + (drill ? ' cap-drillable' : ''));
+    if (node.tipo) { li.dataset.objTipo = node.tipo; li.dataset.objId = node.id; }
+    if (node.name) li.dataset.name = node.name;   // _selTramo / setRelieveCargando
+    if (node.title) li.title = node.title;
 
-  _pointAssets(p) {
-    const c = ensurePointContext(p);
-    const selectPoint = () => this.hydro?.irAPunto?.(p.id);
-    const openTool = (accion) => { selectPoint(); bus.emit('abrir:analisis', accion); };
-    const out = [];
-    if (p.cuenca) {
-      out.push(this._assetLeaf(ico('basin'), 'Cuenca', `${p.cuenca.morfometria?.A ?? '?'}km²`, () => this.map.showCuenca(p.id, p.cuenca.polygonSuave || p.cuenca.polygon)));
-    }
-    if (c.red?.fc) {
-      out.push(this._assetLeaf(ico('wave'), 'Red de drenaje', `${c.red.meta?.nLineas ?? c.red.fc.features?.length ?? 0} cauces`, () => this.map.showRedDrenaje(c.red.fc)));
-    }
-    const nEst = c.estaciones?.cercanas?.length || 0;
-    if (nEst || c.estaciones?.seleccion?.ctrl || c.estaciones?.seleccion?.pluvio) {
-      const sel = [c.estaciones.seleccion?.ctrl?.nombre, c.estaciones.seleccion?.pluvio?.nombre].filter(Boolean).length;
-      out.push(this._assetLeaf(ico('station'), 'Estaciones DGA', `${nEst} cerca${sel ? ` - ${sel} sel.` : ''}`, () => this.map.showStations(c.estaciones.cercanas || [])));
-    }
-    if (c.referencias?.length) out.push(this._assetLeaf(ico('label'), 'Referencias', String(c.referencias.length)));
-    if (c.importados?.length) out.push(this._assetLeaf(ico('folder'), 'Importados', String(c.importados.length)));
-    const nRes = Object.keys(c.resultados || {}).length;
-    if (nRes) out.push(this._assetLeaf(ico('open'), 'Resultados', String(nRes)));
-    if (!p.cuenca) out.push(this._assetLeaf(ico('basin'), 'Cuenca delineada', 'pendiente', () => openTool('cuenca-delinear'), 'cap-pending'));
-    if (!c.red?.fc) out.push(this._assetLeaf(ico('wave'), 'Red de drenaje', 'pendiente', () => openTool('afluentes-punto'), 'cap-pending'));
-    if (!nEst && !c.estaciones?.seleccion?.ctrl && !c.estaciones?.seleccion?.pluvio) out.push(this._assetLeaf(ico('station'), 'Estaciones DGA', 'sin buscar', () => openTool('estaciones-dga'), 'cap-pending'));
-    if (!c.referencias?.length) out.push(this._assetLeaf(ico('label'), 'Referencias', '0', null, 'cap-pending'));
-    if (!c.importados?.length) out.push(this._assetLeaf(ico('folder'), 'Importados', '0', null, 'cap-pending'));
-    if (!nRes) out.push(this._assetLeaf(ico('open'), 'Resultados', '0', null, 'cap-pending'));
-    out.push(this._assetLeaf(ico('save'), 'Exportar punto', 'JSON', () => descargarJSON(`punto_${(p.nombre || p.id).replace(/[^\w.-]+/g, '_')}.json`, serializePoint(p))));
-    return out;
-  }
+    let h = '';
+    if (node.check) h += `<label class="cap-vis"><input type="checkbox" ${node.check.checked === false ? '' : 'checked'}></label>`;
+    h += `<span class="cap-ico"${node.iconColor ? ` style="color:${node.iconColor}"` : ''}>${node.icon || ''}</span>`;
+    h += `<span class="cap-lbl">${node.label}</span>`;
+    (node.actions || []).forEach((a, i) => { h += `<span class="cap-act ${a.cls || ''}" data-act="${i}" title="${a.title || ''}">${a.icon}</span>`; });
+    if (node.meta != null && node.meta !== '') h += `<span class="cap-meta">${node.meta}</span>`;
+    if (drill) h += `<span class="cap-drill" data-drill="1" title="Ver contenido">${node.children.length}<span class="cap-chev">›</span></span>`;
+    li.innerHTML = h;
 
-  _pointLeaf(p) {
-    const li = el('li', 'cap-leaf cap-point-node');
-    li.title = `${p.lat.toFixed(5)}, ${p.lon.toFixed(5)}`;
-    li.dataset.objTipo = 'punto'; li.dataset.objId = p.id;
-    li.innerHTML = `<span class="cap-ico" style="color:${infoTipo('punto').color}">${ico('point')}</span><span class="cap-lbl">${p.nombre}</span>
-      <span class="cap-act" data-gopt="${p.id}" title="Ir">${ico('locate')}</span><span class="cap-act" data-delpt="${p.id}" title="Borrar punto">${ico('trash')}</span>
-      <span class="cap-meta">${p.cuenca ? p.cuenca.morfometria.A + 'km²' : p.lat.toFixed(3) + ',' + p.lon.toFixed(3)}</span>`;
-    li.querySelector('[data-gopt]').addEventListener('click', (e) => { e.stopPropagation(); this.hydro?.irAPunto?.(p.id); });
-    li.querySelector('[data-delpt]').addEventListener('click', (e) => { e.stopPropagation(); this.hydro?.borrarPunto?.(p.id); this.render(); });
-    li.addEventListener('click', (e) => { e.stopPropagation(); this.hydro?.irAPunto?.(p.id); });
-    const assets = this._pointAssets(p);
-    if (assets.length) {
-      const ul = el('ul', 'cap-children cap-point-assets');
-      for (const a of assets) ul.appendChild(a);
-      li.appendChild(ul);
-    }
+    if (node.check) li.querySelector('.cap-vis input').addEventListener('change', (e) => { e.stopPropagation(); node.check.onToggle(e.target.checked); });
+    (node.actions || []).forEach((a, i) => {
+      const b = li.querySelector(`[data-act="${i}"]`);
+      if (b) b.addEventListener('click', (e) => { e.stopPropagation(); a.fn(); });
+    });
+    if (drill) li.querySelector('[data-drill]').addEventListener('click', (e) => { e.stopPropagation(); this._nav.push(node.key); this.render(); });
+
+    li.addEventListener('click', (e) => {
+      if (e.target.closest('.cap-vis') || e.target.closest('.cap-act') || e.target.closest('.cap-drill')) return;
+      if (node.onClick) node.onClick();
+      else if (drill) { this._nav.push(node.key); this.render(); }
+    });
     return li;
   }
 
   render() {
+    if (!this._nav) this._nav = [];
     this.tree.innerHTML = '';
-    const puntosPorTramo = this._puntosPorTramo();
-    // Proyecto → tramos (clic = seleccionar, relieve, borrar)
-    const tramos = (this.project?.tramos || []).map((t) => {
-      const has = !!(t.dem || t.demGrid) && !t.relieveOff;
-      const li = el('li', 'cap-leaf');
-      li.dataset.name = t.name;
-      li.dataset.objTipo = 'tramo'; li.dataset.objId = t.name;
-      const editando = this._editTramo === t.name;
-      li.innerHTML = `<span class="cap-ico" style="color:${infoTipo('tramo').color}">${ico('wave')}</span><span class="cap-lbl">${t.name}</span>
-        <span class="cap-act cap-relieve${has ? ' on' : ''}" data-rel="1" title="${has ? 'Relieve activo — clic para desactivar' : 'Activar/descargar relieve'}">${ico('mountain')}</span>
-        <span class="cap-act${editando ? ' on' : ''}" data-edittramo="${t.name}" title="Editar vértices (arrastra · Esc termina)">${ico('pencil')}</span>
-        <span class="cap-act" data-deltramo="${t.name}" title="Quitar tramo">${ico('trash')}</span>
-        <span class="cap-meta">${t.npts}p</span>`;
-      li.addEventListener('click', (e) => {
-        if (e.target.closest('[data-rel]')) { e.stopPropagation(); this.onRelieve?.(t); }
-        else if (e.target.closest('[data-edittramo]')) { e.stopPropagation(); this._editarTramo(t.name); }
-        else if (e.target.closest('[data-deltramo]')) { e.stopPropagation(); this._quitarTramo(t.name); }
-        else { this._selTramo(t.name); this.onSelectTramo?.(t); }
+
+    // Modelo de datos → resolver la ruta actual (descartando claves obsoletas).
+    const root = this._nodoRaiz();
+    const path = [root];
+    let cur = root;
+    for (const key of this._nav) {
+      const nxt = (cur.children || []).find((c) => c.key === key);
+      if (!nxt) break;
+      cur = nxt; path.push(cur);
+    }
+    this._nav = path.slice(1).map((n) => n.key);
+
+    // Miga de pan + encabezado del nivel (solo si entraste a algo).
+    if (path.length > 1) {
+      const bc = el('div', 'cap-crumbs');
+      const back = el('button', 'cap-crumb-back', '‹');
+      back.title = 'Volver'; back.addEventListener('click', () => { this._nav.pop(); this.render(); });
+      bc.appendChild(back);
+      path.forEach((n, i) => {
+        const seg = el('button', 'cap-crumb' + (i === path.length - 1 ? ' cur' : ''), i === 0 ? 'Inicio' : n.label);
+        seg.title = n.label;
+        seg.addEventListener('click', () => { this._nav = path.slice(1, i + 1).map((x) => x.key); this.render(); });
+        bc.appendChild(seg);
+        if (i < path.length - 1) bc.appendChild(el('span', 'cap-crumb-sep', '›'));
       });
-      const pts = puntosPorTramo.get(t.name) || [];
-      const pointLeaves = pts.map((p) => this._pointLeaf(p));
-      li.classList.add('cap-has-children');
-      const ul = el('ul', 'cap-children cap-tramo-puntos');
-      ul.appendChild(this._folderLeaf(ico('point'), 'Puntos de análisis', String(pointLeaves.length), pointLeaves, 'cap-points-folder'));
-      li.appendChild(ul);
-      return li;
-    });
-    const tramosChildren = tramos.length ? tramos : [this._folderLeaf(ico('point'), 'Puntos de análisis', '0', [], 'cap-points-folder')];
-    const tramosFolder = [this._folderLeaf(ico('wave'), 'Tramos', String(tramos.length), tramosChildren, 'cap-tramos-folder')];
-    this.tree.appendChild(this._grupo('tramos', ico('project'), this.project?.name || 'Proyecto', tramosFolder));
+      this.tree.appendChild(bc);
 
-    // Puntos de análisis (lista, ir/borrar)
-    const puntosSinTramo = (puntosPorTramo.get('') || []).map((p) => this._pointLeaf(p));
-    if (puntosSinTramo.length) this.tree.appendChild(this._grupo('puntos', ico('point'), `Puntos sin tramo (${puntosSinTramo.length})`, puntosSinTramo));
-    /*
-      const li = el('li', 'cap-leaf');
-      li.title = `${p.lat.toFixed(5)}, ${p.lon.toFixed(5)}`;
-      li.dataset.objTipo = 'punto'; li.dataset.objId = p.id;
-      li.innerHTML = `<span class="cap-ico" style="color:${infoTipo('punto').color}">${ico('point')}</span><span class="cap-lbl">${p.nombre}</span>
-        <span class="cap-act" data-gopt="${p.id}" title="Ir">${ico('locate')}</span><span class="cap-act" data-delpt="${p.id}" title="Borrar punto">${ico('trash')}</span>
-        <span class="cap-meta">${p.cuenca ? p.cuenca.morfometria.A + 'km²' : p.lat.toFixed(3) + ',' + p.lon.toFixed(3)}</span>`;
-      li.querySelector('[data-gopt]').addEventListener('click', (e) => { e.stopPropagation(); this.hydro?.irAPunto?.(p.id); });
-      li.querySelector('[data-delpt]').addEventListener('click', (e) => { e.stopPropagation(); this.hydro?.borrarPunto?.(p.id); this.render(); });
-      li.addEventListener('click', () => this.hydro?.irAPunto?.(p.id));   // clic en la hoja = seleccionar
-      return li;
-    });
-    this.tree.appendChild(this._grupo('puntos', ico('point'), `Puntos de análisis (${puntos.length})`, puntos));
-    */
-
-    // Cuencas delineadas (puntos con cuenca)
-    const cuencas = (this.map?.getPoints?.() || []).filter((p) => p.cuenca).map((p) => {
-      const li = el('li', 'cap-leaf');
-      li.dataset.objTipo = 'cuenca'; li.dataset.objId = p.id;
-      li.innerHTML = `<span class="cap-ico" style="color:${infoTipo('cuenca').color}">${ico('basin')}</span><span class="cap-lbl">${p.nombre}</span>
-        <span class="cap-act" data-gocu="${p.id}" title="Encuadrar">${ico('locate')}</span>
-        <span class="cap-act" data-recu="${p.id}" title="Recalcular cuenca">↻</span>
-        <span class="cap-act" data-delcu="${p.id}" title="Borrar cuenca">${ico('trash')}</span>
-        <span class="cap-meta">${p.cuenca.morfometria.A}km²</span>`;
-      const irCuenca = () => { this.hydro?.irAPunto?.(p.id); this.map.showCuenca(p.id, p.cuenca.polygonSuave || p.cuenca.polygon); };
-      li.querySelector('[data-gocu]').addEventListener('click', (e) => { e.stopPropagation(); irCuenca(); });
-      li.querySelector('[data-recu]').addEventListener('click', (e) => { e.stopPropagation(); this.hydro?.recalcularCuenca?.(p); });
-      li.querySelector('[data-delcu]').addEventListener('click', (e) => { e.stopPropagation(); this.map.clearCuenca(p.id); p.cuenca = null; this.render(); });
-      li.addEventListener('click', irCuenca);   // clic en la hoja = seleccionar
-      return li;
-    });
-    // Cuencas, red de drenaje y estaciones se muestran como hijos de cada punto de analisis.
-
-    // Referencias (etiquetas río/ciudad/camino)
-    const labelsGlobales = this.labels.filter((lb) => !lb.pointId);
-    const labels = labelsGlobales.map((lb) => {
-      const li = el('li', 'cap-leaf');
-      li.title = `${lb.tipo} · ${lb.lat.toFixed(5)}, ${lb.lon.toFixed(5)}`;
-      li.innerHTML = `<span class="cap-ico">${ico(lb.tipo)}</span><span class="cap-lbl">${lb.name}</span>
-        <span class="cap-act" data-golbl="${lb.id}" title="Centrar">${ico('locate')}</span><span class="cap-act" data-dellbl="${lb.id}" title="Borrar">${ico('trash')}</span>
-        <span class="cap-meta">${lb.tipo}</span>`;
-      li.querySelector('[data-golbl]').addEventListener('click', () => this.map.zoomLabel(lb.id));
-      li.querySelector('[data-dellbl]').addEventListener('click', () => { this.map.removeLabel(lb.id); this.labels = this.labels.filter((x) => x.id !== lb.id); this.render(); });
-      return li;
-    });
-    this.tree.appendChild(this._grupo('labels', ico('label'), `Referencias (${labels.length})`, labels));
-
-    // GIS creado en Hidráulica (DEM/eje/dominio/malla/estructuras) — borrable desde aquí
-    const bati = window.__koi?.bati, estrP = window.__koi?.estr;
-    const gis = [];
-    if (bati?.demM) gis.push({ ic: 'mountain', label: 'DEM colocado', meta: `${bati.demM.nx}×${bati.demM.ny}`, zoom: () => bati.map?.fitBati?.(), del: () => bati.borrarDEM() });
-    if (bati?.fused) gis.push({ ic: 'mountain', label: 'DEM fusionado', meta: '', del: () => { bati.fused = null; this.render(); } });
-    if (bati?.eje) gis.push({ ic: 'wave', label: 'Eje del cauce', meta: `${bati.eje.length} pt`, del: () => bati.borrarEje() });
-    if (bati?.dominio) gis.push({ ic: 'basin', label: 'Dominio 2D', meta: `${bati.dominio.length} pt`, del: () => bati.borrarDominio() });
-    if (bati?.mesh2d) gis.push({ ic: 'basin', label: 'Malla / sim 2D', meta: `${bati.mesh2d.meta.nNodos} nodos`, del: () => bati.borrarMalla() });
-    const gisLeaves = gis.map((g) => {
-      const li = el('li', 'cap-leaf');
-      li.innerHTML = `<span class="cap-ico">${ico(g.ic)}</span><span class="cap-lbl">${g.label}</span>${g.zoom ? `<span class="cap-act" data-go="1" title="Encuadrar">${ico('locate')}</span>` : ''}<span class="cap-act" data-del="1" title="Borrar">${ico('trash')}</span><span class="cap-meta">${g.meta || ''}</span>`;
-      if (g.zoom) li.querySelector('[data-go]').addEventListener('click', g.zoom);
-      li.querySelector('[data-del]').addEventListener('click', () => g.del());
-      return li;
-    });
-    for (const e of (estrP?.estructuras || [])) {
-      const li = el('li', 'cap-leaf');
-      li.innerHTML = `<span class="cap-ico">${ico('project')}</span><span class="cap-lbl">${e.nombre}</span>
-        <span class="cap-act" data-go="1" title="Centrar">${ico('locate')}</span><span class="cap-act" data-del="1" title="Borrar">${ico('trash')}</span><span class="cap-meta">${e.solido ? 'sólida' : 'pasa'}</span>`;
-      li.querySelector('[data-go]').addEventListener('click', () => { if (e.center) this.map.map.panTo([e.center[1], e.center[0]]); });
-      li.querySelector('[data-del]').addEventListener('click', () => { estrP.estructuras = estrP.estructuras.filter((x) => x.id !== e.id); estrP._render?.(); estrP._draw?.(); this.render(); });
-      gisLeaves.push(li);
-    }
-    if (gisLeaves.length) {
-      const grpG = el('div', 'cap-grp');
-      grpG.appendChild(el('div', 'cap-node', `<span class="cap-caret empty"></span><span class="cap-ico">${ico('project')}</span> GIS creado <span class="cap-meta">${gisLeaves.length}</span>`));
-      const ulG = el('ul', 'cap-children'); for (const li of gisLeaves) ulG.appendChild(li); grpG.appendChild(ulG);
-      this.tree.appendChild(grpG);
+      const hd = el('div', 'cap-level-hd');
+      hd.innerHTML = `<span class="cap-ico"${cur.iconColor ? ` style="color:${cur.iconColor}"` : ''}>${cur.icon || ''}</span><span class="cap-lbl">${cur.label}</span>${cur.meta ? `<span class="cap-meta">${cur.meta}</span>` : ''}`;
+      this.tree.appendChild(hd);
     }
 
-    // Resultados calculados (chips desde koi.reg) — clic reabre su HUD.
-    const reg = window.__koi?.reg || {};
-    const claves = Object.keys(reg).filter((k) => REG_INFO[k]);
-    if (claves.length) {
-      const chips = claves.map((k) => {
-        const [accion, label] = REG_INFO[k];
-        const li = el('li', 'cap-leaf chip');
-        li.innerHTML = `<span class="cap-ico cap-chip"><span class="cap-ok">✓</span></span><span class="cap-lbl">${label}</span><span class="cap-act" title="Abrir resultado">${ico('open')}</span>`;
-        li.addEventListener('click', () => bus.emit('abrir:analisis', accion));
-        return li;
-      });
-      const grpR = el('div', 'cap-grp');
-      grpR.appendChild(el('div', 'cap-node', `<span class="cap-caret empty"></span><span class="cap-ico">${ico('wave')}</span> Resultados calculados <span class="cap-meta">${chips.length}</span>`));
-      const ulR = el('ul', 'cap-children'); for (const li of chips) ulR.appendChild(li); grpR.appendChild(ulR);
-      this.tree.appendChild(grpR);
-    }
+    // Filas del nivel actual.
+    const ul = el('ul', 'cap-children cap-level');
+    const kids = cur.children || [];
+    if (!kids.length) ul.appendChild(el('li', 'cap-empty', 'Nada aquí todavía.'));
+    for (const n of kids) ul.appendChild(this._row(n));
+    this.tree.appendChild(ul);
 
-    // Importados
-    const grp = el('div', 'cap-grp');
-    const importsGlobales = this.imports.filter((im) => !im.pointId);
-    grp.appendChild(el('div', 'cap-node', `<span class="cap-caret empty"></span><span class="cap-ico">${ico('folder')}</span> Importados <span class="cap-meta">${importsGlobales.length}</span>`));
-    const ul = el('ul', 'cap-children'); grp.appendChild(ul);
-    for (const im of importsGlobales) {
-      const li = el('li', 'cap-leaf imp');
-      const edI = this._editImp === im.id;
-      li.innerHTML = `<label><input type="checkbox" checked data-imp="${im.id}"> <span class="cap-ico">${ico('file')}</span>${im.name}</label>
-        <span class="cap-act" data-zoom="${im.id}" title="Centrar">${ico('locate')}</span>
-        <span class="cap-act${edI ? ' on' : ''}" data-editimp="${im.id}" title="Editar vértices (arrastra · Esc termina)">${ico('pencil')}</span>
-        <span class="cap-act" data-del="${im.id}" title="Quitar">${ico('trash')}</span>`;
-      li.querySelector('input').addEventListener('change', (e) => this.map.toggleImport(im.id, e.target.checked));
-      li.querySelector('[data-zoom]').addEventListener('click', () => this.map.zoomImport(im.id));
-      li.querySelector('[data-editimp]').addEventListener('click', () => this._editarImport(im.id));
-      li.querySelector('[data-del]').addEventListener('click', () => { if (this._editImp === im.id) { this.map.editarVertices([]); this._editImp = null; } this.map.removeImport(im.id); this.imports = this.imports.filter((x) => x.id !== im.id); this.render(); });
-      ul.appendChild(li);
-    }
-    this.tree.appendChild(grp);
     this._marcarActivo(getActivo());   // conserva el resaltado del activo tras reconstruir el árbol
+  }
+
+  // Nodo raíz del árbol (grupos de primer nivel).
+  _nodoRaiz() {
+    const ppt = this._puntosPorTramo();
+    const pts = this.map?.getPoints?.() || [];
+    const children = [];
+
+    // Tramos / cauces → cada uno entra a sus puntos (cuenca/red/estaciones dentro).
+    const tramos = (this.project?.tramos || []).map((t) => this._tramoNodo(t, ppt));
+    children.push({ key: 'g:tramos', check: { onToggle: (v) => this.map.setLayerVisible('tramos', v) }, icon: ico('wave'), label: 'Tramos / cauces', meta: String(tramos.length), children: tramos });
+
+    // Puntos sin tramo (sueltos).
+    const sueltos = ppt.get('') || [];
+    if (sueltos.length) children.push({ key: 'g:sueltos', check: { onToggle: (v) => this.map.setLayerVisible('puntos', v) }, icon: ico('point'), label: 'Puntos sin tramo', meta: String(sueltos.length), children: sueltos.map((p) => this._puntoNodo(p)) });
+
+    // Cuencas delineadas.
+    const conCuenca = pts.filter((p) => p.cuenca);
+    children.push({ key: 'g:cuencas', icon: ico('basin'), label: 'Cuencas delineadas', meta: String(conCuenca.length), children: conCuenca.map((p) => this._cuencaNodo(p)) });
+
+    // Referencias (etiquetas globales).
+    const labs = this.labels.filter((lb) => !lb.pointId);
+    children.push({ key: 'g:labels', check: { onToggle: (v) => this.map.setLayerVisible('labels', v) }, icon: ico('label'), label: 'Referencias', meta: String(labs.length), children: labs.map((lb) => this._labelNodo(lb)) });
+
+    // GIS creado (bati/estructuras) — solo si hay algo.
+    const gis = this._gisNodos();
+    if (gis.length) children.push({ key: 'g:gis', icon: ico('project'), label: 'GIS creado', meta: String(gis.length), children: gis });
+
+    // Resultados calculados (chips desde koi.reg).
+    const res = this._resultadoNodos();
+    if (res.length) children.push({ key: 'g:res', icon: ico('wave'), label: 'Resultados calculados', meta: String(res.length), children: res });
+
+    // Importados globales.
+    const imps = this.imports.filter((im) => !im.pointId).map((im) => this._importNodo(im));
+    children.push({ key: 'g:imports', icon: ico('folder'), label: 'Importados', meta: String(imps.length), children: imps });
+
+    return { key: 'root', icon: ico('project'), label: this.project?.name || 'Proyecto', children };
+  }
+
+  _tramoNodo(t, ppt) {
+    const has = !!(t.dem || t.demGrid) && !t.relieveOff;
+    const pts = ppt.get(t.name) || [];
+    return {
+      key: `tramo:${t.name}`, tipo: 'tramo', id: t.name, name: t.name,
+      icon: ico('wave'), iconColor: infoTipo('tramo').color, label: t.name, meta: `${t.npts}p`,
+      onClick: () => { this._selTramo(t.name); this.onSelectTramo?.(t); },
+      actions: [
+        { icon: ico('mountain'), title: has ? 'Relieve activo — clic para desactivar' : 'Activar/descargar relieve', cls: 'cap-relieve' + (has ? ' on' : ''), fn: () => this.onRelieve?.(t) },
+        { icon: ico('pencil'), title: 'Editar vértices (arrastra · Esc termina)', cls: this._editTramo === t.name ? 'on' : '', fn: () => this._editarTramo(t.name) },
+        { icon: ico('trash'), title: 'Quitar tramo', fn: () => this._quitarTramo(t.name) },
+      ],
+      children: pts.map((p) => this._puntoNodo(p)),
+    };
+  }
+
+  _puntoNodo(p) {
+    return {
+      key: `punto:${p.id}`, tipo: 'punto', id: p.id,
+      icon: ico('point'), iconColor: infoTipo('punto').color, label: p.nombre,
+      title: `${p.lat.toFixed(5)}, ${p.lon.toFixed(5)}`,
+      meta: p.cuenca ? p.cuenca.morfometria.A + 'km²' : p.lat.toFixed(3) + ',' + p.lon.toFixed(3),
+      onClick: () => this.hydro?.irAPunto?.(p.id),
+      actions: [
+        { icon: ico('locate'), title: 'Ir', fn: () => this.hydro?.irAPunto?.(p.id) },
+        { icon: ico('trash'), title: 'Borrar punto', fn: () => { this.hydro?.borrarPunto?.(p.id); this.render(); } },
+      ],
+      children: this._pointAssetNodos(p),
+    };
+  }
+
+  // Activos de un punto (cuenca / red / estaciones / referencias / resultados…).
+  _pointAssetNodos(p) {
+    const c = ensurePointContext(p);
+    const sel = () => this.hydro?.irAPunto?.(p.id);
+    const tool = (accion) => { sel(); bus.emit('abrir:analisis', accion); };
+    const A = (icon, label, meta, onClick, cls) => ({ key: `a:${p.id}:${label}`, icon, label, meta, onClick, cls });
+    const out = [];
+    if (p.cuenca) out.push(A(ico('basin'), 'Cuenca', `${p.cuenca.morfometria?.A ?? '?'}km²`, () => this.map.showCuenca(p.id, p.cuenca.polygonSuave || p.cuenca.polygon)));
+    else out.push(A(ico('basin'), 'Cuenca delineada', 'pendiente', () => tool('cuenca-delinear'), 'cap-pending'));
+    if (c.red?.fc) out.push(A(ico('wave'), 'Red de drenaje', `${c.red.meta?.nLineas ?? c.red.fc.features?.length ?? 0} cauces`, () => this.map.showRedDrenaje(c.red.fc)));
+    else out.push(A(ico('wave'), 'Red de drenaje', 'pendiente', () => tool('afluentes-punto'), 'cap-pending'));
+    const nEst = c.estaciones?.cercanas?.length || 0;
+    if (nEst || c.estaciones?.seleccion?.ctrl || c.estaciones?.seleccion?.pluvio) {
+      const s = [c.estaciones.seleccion?.ctrl?.nombre, c.estaciones.seleccion?.pluvio?.nombre].filter(Boolean).length;
+      out.push(A(ico('station'), 'Estaciones DGA', `${nEst} cerca${s ? ` · ${s} sel.` : ''}`, () => this.map.showStations(c.estaciones.cercanas || [])));
+    } else out.push(A(ico('station'), 'Estaciones DGA', 'sin buscar', () => tool('estaciones-dga'), 'cap-pending'));
+    out.push(A(ico('label'), 'Referencias', String(c.referencias?.length || 0), null, c.referencias?.length ? '' : 'cap-pending'));
+    out.push(A(ico('folder'), 'Importados', String(c.importados?.length || 0), null, c.importados?.length ? '' : 'cap-pending'));
+    const nRes = Object.keys(c.resultados || {}).length;
+    out.push(A(ico('open'), 'Resultados', String(nRes), null, nRes ? '' : 'cap-pending'));
+    out.push(A(ico('save'), 'Exportar punto', 'JSON', () => descargarJSON(`punto_${(p.nombre || p.id).replace(/[^\w.-]+/g, '_')}.json`, serializePoint(p))));
+    return out;
+  }
+
+  _cuencaNodo(p) {
+    const ir = () => { this.hydro?.irAPunto?.(p.id); this.map.showCuenca(p.id, p.cuenca.polygonSuave || p.cuenca.polygon); };
+    return {
+      key: `cuenca:${p.id}`, tipo: 'cuenca', id: p.id,
+      icon: ico('basin'), iconColor: infoTipo('cuenca').color, label: p.nombre, meta: `${p.cuenca.morfometria.A}km²`,
+      onClick: ir,
+      actions: [
+        { icon: ico('locate'), title: 'Encuadrar', fn: ir },
+        { icon: '↻', title: 'Recalcular cuenca', fn: () => this.hydro?.recalcularCuenca?.(p) },
+        { icon: ico('trash'), title: 'Borrar cuenca', fn: () => { this.map.clearCuenca(p.id); p.cuenca = null; this.render(); } },
+      ],
+    };
+  }
+
+  _labelNodo(lb) {
+    return {
+      key: `lbl:${lb.id}`, icon: ico(lb.tipo), label: lb.name, meta: lb.tipo,
+      title: `${lb.tipo} · ${lb.lat.toFixed(5)}, ${lb.lon.toFixed(5)}`,
+      onClick: () => this.map.zoomLabel(lb.id),
+      actions: [
+        { icon: ico('locate'), title: 'Centrar', fn: () => this.map.zoomLabel(lb.id) },
+        { icon: ico('trash'), title: 'Borrar', fn: () => { this.map.removeLabel(lb.id); this.labels = this.labels.filter((x) => x.id !== lb.id); this.render(); } },
+      ],
+    };
+  }
+
+  _gisNodos() {
+    const bati = window.__koi?.bati, estrP = window.__koi?.estr;
+    const out = [];
+    const push = (ic, label, meta, zoom, del) => out.push({
+      key: `gis:${label}`, icon: ico(ic), label, meta, onClick: zoom || null,
+      actions: [...(zoom ? [{ icon: ico('locate'), title: 'Encuadrar', fn: zoom }] : []), ...(del ? [{ icon: ico('trash'), title: 'Borrar', fn: del }] : [])],
+    });
+    if (bati?.demM) push('mountain', 'DEM colocado', `${bati.demM.nx}×${bati.demM.ny}`, () => bati.map?.fitBati?.(), () => bati.borrarDEM());
+    if (bati?.fused) push('mountain', 'DEM fusionado', '', null, () => { bati.fused = null; this.render(); });
+    if (bati?.eje) push('wave', 'Eje del cauce', `${bati.eje.length} pt`, null, () => bati.borrarEje());
+    if (bati?.dominio) push('basin', 'Dominio 2D', `${bati.dominio.length} pt`, null, () => bati.borrarDominio());
+    if (bati?.mesh2d) push('basin', 'Malla / sim 2D', `${bati.mesh2d.meta.nNodos} nodos`, null, () => bati.borrarMalla());
+    for (const e of (estrP?.estructuras || [])) {
+      const go = () => { if (e.center) this.map.map.panTo([e.center[1], e.center[0]]); };
+      out.push({
+        key: `estr:${e.id}`, icon: ico('project'), label: e.nombre, meta: e.solido ? 'sólida' : 'pasa', onClick: go,
+        actions: [
+          { icon: ico('locate'), title: 'Centrar', fn: go },
+          { icon: ico('trash'), title: 'Borrar', fn: () => { estrP.estructuras = estrP.estructuras.filter((x) => x.id !== e.id); estrP._render?.(); estrP._draw?.(); this.render(); } },
+        ],
+      });
+    }
+    return out;
+  }
+
+  _resultadoNodos() {
+    const reg = window.__koi?.reg || {};
+    return Object.keys(reg).filter((k) => REG_INFO[k]).map((k) => {
+      const [accion, label] = REG_INFO[k];
+      return {
+        key: `res:${k}`, cls: 'chip', icon: `<span class="cap-chip"><span class="cap-ok">✓</span></span>`, label,
+        onClick: () => bus.emit('abrir:analisis', accion),
+        actions: [{ icon: ico('open'), title: 'Abrir resultado', fn: () => bus.emit('abrir:analisis', accion) }],
+      };
+    });
+  }
+
+  _importNodo(im) {
+    const ed = this._editImp === im.id;
+    return {
+      key: `imp:${im.id}`, icon: ico('file'), label: im.name,
+      check: { onToggle: (v) => this.map.toggleImport(im.id, v) },
+      onClick: () => this.map.zoomImport(im.id),
+      actions: [
+        { icon: ico('locate'), title: 'Centrar', fn: () => this.map.zoomImport(im.id) },
+        { icon: ico('pencil'), title: 'Editar vértices (arrastra · Esc termina)', cls: ed ? 'on' : '', fn: () => this._editarImport(im.id) },
+        { icon: ico('trash'), title: 'Quitar', fn: () => { if (this._editImp === im.id) { this.map.editarVertices([]); this._editImp = null; } this.map.removeImport(im.id); this.imports = this.imports.filter((x) => x.id !== im.id); this.render(); } },
+      ],
+    };
   }
 
   // ── Barra de herramientas ────────────────────────────────────────────────────
