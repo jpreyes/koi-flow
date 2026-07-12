@@ -660,6 +660,7 @@ export class BatiPanel {
   // ── Motor 2D (onda difusiva) integrado en el lienzo ──────────────────────────
   _motor2DHTML() {
     const m = this.mesh2d, r = this.result2d || this.resultMom2d, cfg = getConfig();
+    const md = m ? '' : ' disabled';   // sin malla: los motores se VEN pero deshabilitados (no se ocultan)
     return `<div class="bp-2d">
       <div class="hp-mini">Malla y simulación 2D (onda difusiva · usa el eje como cauce)</div>
       ${this.dominio ? '' : '<p class="hp-note" style="color:var(--red)">Dibuja el <b>dominio 2D</b> (arriba) para poder mallar.</p>'}
@@ -674,8 +675,8 @@ export class BatiPanel {
       <button class="hp-run" id="bp-2d-gen">🌐 Generar malla 2D</button>
       <span class="hp-dl-status" id="bp-2d-st"></span>
       <div class="bp-btns" style="margin-top:6px"><button class="bp-b" id="bp-2d-entrada">📍 Entrada del caudal${this.cauces[this.iCauce]?.entrada ? ' ✓ (personalizada)' : ' (auto: aguas arriba)'}</button></div>
-      ${m ? this._stats2DHTML(m) : ''}
-      ${m ? this._det('difusiva', '💧 Onda difusiva (permanente — flujo lento/subcrítico)', `
+      ${m ? this._stats2DHTML(m) : '<p class="hp-note" style="margin:8px 0;color:var(--accent)">Puedes revisar y configurar los motores abajo; para <b>correrlos</b>, primero <b>🌐 Genera la malla 2D</b> (botón de arriba).</p>'}
+      ${this._det('difusiva', '💧 Onda difusiva (permanente — flujo lento/subcrítico)', `
       <div class="bp-form" style="margin-top:8px">
         <label title="Nivel de agua fijo en la salida; vacío = automático (lecho + 2 cm)">WSE salida [m] <input id="f2-so" type="number" placeholder="auto"></label>
         <label title="Paso de tiempo del esquema implícito (30–120 s típico)">Δt [s] <input id="f2-dt" type="number" value="60"></label>
@@ -694,7 +695,7 @@ export class BatiPanel {
         </div>
         <p class="hp-note">La difusiva usa D=(1/n)h^{5/3}|∇H|^{-1/2}, fuertemente no lineal. θ=0.5 amortigua la iteración de Picard y la hace converger a un calado físicamente correcto y reproducible entre backends. θ=1 recupera el comportamiento anterior.</p>
       </details>
-      <button class="hp-run" id="bp-2d-sim" title="Usa el Q del formulario 1D de este reach (o el Q efectivo si recibe de otros reaches)">▶ Simular 2D (Q del formulario)</button>
+      <button class="hp-run" id="bp-2d-sim"${md} title="Usa el Q del formulario 1D de este reach (o el Q efectivo si recibe de otros reaches)">▶ Simular 2D (Q del formulario)</button>
       <span class="hp-dl-status" id="bp-2d-simst"></span>
       <div id="bp-2d-res">${this._result2DHTML()}</div>`, true)
       + this._det('transiente', '🎞️ Transiente difusiva (hidrograma → animación)', `
@@ -706,7 +707,7 @@ export class BatiPanel {
         <label>Δt [s] <input id="bp-t-dt" type="number" value="60"></label>
       </div>
       <label class="hp-check" style="display:block;margin:4px 0" title="Reemplaza el hidrograma triangular por la crecida generada en Análisis → Hidrograma de crecida (HU)"><input type="checkbox" id="bp-t-crec"> Usar la crecida del pipeline hidrológico (Hidrograma HU)${window.__koi?.hidrogramaCrecida?.length ? ' ✓' : ' — genera uno primero'}</label>
-      <button class="hp-run" id="bp-2d-trans">🎞️ Simular transiente</button>
+      <button class="hp-run" id="bp-2d-trans"${md}>🎞️ Simular transiente</button>
       <span class="hp-dl-status" id="bp-2d-trans-st"></span>
       <div id="bp-2d-anim"></div>`)
       + this._det('momentum', '🌊 Momentum 2D (aguas someras completas)', `
@@ -716,7 +717,7 @@ export class BatiPanel {
         <label title="Nivel fijo aguas abajo; vacío = salida libre (transmisiva)">WSE salida [m] <input id="bp-m-so" type="number" placeholder="libre"></label>
         <label class="hp-check" style="align-self:end" title="Usa la crecida del pipeline (HU/rotura) como caudal de entrada variable en el tiempo"><input type="checkbox" id="bp-m-crec"> Crecida HU/rotura${window.__koi?.hidrogramaCrecida?.length ? ' ✓' : ''}</label>
       </div>
-      <button class="hp-run" id="bp-2d-mom" title="Godunov/HLL bien-balanceado — corre en segundo plano (Web Worker)">🌊 Simular Momentum 2D</button>
+      <button class="hp-run" id="bp-2d-mom"${md} title="Godunov/HLL bien-balanceado — corre en segundo plano (Web Worker)">🌊 Simular Momentum 2D</button>
       <span class="hp-dl-status" id="bp-2d-momst"></span>
       <div id="bp-2d-mom-res">${this._resultMomHTML()}</div>
       <div id="bp-2d-mom-anim"></div>
@@ -734,11 +735,11 @@ export class BatiPanel {
         </select></label>
         <label title="N bajo = más fiel al acoplado (N=1 equivale); N alto = más rápido pero subestima el transporte">Pasos de flujo por act. lecho <input id="bp-mf-npl" type="number" value="3" min="1"></label>
       </div>
-      <button class="hp-run" id="bp-2d-mf" title="Saint-Venant + Exner (MPM por celda) — corre en segundo plano">⛰️ Simular Morfodinámico 2D</button>
+      <button class="hp-run" id="bp-2d-mf"${md} title="Saint-Venant + Exner (MPM por celda) — corre en segundo plano">⛰️ Simular Morfodinámico 2D</button>
       <span class="hp-dl-status" id="bp-2d-mfst"></span>
       <div id="bp-2d-mf-res">${this._resultMorfoHTML()}</div>
       <p class="hp-note">"Desacoplado" actualiza el lecho cada N pasos (válido si el fondo cambia mucho más lento que el agua); "acoplado" en cada paso. Sin acorazamiento ni aporte de sedimento en los bordes (simplificaciones de esta versión).</p>`)
-      : ''}
+      }
       ${r ? `<button class="hp-run" id="bp-2d-samp" style="margin-top:8px">📥 Muestrear v en las secciones → socavación</button>
       <p class="hp-note">Toma la profundidad y la velocidad del campo 2D a lo largo de cada sección y recalcula la socavación por franjas con la <b>velocidad real</b> (no el reparto 1D).</p>` : ''}
     </div>`;
