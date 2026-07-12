@@ -433,6 +433,7 @@ async function startBoot() {
     'informe-word': () => generarInformeWord(window.__koi),
     'add-punto': () => { if (mode !== '2d') setMode('2d'); map.setPickMode(!map.pickMode); },
     'add-etiqueta': () => capas._colocarEtiqueta(),
+    'dibujar-tramo': () => capas._dibujarTramo?.(),
     'config': () => abrirConfigHUD(huds),
     'ver-2d': () => setMode('2d'),
     'ver-3d': () => { if (current && tieneRelieve(current)) { setMode('3d'); load3D(current); } else setMode('3d'); },

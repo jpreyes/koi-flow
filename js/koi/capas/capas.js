@@ -106,13 +106,13 @@ export class Capas {
 
     const tools = el('div', 'cap-tools');
     tools.innerHTML = `
-      <div class="cap-toolbar">
+      <div class="cap-toolbar" style="display:none">
         <button class="cap-tool" id="cap-pt" title="Agregar punto de análisis (clic en el mapa)">${ico('point')}<span>Punto</span></button>
         <button class="cap-tool" id="cap-tramo" title="Dibujar un tramo/cauce (clic = vértices · doble-clic / clic-derecho / Esc = terminar)">${ico('wave')}<span>Tramo</span></button>
         <button class="cap-tool" id="cap-lbl" title="Agregar etiqueta referencial (río / ciudad / camino)">${ico('label')}<span>Etiqueta</span></button>
         <button class="cap-tool" id="cap-import" title="Importar KMZ/KML">${ico('folder')}<span>Importar</span></button>
       </div>
-      <div class="cap-toolbar">
+      <div class="cap-toolbar" style="display:none">
         <select id="cap-lbl-tipo" class="cap-sel" title="Tipo de etiqueta a colocar">
           <option value="rio">≈ Río</option><option value="ciudad">◉ Ciudad</option><option value="camino">▤ Camino</option><option value="punto">• Punto</option>
         </select>
