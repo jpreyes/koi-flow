@@ -23,7 +23,8 @@
   "verni_king": {
     "_desc": "Verni-King Modificado (10–10000 km²). Q=C(T)·0.00618·A^0.88·P24^1.24.",
     "k": 0.00618, "expA": 0.88, "expP": 1.24,
-    "C10_por_region": { "III": 0.027 }
+    "_fuente": "Tabla 3.25 Manual DGA 1995 · Coeficiente C(T=10) Verni-King Modificada (válido III–IX Región).",
+    "C10_por_region": { "III": 0.027, "IV-Elqui": 0.057, "IV-Limari": 0.180, "IV-Choapa": 0.200, "V": 0.290, "VI": 0.680, "VII": 0.710, "VIII": 0.790, "IX": 0.890 }
   },
   "dga_ac": {
     "_desc": "DGA-AC análisis regional pluvial. Q10 medio diario; ×curva regional; ×α a instantáneo.",
