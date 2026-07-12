@@ -13,7 +13,8 @@
   },
   "racional": {
     "_desc": "Racional Modificado (cuencas <25 km²). Q=C(T)·I(tc)·A/3.6. C(T)=C10·factor.",
-    "C10_por_region": { "III": 0.009 },
+    "_fuente": "Tabla 3.27 Manual DGA 1995 · Coeficiente C(T=10) Fórmula Racional (III–IX Región).",
+    "C10_por_region": { "III": 0.009, "IV-Elqui": 0.025, "IV-Limari": 0.078, "IV-Choapa": 0.080, "V": 0.080, "VI": 0.310, "VII": 0.390, "VIII": 0.360, "IX": 0.280 },
     "factor_frecuencia_C": {
       "_desc": "C(T)/C(T=10), Tabla 3.26 DGA 1995.",
       "2": 0.90, "5": 0.95, "10": 1.00, "25": 1.14, "50": 1.23,
