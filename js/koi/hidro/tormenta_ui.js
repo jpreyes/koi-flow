@@ -19,7 +19,7 @@ const f = (v, d = 1) => (v == null || !isFinite(v) ? '—' : v.toFixed(d));
 
 let _coefCache = null;
 async function coefIDF() {
-  if (!_coefCache) _coefCache = await fetchJSON('data/coef_hidro.json?v=13', { contexto: 'Coeficientes IDF' });
+  if (!_coefCache) _coefCache = await fetchJSON('data/coef_hidro.json?v=14', { contexto: 'Coeficientes IDF' });
   return _coefCache.idf;
 }
 

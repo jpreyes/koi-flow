@@ -52,21 +52,64 @@ export function verniKing({ A, region, pp24, coefC }, coef, Ts) {
   return { metodo: 'Verni-King Modificado', aplica: ok && A >= 10 && A <= 10000, sinCoef: !ok, rango: '10–10000 km²', regiones, C10, valores: out };
 }
 
-// DGA-AC: Q10 = k·A^a·P24_10^p ; Q(T) = Q10 · [Q(T)/Q(10)] · α
-export function dgaAC({ A, pp24 }, coef, Ts) {
-  const { k, expA, expP } = coef.dga_ac.Q10_formula;
-  const curva = coef.dga_ac.curva_regional_Dp_exorreica_media;
-  const alfa = coef.dga_ac.alfa_CMMD_a_CIMD;
-  const Q10 = k * Math.pow(A, expA) * Math.pow(pp24['10'], expP);
-  const out = {};
-  for (const T of Ts) out[T] = { ratio: factor(curva, T), Q: Q10 * factor(curva, T) * alfa };
-  return { metodo: 'DGA-AC', aplica: A > 20, rango: 'Ap > 20 km²', Q10, alfa, valores: out };
+// Lee la curva de frecuencia adimensional Q(T)/Q10 de una zona homogénea DGA-AC.
+// Interpola log-lineal en T dentro del rango tabulado [2,100] y EXTRAPOLA log-lineal
+// (con los dos últimos puntos) para T>100, marcándolo — el manual sólo llega a T=100.
+function curvaDGA(Tcurva, vals, T) {
+  const n = Tcurva.length;
+  if (T <= Tcurva[0]) return { v: vals[0], extrap: false };
+  if (T >= Tcurva[n - 1]) {
+    const a = Tcurva[n - 2], b = Tcurva[n - 1];
+    const s = (vals[n - 1] - vals[n - 2]) / (Math.log(b) - Math.log(a));
+    return { v: vals[n - 1] + s * (Math.log(T) - Math.log(b)), extrap: T > b };
+  }
+  for (let i = 0; i < n - 1; i++) if (T >= Tcurva[i] && T <= Tcurva[i + 1]) {
+    const t = (Math.log(T) - Math.log(Tcurva[i])) / (Math.log(Tcurva[i + 1]) - Math.log(Tcurva[i]));
+    return { v: vals[i] + t * (vals[i + 1] - vals[i]), extrap: false };
+  }
+  return { v: vals[n - 1], extrap: true };
 }
 
+// DGA-AC (análisis regional): Q10 = k·A^a·P24_10^p (fórmula regional) ;
+// Q(T) = Q10 · [Q(T)/Q10]_zona · α_zona. La cuenca se asigna a una ZONA HOMOGÉNEA
+// (Dp…Zp, Manual DGA 1995) que fija la curva de frecuencia, el factor α y la región
+// de la fórmula Q10. `zona` es el código de zona homogénea; si falta → sinZona.
+export function dgaAC({ A, pp24, zona }, coef, Ts) {
+  const dz = coef.dga_ac;
+  const zonas = Object.keys(dz.zonas);
+  const z = dz.zonas[zona];
+  if (!z) {
+    const out = Object.fromEntries(Ts.map((T) => [T, { ratio: null, Q: null }]));
+    return { metodo: 'DGA-AC', aplica: false, sinZona: true, rango: 'Ap > 20 km²', zonas, valores: out };
+  }
+  const f = dz.Q10_por_region[z.region];
+  const Q10 = f.k * Math.pow(A, f.expA) * Math.pow(pp24['10'], f.expP);
+  const out = {}; let extrapolado = false;
+  for (const T of Ts) {
+    const c = curvaDGA(dz.T_curva, z.curva, T);
+    if (c.extrap) extrapolado = true;
+    out[T] = { ratio: c.v, extrap: c.extrap, Q: Q10 * c.v * z.alfa };
+  }
+  return {
+    metodo: 'DGA-AC', aplica: A > 20, sinZona: false, rango: 'Ap > 20 km²',
+    zona, zonaNombre: z.nombre, region: z.region, dist: z.dist, alfa: z.alfa,
+    Q10, extrapolado, zonas, valores: out,
+  };
+}
+
+// Zona homogénea DGA-AC por defecto según la zona/región de Verni-King, para que el
+// flujo automático (pipeline) tenga una asignación razonable. El análisis por punto
+// permite elegir la zona exacta (Dp…Zp). Aproximación por macrozona/cuenca típica.
+const ZONA_DGA_POR_REGION = {
+  'III': 'Ip', 'IV-Elqui': 'Ip', 'IV-Limari': 'Jp', 'IV-Choapa': 'Kp',
+  'V': 'Lp', 'VI': 'Op', 'VII': 'Rp', 'VIII': 'Sp', 'IX': 'Vp',
+};
+
 // Ejecuta los métodos aplicables y arma un resumen por T.
-//   inputs: { A, region, pp24:{T:mm}, Itc:{T:mm/hr} }
+//   inputs: { A, region, pp24:{T:mm}, Itc:{T:mm/hr}, zonaDGA? }
 export function calcular(inputs, coef, Ts) {
-  const metodos = [racional(inputs, coef, Ts), verniKing(inputs, coef, Ts), dgaAC(inputs, coef, Ts)];
+  const zonaDGA = inputs.zonaDGA || ZONA_DGA_POR_REGION[inputs.region] || 'Dp';
+  const metodos = [racional(inputs, coef, Ts), verniKing(inputs, coef, Ts), dgaAC({ ...inputs, zona: zonaDGA }, coef, Ts)];
   const resumen = Ts.map((T) => {
     const fila = { T };
     for (const m of metodos) fila[m.metodo] = m.valores[T].Q;

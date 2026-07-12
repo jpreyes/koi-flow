@@ -9,7 +9,7 @@
 import { analizar } from './frecuencia.js?v=13';
 import { ppDiseno, intensidad, grunsky, tablaIDF } from './idf.js?v=13';
 import * as TC from './tc.js?v=13';
-import * as Q from './caudales.js?v=13';
+import * as Q from './caudales.js?v=14';
 import { transponer } from './transposicion.js?v=13';
 import { caudalesHU } from './hidrograma.js?v=13';
 import { lineaNieveTemperatura, lineaNieveLatitud } from './linea_nieve.js?v=13';
@@ -18,7 +18,7 @@ import { fetchJSON } from '../datos/fetch_json.js?v=13';
 const TS = [2, 5, 10, 25, 50, 100, 150, 200];
 
 export async function correrHidrologia(caso) {
-  const coef = await fetchJSON('data/coef_hidro.json?v=13', { contexto: 'Coeficientes hidrológicos' });
+  const coef = await fetchJSON('data/coef_hidro.json?v=14', { contexto: 'Coeficientes hidrológicos' });
   const out = { caso: caso.nombre, T: TS };
 
   // ── 1) Línea de nieve y área pluvial aportante ──
@@ -88,7 +88,7 @@ export async function correrHidrologia(caso) {
 //          pp:{estacion, serie, dist?, coefIDF?}, fluvio:{estacion, serie, Apc, dist?} }
 // ─────────────────────────────────────────────────────────────────────────────
 export async function correrPipelinePunto(cfg) {
-  const coef = await fetchJSON('data/coef_hidro.json?v=13', { contexto: 'Coeficientes hidrológicos' });
+  const coef = await fetchJSON('data/coef_hidro.json?v=14', { contexto: 'Coeficientes hidrológicos' });
   const m = cfg.morfometria;
   const Ap = m.A;                                  // sin hipsometría: área pluvial ≈ área total
   const out = { caso: cfg.nombre, T: TS };

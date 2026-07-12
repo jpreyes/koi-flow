@@ -9,7 +9,7 @@ import { analizar } from './frecuencia.js?v=13';
 import { transponer, transponerRegional } from './transposicion.js?v=13';
 import { caudalesHU } from './hidrograma.js?v=13';
 import { ppDiseno, grunsky, factorReduccionAreal } from './idf.js?v=13';
-import { racional, verniKing, dgaAC } from './caudales.js?v=13';
+import { racional, verniKing, dgaAC } from './caudales.js?v=14';
 import { estacionesCercanas, estacionRecomendada, cargarSerie, centroideTramo, getDistOverride } from '../datos/dga.js?v=13';
 import { abrirEstacionHUD } from '../datos/estacion_hud.js?v=13';
 import { fetchJSON } from '../datos/fetch_json.js?v=13';
@@ -793,6 +793,28 @@ export class HydroPanel {
     // III–IX Región; la IV se subdivide por cuenca: Elqui/Limarí/Choapa).
     const REGIONES = [['III', 'III · Atacama'], ['IV-Elqui', 'IV · Coquimbo — Elqui'], ['IV-Limari', 'IV · Coquimbo — Limarí'], ['IV-Choapa', 'IV · Coquimbo — Choapa'], ['V', 'V · Valparaíso'], ['VI', "VI · O'Higgins"], ['VII', 'VII · Maule'], ['VIII', 'VIII · Biobío'], ['IX', 'IX · Araucanía']];
     const selRegion = (def = 'III') => `<label class="hp-f"><span>Zona DGA (Tabla 3.25)</span><select id="pf_reg">${REGIONES.map(([c, n]) => `<option value="${c}"${c === def ? ' selected' : ''}>${n}</option>`).join('')}</select></label>`;
+    // Zonas homogéneas del método DGA-AC (Manual DGA 1995, Fig. 3.2 y Tablas 3.1–3.24),
+    // agrupadas por macrozona para ubicarlas por región/cuenca.
+    const ZONAS_DGA = [
+      ['Norte (N de 32°S · II–IV Región)', [
+        ['Dp', 'Dp · Exorreicas no controladas (N 25°S)'], ['Ep', 'Ep · Altiplánicas endorreicas'],
+        ['Fp', 'Fp · C. Salado / Salar Atacama'], ['Gp', 'Gp · C. Loa controlada'],
+        ['Hp', 'Hp · C. San Pedro'], ['Ip', 'Ip · Copiapó/Huasco/Elqui (27–30°)'],
+        ['Jp', 'Jp · C. Limarí'], ['Kp', 'Kp · C. Choapa']]],
+      ['Centro (32–35°S · V–VI Región)', [
+        ['Lp', 'Lp · Aconcagua Pma>600, cota≥1000'], ['Mp', 'Mp · Aconcagua Pma>600, cota<1000'],
+        ['Np', 'Np · Pma<600, P24>80, Ap≤145'], ['Op', 'Op · Pma<600, Ap>145'],
+        ['Pp', 'Pp · Pma<600, P24≤80']]],
+      ['Sur (VII–XII Región)', [
+        ['Qp', 'Qp · VII · C. Mataquito'], ['Rp', 'Rp · VII · C. Maule'],
+        ['Sp', 'Sp · VIII · C. Itata'], ['Tp', 'Tp · VIII · C. Biobío'],
+        ['Up', 'Up · VIII · C. Costeras'], ['Vp', 'Vp · IX · C. Imperial'],
+        ['Wp', 'Wp · IX · C. Toltén'], ['Xp', 'Xp · X Región'],
+        ['Yp', 'Yp · XI Región'], ['Zp', 'Zp · XII Región']]],
+    ];
+    const selZonaDGA = (def = 'Dp') => `<label class="hp-f"><span>Zona homogénea DGA-AC</span><select id="pf_zona">${
+      ZONAS_DGA.map(([g, zs]) => `<optgroup label="${g}">${zs.map(([c, n]) => `<option value="${c}"${c === def ? ' selected' : ''}>${n}</option>`).join('')}</optgroup>`).join('')
+    }</select></label>`;
     const mo = this._punto?.cuenca?.morfometria;   // autocompletado desde la delineación
     const A = mo ? mo.A : '', L = mo ? mo.L : '', Lg = mo ? mo.Lg : '', S = mo ? mo.S : '';
     if (m === 'fluvio') return f('Factor a instantáneo (zona homogénea)', 'pf_fi', '1.0');
@@ -809,7 +831,8 @@ export class HydroPanel {
     if (m === 'vk') return f('Área A', 'pf_a', A, 'km²') + selRegion() +
       f('Coef. C (opcional · sobrescribe la zona)', 'pf_vkc', '', '') +
       `<p class="hp-note">Coeficiente C de la <b>Tabla 3.25 (Manual DGA 1995)</b>, válido III–IX Región (III=0.027 … IX=0.89; IV·Choapa=0.200). Elige tu zona; si tienes un C más preciso del sitio, ingrésalo en «Coef. C».</p>`;
-    if (m === 'dga') return f('Área A', 'pf_a', A, 'km²');
+    if (m === 'dga') return f('Área A', 'pf_a', A, 'km²') + selZonaDGA() +
+      `<p class="hp-note">Zona homogénea del <b>Manual DGA 1995</b> (Fig. 3.2 / Tablas 3.1–3.24): fija la curva de frecuencia, el factor α a instantáneo y la región de la fórmula Q₁₀. Si no la conoces, elígela por región/cuenca.</p>`;
     return '';
   }
 
@@ -870,7 +893,7 @@ export class HydroPanel {
       const A = num('pf_a');
       if (!(A > 0)) throw new Error('Ingresa el área A.');
       if (!this._sel.pluvio) throw new Error('Elige una estación pluvial.');
-      const coef = await fetchJSON('data/coef_hidro.json?v=13', { contexto: 'Coeficientes hidrológicos' });
+      const coef = await fetchJSON('data/coef_hidro.json?v=14', { contexto: 'Coeficientes hidrológicos' });
       const sp = await cargarSerie(this._sel.pluvio);
       const an = analizar(Object.values(sp.serie), { T: TSL });
       const fra = factorReduccionAreal(A);
@@ -890,12 +913,15 @@ export class HydroPanel {
         mm = verniKing({ A, region: reg, pp24: pp, coefC: isFinite(cc) ? cc : undefined }, coef, TSL);
         titulo = `Verni-King Modificado (referencial) · PP de ${sp.nombre}`;
       } else {
-        mm = dgaAC({ A, pp24: pp }, coef, TSL);
-        titulo = `DGA-AC regional (referencial) · PP de ${sp.nombre}`;
+        const zona = $('pf_zona')?.value.trim() || 'Dp';
+        mm = dgaAC({ A, pp24: pp, zona }, coef, TSL);
+        titulo = `DGA-AC regional (referencial) · zona ${mm.zonaNombre || zona} · PP de ${sp.nombre}`;
       }
       if (mm.sinCoef) throw new Error(`${mm.metodo}: la región "${$('pf_reg')?.value || '?'}" no tiene coeficiente calibrado en la app (solo ${mm.regiones.join(', ')}). Ingresa el coeficiente C de tu sitio (mapa DGA).`);
+      if (mm.sinZona) throw new Error(`${mm.metodo}: elige una zona homogénea válida (${mm.zonas.join(', ')}).`);
       res = Object.fromEntries(TSL.map((T) => [T, mm.valores[T].Q]));
-      nota = `⚠ Método pluvial (lluvia-escorrentía): ${mm.aplica ? 'aplicable' : 'fuera de rango'} (${mm.rango}). FRA=${fra.toFixed(2)} (reducción areal, A=${A.toFixed(0)} km²). En zona árida es REFERENCIAL: gobierna la fluviometría del cauce.`;
+      const infoDGA = m === 'dga' ? ` Q₁₀=${f1(mm.Q10)} m³/s (fórmula ${mm.region}), α=${mm.alfa}${mm.extrapolado ? ', T>100 extrapolado (curva del manual llega a T=100)' : ''}.` : '';
+      nota = `⚠ Método pluvial (lluvia-escorrentía): ${mm.aplica ? 'aplicable' : 'fuera de rango'} (${mm.rango}).${infoDGA} FRA=${fra.toFixed(2)} (reducción areal, A=${A.toFixed(0)} km²). En zona árida es REFERENCIAL: gobierna la fluviometría del cauce.`;
     }
 
     this._resPunto.innerHTML = '';

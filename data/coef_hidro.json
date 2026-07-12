@@ -28,13 +28,41 @@
     "C10_por_region": { "III": 0.027, "IV-Elqui": 0.057, "IV-Limari": 0.180, "IV-Choapa": 0.200, "V": 0.290, "VI": 0.680, "VII": 0.710, "VIII": 0.790, "IX": 0.890 }
   },
   "dga_ac": {
-    "_desc": "DGA-AC análisis regional pluvial. Q10 medio diario; ×curva regional; ×α a instantáneo.",
-    "Q10_formula": { "k": 1.94e-7, "expA": 0.776, "expP": 3.108 },
-    "curva_regional_Dp_exorreica_media": {
-      "_desc": "Q(T)/Q(10), zona homogénea Dp, Gumbel, exorreicas, valor medio (Tabla 3-24).",
-      "2": 0.50, "5": 0.80, "10": 1.00, "20": 1.19, "25": 1.25,
-      "50": 1.44, "75": 1.54, "100": 1.62, "150": 1.76, "200": 1.86, "300": 2.00
+    "_desc": "DGA-AC análisis regional pluvial (Manual DGA 1995, §3.1). Q10 medio diario máximo (fórmula regional) × curva de frecuencia adimensional de la zona homogénea × factor α a caudal instantáneo. Q(T)=Q10·[Q(T)/Q10]·α.",
+    "_fuente": "Manual DGA 1995 · ecuaciones 3.1–3.3 (Q10), Tablas 3.1–3.23 (curvas de frecuencia MEDIA por zona homogénea) y Tabla 3.24 (factor α). Verificado vs ejemplos Pocuro en el Sifón (zona Lp) y Chillán en Esperanza (zona Sp).",
+    "_verificacion": "Pocuro: Q10=5.42e-8·134^0.915·90^3.432=24.4 m³/s, Lp·α=1.67 → Q100=187 m³/s. Chillán: Q10=2e-3·224^0.973·175^1.224=215.4 m³/s, Sp·α=1.37 → Q100=466 m³/s.",
+    "Q10_por_region": {
+      "_desc": "Q10 medio diario máximo [m³/s] = k·Ap^expA·P24_10^expP. Ap [km²], P24_10 = P24 diaria máxima T=10 [mm]. Región de la cuenca.",
+      "III-IV":  { "k": 1.94e-7, "expA": 0.776, "expP": 3.108, "_nota": "Ec. 3.1 · III y IV Región (usada también al norte de la III para altiplano/exorreicas)." },
+      "V-RM-VI": { "k": 5.42e-8, "expA": 0.915, "expP": 3.432, "_nota": "Ec. 3.2 · V, RM y VI Región." },
+      "VII-IX":  { "k": 2.0e-3,  "expA": 0.973, "expP": 1.224, "_nota": "Ec. 3.3 · VII a IX Región (aplicada como aproximación al sur de la IX; el manual no da fórmula pluvial X–XII)." }
     },
-    "alfa_CMMD_a_CIMD": 1.0
+    "T_curva": [2, 5, 10, 20, 25, 50, 75, 100],
+    "_nota_T": "Las curvas de frecuencia del manual llegan hasta T=100. Para T>100 la app extrapola log-lineal con los dos últimos puntos y lo marca como extrapolado.",
+    "zonas": {
+      "Dp": { "nombre": "Dp · Exorreicas no controladas (norte de 25°S)", "region": "III-IV", "dist": "Gumbel",      "alfa": 2.19, "curva": [0.50, 0.80, 1.00, 1.19, 1.25, 1.44, 1.54, 1.62] },
+      "Ep": { "nombre": "Ep · Altiplánicas endorreicas (norte de 25°S)", "region": "III-IV", "dist": "Log-Pearson 3", "alfa": 1.13, "curva": [0.55, 0.83, 1.00, 1.16, 1.20, 1.37, 1.45, 1.52] },
+      "Fp": { "nombre": "Fp · C. Salado / Salar de Atacama",           "region": "III-IV", "dist": "Log-Pearson 3", "alfa": 3.07, "curva": [0.18, 0.52, 1.00, 1.77, 2.06, 3.52, 4.61, 5.70] },
+      "Gp": { "nombre": "Gp · C. Loa controlada",                      "region": "III-IV", "dist": "Gumbel",      "alfa": 1.40, "curva": [0.62, 0.85, 1.00, 1.15, 1.19, 1.33, 1.42, 1.48] },
+      "Hp": { "nombre": "Hp · C. San Pedro",                           "region": "III-IV", "dist": "Log-Pearson 3", "alfa": 1.13, "curva": [0.81, 0.92, 1.00, 1.08, 1.10, 1.17, 1.21, 1.25] },
+      "Ip": { "nombre": "Ip · Latitud 27–30° (Copiapó/Huasco/Elqui)",  "region": "III-IV", "dist": "Log-Normal",   "alfa": 1.25, "curva": [0.43, 0.74, 1.00, 1.27, 1.36, 1.66, 1.86, 2.00] },
+      "Jp": { "nombre": "Jp · C. Limarí sin regulación",              "region": "III-IV", "dist": "Log-Normal",   "alfa": 2.14, "curva": [0.24, 0.61, 1.00, 1.51, 1.71, 2.41, 2.91, 3.30] },
+      "Kp": { "nombre": "Kp · C. Choapa",                             "region": "III-IV", "dist": "Log-Normal",   "alfa": 1.59, "curva": [0.24, 0.60, 1.00, 1.61, 1.82, 2.61, 3.19, 3.67] },
+      "Lp": { "nombre": "Lp · Lat 32–35° · Aconcagua (Pma>600, cota≥1000 msnm)", "region": "V-RM-VI", "dist": "Log-Normal", "alfa": 1.67, "curva": [0.16, 0.52, 1.00, 1.69, 1.97, 3.08, 3.91, 4.59] },
+      "Mp": { "nombre": "Mp · Lat 32–35° · Aconcagua (Pma>600, cota<1000 msnm)", "region": "V-RM-VI", "dist": "Log-Normal", "alfa": 1.48, "curva": [0.43, 0.74, 1.00, 1.28, 1.38, 1.71, 1.92, 2.08] },
+      "Np": { "nombre": "Np · Lat 32–35° · Pma<600, P24>80 mm, Ap≤145 km²",       "region": "V-RM-VI", "dist": "Log-Normal", "alfa": 1.87, "curva": [0.18, 0.56, 1.00, 1.61, 1.86, 2.77, 3.44, 3.97] },
+      "Op": { "nombre": "Op · Lat 32–35° · Pma<600, Ap>145 km²",                  "region": "V-RM-VI", "dist": "Log-Normal", "alfa": 1.76, "curva": [0.30, 0.64, 1.00, 1.48, 1.67, 2.35, 2.85, 3.24] },
+      "Pp": { "nombre": "Pp · Lat 32–35° · Pma<600, P24≤80 mm",                   "region": "V-RM-VI", "dist": "Log-Normal", "alfa": 1.43, "curva": [0.42, 0.74, 1.00, 1.29, 1.39, 1.72, 1.94, 2.10] },
+      "Qp": { "nombre": "Qp · VII Región · C. Mataquito",             "region": "VII-IX", "dist": "Gumbel", "alfa": 1.51, "curva": [0.50, 0.80, 1.00, 1.19, 1.25, 1.43, 1.54, 1.62] },
+      "Rp": { "nombre": "Rp · VII Región · C. Maule",                 "region": "VII-IX", "dist": "Gumbel", "alfa": 1.45, "curva": [0.49, 0.80, 1.00, 1.19, 1.26, 1.45, 1.56, 1.64] },
+      "Sp": { "nombre": "Sp · VIII Región · C. Itata",                "region": "VII-IX", "dist": "Gumbel", "alfa": 1.37, "curva": [0.54, 0.82, 1.00, 1.18, 1.23, 1.41, 1.51, 1.58] },
+      "Tp": { "nombre": "Tp · VIII Región · C. Biobío",               "region": "VII-IX", "dist": "Gumbel", "alfa": 1.28, "curva": [0.60, 0.84, 1.00, 1.15, 1.20, 1.35, 1.44, 1.50] },
+      "Up": { "nombre": "Up · VIII Región · C. Costeras",             "region": "VII-IX", "dist": "Gumbel", "alfa": 1.21, "curva": [0.57, 0.83, 1.00, 1.16, 1.22, 1.38, 1.47, 1.54], "_nota_alfa": "El manual da un rango α=1.21–1.5 para Up; se usa el límite inferior 1.21." },
+      "Vp": { "nombre": "Vp · IX Región · C. Imperial",               "region": "VII-IX", "dist": "Gumbel", "alfa": 1.16, "curva": [0.59, 0.84, 1.00, 1.16, 1.21, 1.36, 1.45, 1.51] },
+      "Wp": { "nombre": "Wp · IX Región · C. Toltén",                 "region": "VII-IX", "dist": "Gumbel", "alfa": 1.19, "curva": [0.68, 0.87, 1.00, 1.12, 1.16, 1.28, 1.35, 1.40] },
+      "Xp": { "nombre": "Xp · X Región",                              "region": "VII-IX", "dist": "Gumbel", "alfa": 1.22, "curva": [0.66, 0.87, 1.00, 1.13, 1.17, 1.29, 1.37, 1.42], "_nota": "El manual no da fórmula Q10 pluvial para X–XII; se usa la de VII–IX como aproximación." },
+      "Yp": { "nombre": "Yp · XI Región",                             "region": "VII-IX", "dist": "Gumbel", "alfa": 1.27, "curva": [0.64, 0.86, 1.00, 1.14, 1.18, 1.32, 1.39, 1.45], "_nota": "El manual no da fórmula Q10 pluvial para X–XII; se usa la de VII–IX como aproximación." },
+      "Zp": { "nombre": "Zp · XII Región",                            "region": "VII-IX", "dist": "Gumbel", "alfa": 1.24, "curva": [0.60, 0.84, 1.00, 1.15, 1.20, 1.35, 1.44, 1.50], "_nota": "El manual no da fórmula Q10 pluvial para X–XII; se usa la de VII–IX como aproximación." }
+    }
   }
 }
