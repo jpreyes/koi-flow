@@ -21,6 +21,7 @@ import { abrirConfigHUD } from './ui/config_ui.js?v=13';
 import { generarInforme, generarInformeWord } from './informe/informe.js?v=13';
 import { abrirAyudaHUD } from './ui/ayuda.js?v=13';
 import { setupMenubar } from './ui/menubar.js?v=13';
+import { montarPaleta } from './ui/paleta.js?v=13';
 import { renderAnalysisMenu } from './capabilities.js?v=13';
 import { abrirEmbalseHUD } from './hidro/embalse_ui.js?v=13';
 import { abrirAlcantarillaHUD } from './hidraulica/alcantarilla_ui.js?v=13';
@@ -450,6 +451,7 @@ async function startBoot() {
     'dibujar-tramo': () => capas._dibujarTramo?.(),
     'config': () => abrirConfigHUD(huds),
     'panel-ayuda': () => dock.show('ayuda'),
+    'paleta': () => bus.emit('paleta:abrir'),
     'ver-2d': () => setMode('2d'),
     'ver-3d': () => { if (current && tieneRelieve(current)) { setMode('3d'); load3D(current); } else setMode('3d'); },
     'tema': () => window.__koiToggleTheme?.(),
@@ -500,6 +502,7 @@ async function startBoot() {
   const refreshAnalysisMenu = () => renderAnalysisMenu(acciones, window.__koi);
   refreshAnalysisMenu();
   setupMenubar(acciones);
+  montarPaleta();   // Ctrl/Cmd+K → buscar y lanzar cualquier acción
   bus.on('seleccion:cambio', refreshAnalysisMenu);
   bus.on('reg:actualizado', refreshAnalysisMenu);
   bus.on('proyecto:abierto', refreshAnalysisMenu);
