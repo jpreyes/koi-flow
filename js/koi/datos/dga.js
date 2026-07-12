@@ -8,6 +8,18 @@ import { fetchJSON, fetchJSONopcional, KoiDataError } from './fetch_json.js?v=13
 
 let _catalogo = null;
 
+// Series EDITADAS/IMPORTADAS por el usuario (memoria de sesión). Tienen prioridad
+// sobre la base estática → el HUD de estación y TODO el pipeline usan tus datos.
+const _override = new Map();
+const _okey = (bna, tipo) => `${bna}_${tipo}`;
+export function setSerieOverride(est, serie, tipo) {
+  const bna = typeof est === 'object' ? est.bna : est;
+  const t = typeof est === 'object' ? est.tipo : tipo;
+  const base = typeof est === 'object' ? est : {};
+  _override.set(_okey(bna, t), { ...base, bna, tipo: t, serie, editada: true });
+}
+export function getSerieOverride(bna, tipo) { return _override.get(_okey(bna, tipo)) || null; }
+
 export function resetCatalogo() { _catalogo = null; }
 
 export async function cargarCatalogo() {
@@ -51,6 +63,7 @@ export async function estacionesCercanas([lon, lat], { tipo, n = 5, minAnios = 0
 export async function cargarSerie(est, tipo) {
   const bna = typeof est === 'object' ? est.bna : est;
   const t = (typeof est === 'object' ? est.tipo : tipo);
+  const ov = _override.get(_okey(bna, t)); if (ov) return ov;   // datos editados/importados por el usuario
   const nombre = (typeof est === 'object' && est.nombre) ? est.nombre : bna;
   const archivo = (typeof est === 'object' && est.archivo)
     ? est.archivo

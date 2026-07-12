@@ -240,6 +240,8 @@ body { font: 14px/1.45 system-ui, "Segoe UI", Roboto, sans-serif; background: va
 .hud-resize::after { content: ''; position: absolute; right: 3px; bottom: 3px; width: 8px; height: 8px;
   border-right: 2px solid var(--text2); border-bottom: 2px solid var(--text2); border-radius: 0 0 3px 0; opacity: .6; }
 .hud-note { font-size: 11px; color: var(--text2); margin: 6px 0 0; }
+.est-ta { width: 100%; box-sizing: border-box; background: var(--bg1, #0d1117); color: var(--text); border: 1px solid var(--border2); border-radius: 7px; padding: 7px 9px; font-family: ui-monospace, monospace; font-size: 11.5px; resize: vertical; }
+.hud-select { width: 100%; background: var(--bg3); color: var(--text); border: 1px solid var(--border2); border-radius: 7px; padding: 6px 8px; font-size: 12.5px; margin-top: 4px; }
 
 /* DockShim: paneles grandes migrados a ventana flotante (Fase E) */
 .dsh-root { display: flex; flex-direction: column; min-height: 0; }
