@@ -71,11 +71,13 @@ function render(hud, estado) {
   const q100 = dr?.quantiles?.[100];
   const alerta = q100 && q100 > 2.2 * maxObs;
 
+  const pocosAnios = pares.length < 20;   // MC V3 / DGA: mínimo ~20 años para frecuencia
   let html = metaHTML(est);
   html += `<div class="hud-kv">
-    <div><span>Registro</span><b>${pares[0][0]}–${pares[pares.length - 1][0]} (${pares.length} años)</b></div>
+    <div><span>Registro</span><b style="${pocosAnios ? 'color:var(--coral,#ef6c5a)' : ''}">${pares[0][0]}–${pares[pares.length - 1][0]} (${pares.length} años)</b></div>
     <div><span>Media · Desv.</span><b>${f(an.stats.mean)} · ${f(an.stats.std)} ${uni}</b></div>
     <div><span>Mín · Máx observado</span><b>${f(Math.min(...vals))} · ${f(maxObs)} ${uni}</b></div></div>`;
+  if (pocosAnios) html += `<p class="hud-note" style="color:var(--coral,#ef6c5a)">⚠ Solo ${pares.length} años: el Manual de Carreteras (V3) pide <b>≥ 20 años</b> para un análisis de frecuencia confiable. Los cuantiles son poco robustos.</p>`;
   html += `<div class="hud-sec">Máximos anuales (${uni})</div>${barras(pares, uni)}`;
   html += editorHTML(pares, uni);
   html += `<div class="hud-sec">Distribución que gobierna</div>
@@ -86,6 +88,7 @@ function render(hud, estado) {
   html += `<div class="hud-kv" style="margin-top:6px">
     <div><span>Q100 · ${DIST[distKey]}</span><b>${f(q100)} ${uni}</b></div>
     <div><span>Q10 · Q200</span><b>${f(dr?.quantiles?.[10])} · ${f(dr?.quantiles?.[200])} ${uni}</b></div></div>`;
+  html += `<div class="hud-sec">Gráfico de ajuste (observado vs ${DIST[distKey]})</div>${graficoAjuste(vals, uni, distKey)}`;
   if (alerta) html += `<p class="hud-note" style="color:var(--coral,#ef6c5a)">⚠ El Q100 (${f(q100)}) supera <b>2×</b> el máximo observado (${f(maxObs)}). Esta distribución extrapola agresivamente; en series con crecidas atípicas suele ser más realista <b>Gumbel</b> o <b>Log-Pearson III</b>. Compara abajo.</p>`;
   html += `<div class="hud-sec">Ajuste de las distribuciones</div>${tablaDist(an, distKey, uni)}`;
   if (estado.onLink) html += `<button class="hud-link" id="hud-hidro">Ver en pestaña Hidrología →</button>`;
@@ -164,6 +167,46 @@ function barras(pares, uni) {
     <text x="${W - pad}" y="${H - 6}" text-anchor="end" font-size="9" fill="var(--text2)">${pares[pares.length - 1][0]}</text>
     <text x="${pad}" y="12" font-size="9" fill="var(--text2)">máx ${f(ymax)} ${uni}</text>
   </svg>`;
+}
+
+// Gráfico de ajuste: puntos observados (posición de Weibull) vs la CURVA de la
+// distribución elegida, en eje de período de retorno (log). Deja VER la cola: una
+// distribución que se dispara arriba (Log-Normal) extrapola de más; una que sigue
+// a los puntos (Gamma / Log-Pearson) es más creíble.
+function graficoAjuste(valsAsc, uni, distKey) {
+  const vals = valsAsc.slice().sort((a, b) => a - b);
+  const n = vals.length;
+  // Weibull: el i-ésimo ascendente (0..n-1) es el (n-i)-ésimo mayor → T=(n+1)/(n-i).
+  const obs = vals.map((v, i) => ({ T: (n + 1) / (n - i), Q: v }));
+  const Tden = [1.25, 1.5, 2, 3, 5, 7, 10, 15, 20, 30, 50, 75, 100, 150, 200, 300, 500];
+  const an = analizar(vals, { T: Tden });
+  const fit = Tden.map((T) => ({ T, Q: an.resultados[distKey].quantiles[T] })).filter((p) => isFinite(p.Q) && p.Q >= 0);
+  const W = 400, H = 170, pL = 40, pR = 12, pT = 12, pB = 26;
+  const Tmin = 1.05, Tmax = 500;
+  const maxObs = Math.max(...vals);
+  // Escala al DATO observado (×1.6), no a la curva: así una distribución que
+  // extrapola muy por encima de los puntos se DISPARA fuera del cuadro (se ve).
+  const ymax = maxObs * 1.6 || 1;
+  const lx = (T) => pL + (Math.log10(T) - Math.log10(Tmin)) / (Math.log10(Tmax) - Math.log10(Tmin)) * (W - pL - pR);
+  const ly = (Q) => Math.max(pT - 2, H - pB - (Q / ymax) * (H - pT - pB));   // clamp al techo
+  const ticks = [2, 5, 10, 25, 50, 100, 200, 500];
+  const grid = ticks.map((T) => `<line x1="${lx(T).toFixed(1)}" y1="${pT}" x2="${lx(T).toFixed(1)}" y2="${H - pB}" stroke="var(--border2)" stroke-width="0.5" opacity="0.5"/>
+    <text x="${lx(T).toFixed(1)}" y="${H - 8}" font-size="8" fill="var(--text2)" text-anchor="middle">${T}</text>`).join('');
+  const linea = fit.map((p, i) => `${i ? 'L' : 'M'}${lx(p.T).toFixed(1)},${ly(p.Q).toFixed(1)}`).join(' ');
+  const puntos = obs.map((p) => `<circle cx="${lx(p.T).toFixed(1)}" cy="${ly(p.Q).toFixed(1)}" r="2.1" fill="var(--teal,#31c3ce)" opacity="0.9"/>`).join('');
+  const yl = [0, ymax / 2, ymax].map((v) => `<text x="${pL - 4}" y="${(ly(v) + 3).toFixed(1)}" font-size="8" fill="var(--text2)" text-anchor="end">${f(v)}</text>`).join('');
+  const yMaxObs = ly(maxObs);
+  return `<svg class="hud-chart" viewBox="0 0 ${W} ${H}">
+    ${grid}${yl}
+    <line x1="${pL}" y1="${yMaxObs.toFixed(1)}" x2="${W - pR}" y2="${yMaxObs.toFixed(1)}" stroke="var(--coral,#ef6c5a)" stroke-width="0.8" stroke-dasharray="3 2" opacity="0.8"/>
+    <text x="${W - pR}" y="${(yMaxObs - 3).toFixed(1)}" font-size="7.5" fill="var(--coral,#ef6c5a)" text-anchor="end">máx registrado</text>
+    <line x1="${pL}" y1="${H - pB}" x2="${W - pR}" y2="${H - pB}" stroke="var(--border2)"/>
+    <line x1="${pL}" y1="${pT}" x2="${pL}" y2="${H - pB}" stroke="var(--border2)"/>
+    <path d="${linea}" fill="none" stroke="var(--accent)" stroke-width="1.8"/>
+    ${puntos}
+    <text x="${(W / 2).toFixed(0)}" y="${H - 1}" font-size="8" fill="var(--text2)" text-anchor="middle">Período de retorno T [años]</text>
+    <text x="${pL + 4}" y="${pT + 8}" font-size="8" fill="var(--text2)">${uni}</text></svg>
+    <p class="hud-note">● observado (Weibull) · línea = ${DIST[distKey]}. Si la línea se dispara sobre los puntos en la cola (T grande), la distribución <b>extrapola de más</b>.</p>`;
 }
 
 // Tabla de distribuciones: R², χ², cuantiles Q10 / Q100. Resalta la elegida.
