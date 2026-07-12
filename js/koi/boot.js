@@ -453,6 +453,7 @@ async function startBoot() {
     'transiente2d': () => bati.focusTool('transiente'),
     'momentum2d': () => bati.focusTool('momentum'),
     'morfo2d': () => bati.focusTool('morfo'),
+    'guia-eje': () => import('./ui/flujo_guiado.js?v=13').then((m) => m.abrirFlujoGuiado(window.__koi, 'eje')),
     'embalse': () => abrirEmbalseHUD(window.__koi, huds),
     'alcantarilla': () => abrirAlcantarillaHUD(window.__koi, huds),
     'puente-presion': () => abrirPuenteHUD(window.__koi, huds),
