@@ -457,6 +457,8 @@ async function startBoot() {
     'momentum2d': () => import('./ui/correr_ui.js?v=13').then((m) => m.abrirCorrerDialog(window.__koi, 'momentum')),
     'morfo2d': () => import('./ui/correr_ui.js?v=13').then((m) => m.abrirCorrerDialog(window.__koi, 'morfo')),
     'guia-eje': () => import('./ui/flujo_guiado.js?v=13').then((m) => m.abrirFlujoGuiado(window.__koi, 'eje')),
+    'guia-rotura': () => import('./ui/flujo_guiado.js?v=13').then((m) => m.abrirFlujoGuiado(window.__koi, 'rotura')),
+    'guia-socav': () => import('./ui/flujo_guiado.js?v=13').then((m) => m.abrirFlujoGuiado(window.__koi, 'socavacion')),
     'embalse': () => abrirEmbalseHUD(window.__koi, huds),
     'alcantarilla': () => abrirAlcantarillaHUD(window.__koi, huds),
     'puente-presion': () => abrirPuenteHUD(window.__koi, huds),

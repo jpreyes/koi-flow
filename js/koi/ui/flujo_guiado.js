@@ -14,6 +14,10 @@ const activo = () => (typeof window !== 'undefined' && window.__koiSel?.get?.())
 // ── Recetas ─────────────────────────────────────────────────────────────────
 // paso = { id, t (título), d (descripción), ic (Tabler), correr(koi), hecho(koi) }
 // `hecho` es best-effort (lee el estado); si no está seguro, el paso igual se puede correr.
+// Atajos de detección contra el estado REAL (verificados contra bati/koi.reg).
+const esTramo = () => ['tramo', 'reach'].includes(activo()?.tipo);
+const hayRelieve = (koi) => !!(koi.bati?.demM || koi.bati?.fused || koi.bati?.baseDEM || koi.bati?.tramo?.demGrid);
+
 const RECETAS = {
   eje: {
     titulo: 'Eje hidráulico 1D',
@@ -21,17 +25,17 @@ const RECETAS = {
     pasos: [
       { id: 'cauce', t: 'Elige el cauce', d: 'Selecciona un tramo en el mapa o el árbol, o dibuja uno con la herramienta Tramo.', ic: 'ti-ripple',
         correr: (koi) => koi.capas?._dibujarTramo?.(),
-        hecho: (koi) => !!(koi.bati?.tramo || ['tramo', 'reach'].includes(activo()?.tipo)) },
+        hecho: (koi) => !!(koi.bati?.tramo || esTramo()) },
       { id: 'relieve', t: 'Descarga el relieve (DEM)', d: 'Baja el relieve del sector: de ahí salen las secciones y las cotas.', ic: 'ti-mountain',
         correr: () => clickAccion('remanso1d'),
-        hecho: (koi) => !!(koi.bati?.demM || koi.bati?.tramo?.demGrid || koi.bati?.fused) },
+        hecho: hayRelieve },
       { id: 'secciones', t: 'Genera las secciones', d: 'Extrae las secciones transversales del cauce desde el DEM.', ic: 'ti-chart-line',
         correr: () => clickAccion('remanso1d'),
-        hecho: (koi) => !!(koi.bati?.secciones?.length || koi.bati?._secciones?.length) },
-      { id: 'eje', t: 'Corre el eje 1D', d: 'Paso estándar (Manning) sobre las secciones → perfil de agua (WSE, V, Fr).', ic: 'ti-arrow-guide',
-        correr: () => clickAccion('remanso1d'),
-        hecho: (koi) => !!(koi.bati?._remanso || koi.reg?.remanso || koi.bati?.result1d) },
-      { id: 'socav', t: 'Socavación (opcional)', d: 'Con el resultado del eje, calcula la socavación (HEC-18) donde haya puente/estructura.', ic: 'ti-arrow-down',
+        hecho: (koi) => (koi.bati?.secciones?.length || 0) >= 2 },
+      { id: 'eje', t: 'Corre el eje 1D', d: 'Paso estándar (Manning) sobre las secciones → perfil de agua (WSE, V, Fr). Se abre el diálogo Correr.', ic: 'ti-arrow-guide',
+        correr: () => clickAccion('correr-remanso1d'),
+        hecho: (koi) => !!koi.bati?._remanso },
+      { id: 'socav', t: 'Socavación (opcional)', d: 'Con el resultado del eje, calcula la socavación (LL + HEC-18) en el cruce.', ic: 'ti-arrow-down',
         correr: (koi) => koi.dock?.show?.('hidro'),
         hecho: (koi) => !!koi.reg?.socavacion },
       { id: 'informe', t: 'Genera el informe', d: 'Arma el informe (PDF/Word) con la cuenca, la hidrología y el eje.', ic: 'ti-file-text',
@@ -39,8 +43,47 @@ const RECETAS = {
         hecho: () => false },
     ],
   },
-  // Molde para el próximo flujo (rotura de relave, socavación, etc.):
-  // rotura: { titulo:'Rotura de presa / relave', icono:'ti-alert-triangle', pasos:[…] },
+
+  rotura: {
+    titulo: 'Rotura de presa / relave',
+    icono: 'ti-alert-triangle',
+    pasos: [
+      { id: 'presa', t: 'Coloca la presa / depósito', d: 'Marca el muro en el mapa: el vaso (cota-área-volumen) se saca del DEM.', ic: 'ti-building-dam',
+        correr: () => clickAccion('colocar-presa'),
+        hecho: (koi) => (koi.presas?.length || 0) > 0 },
+      { id: 'hidrograma', t: 'Genera el hidrograma de rotura', d: 'Froehlich/MacDonald a partir del volumen y la brecha → crecida del pipeline.', ic: 'ti-wave-saw-tool',
+        correr: () => clickAccion('breach'),
+        hecho: (koi) => !!koi.reg?.breach || (koi.hidrogramaCrecida?.length || 0) > 0 },
+      { id: 'malla', t: 'Define el dominio y la malla 2D', d: 'Dibuja el dominio inundable y genera la malla por donde correrá la onda.', ic: 'ti-grid-dots',
+        correr: () => clickAccion('malla2d'),
+        hecho: (koi) => !!koi.bati?.mesh2d },
+      { id: 'rutear', t: 'Rutea la onda (Momentum 2D)', d: 'Saint-Venant 2D con la crecida de rotura (reología de relave si aplica). Se abre el diálogo Correr.', ic: 'ti-wave',
+        correr: () => clickAccion('momentum2d'),
+        hecho: (koi) => !!koi.bati?.resultMom2d },
+      { id: 'informe', t: 'Genera el informe', d: 'Arma el informe con el escenario de rotura y la mancha de inundación.', ic: 'ti-file-text',
+        correr: () => clickAccion('informe'),
+        hecho: () => false },
+    ],
+  },
+
+  socavacion: {
+    titulo: 'Socavación en un cruce',
+    icono: 'ti-arrow-down',
+    pasos: [
+      { id: 'eje', t: 'Eje en la sección del cruce', d: 'Calcula el eje hidráulico en la sección (WSE + velocidad): es el insumo de la socavación.', ic: 'ti-arrow-guide',
+        correr: (koi) => koi.dock?.show?.('hidro'),
+        hecho: (koi) => !!koi.hydro?._ejeRes },
+      { id: 'socav', t: 'Calcula la socavación', d: 'General Lischtvan-Lebediev + Neill y local en pila (HEC-18/CSU) si hay ancho de pila.', ic: 'ti-arrow-down-circle',
+        correr: (koi) => koi.dock?.show?.('hidro'),
+        hecho: (koi) => !!koi.reg?.socavacion },
+      { id: 'defensa', t: 'Dimensiona la defensa (opcional)', d: 'Enrocado / defensas fluviales (MC 3.708) para proteger el cruce.', ic: 'ti-wall',
+        correr: () => clickAccion('enrocado'),
+        hecho: (koi) => !!koi.reg?.enrocado },
+      { id: 'verif', t: 'Verifica T y revancha (opcional)', d: 'Comprueba período de retorno de diseño y revancha del cruce.', ic: 'ti-checkbox',
+        correr: () => clickAccion('verificaciones'),
+        hecho: (koi) => !!koi.reg?.verificaciones },
+    ],
+  },
 };
 
 let _panel = null;
@@ -67,9 +110,11 @@ export function abrirFlujoGuiado(koi, recetaId = 'eje') {
   const body = _panel.querySelector('.koi-guia-body');
   const prog = _panel.querySelector('.koi-guia-prog');
 
+  let _sig = '';
   const pintar = () => {
     if (!document.body.contains(_panel)) return;
     const estados = receta.pasos.map((p) => { try { return !!p.hecho(koi); } catch { return false; } });
+    _sig = estados.map((x) => (x ? 1 : 0)).join('');
     // un paso está "listo" si el anterior está hecho (el primero siempre listo)
     prog.textContent = `${estados.filter(Boolean).length}/${receta.pasos.length}`;
     body.innerHTML = '';
@@ -90,11 +135,19 @@ export function abrirFlujoGuiado(koi, recetaId = 'eje') {
   };
   pintar();
 
-  // Se refresca cuando cambia la selección o se registra un resultado.
+  // Se refresca al cambiar la selección o registrarse un resultado…
   const off1 = bus.on('seleccion:cambio', pintar);
   const off2 = bus.on('reg:actualizado', pintar);
   const off3 = bus.on('crecida:cambio', pintar);
-  const obs = new MutationObserver(() => { if (!document.body.contains(_panel)) { off1?.(); off2?.(); off3?.(); obs.disconnect(); } });
+  // …y por si un motor no emite evento (malla/2D), un chequeo ligero que repinta
+  // SOLO cuando cambia el estado de los pasos (no toca el DOM si nada cambió).
+  const iv = setInterval(() => {
+    if (!document.body.contains(_panel)) return;
+    const s = receta.pasos.map((p) => { try { return p.hecho(koi) ? 1 : 0; } catch { return 0; } }).join('');
+    if (s !== _sig) pintar();
+  }, 1000);
+  const limpiar = () => { off1?.(); off2?.(); off3?.(); clearInterval(iv); obs.disconnect(); };
+  const obs = new MutationObserver(() => { if (!document.body.contains(_panel)) limpiar(); });
   obs.observe(document.body, { childList: true });
   return _panel;
 }

@@ -20,6 +20,7 @@ import { perfilDesdeLinea } from '../hidraulica/secciones.js?v=13';
 import { nivelNormal } from '../hidraulica/manning.js?v=13';
 import { evaluarSocavacion } from '../hidraulica/socavacion.js?v=13';
 import { ensurePointContext, stationLite } from '../punto_contexto.js?v=13';
+import { registrar } from '../informe/registro.js?v=13';
 
 const TS = [2, 5, 10, 25, 50, 100, 150, 200];
 const f1 = (v) => (v == null || isNaN(v) ? '—' : Math.abs(v) < 10 ? Number(v).toFixed(2) : Number(v).toFixed(1));
@@ -450,6 +451,8 @@ export class HydroPanel {
     const D50mm = num('sv_d50') || 20, T = num('sv_t') || 100, aPila = num('sv_pila'), mu = num('sv_mu') || 1;
     const sec = this._ejeRes, pts = this._ejePerfil.puntos;
     const so = evaluarSocavacion(sec, pts, { Q: sec.Q, D50mm, T, mu, pila: aPila > 0 ? { a: aPila, forma: 'circular' } : undefined });
+    // Queda en el historial (koi.reg.socavacion) → informe + detección del asistente.
+    registrar('socavacion', { D50mm, T, general: so.generalAdoptada, total: so.socavTotal, pila: so.metodosPila?.max ?? null });
     this._socHost.innerHTML = '';
     this._socHost.appendChild(el('div', 'hp-kv', `
       <div><span>Socav. general · Lischtvan-Lebediev</span><b>${f2(so.general.socavMax)} m</b></div>
