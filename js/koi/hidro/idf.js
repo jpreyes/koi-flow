@@ -12,6 +12,26 @@ export function ppDiseno(quantiles, factor = 1.10) {
   return out;
 }
 
+// Factor de reducción areal (FRA) de la lluvia PUNTUAL a la lluvia MEDIA sobre la
+// cuenca. La PP de una estación NO cae uniforme sobre toda la cuenca: a mayor área,
+// menor la lluvia media. Sin esto, los métodos pluviales sobre cuencas grandes dan
+// caudales físicamente absurdos (p.ej. HU sobre el Choapa, 7544 km², daba miles de
+// m³/s). Curva tipo 24 h (US Weather Bureau TP-40 / Manual de Carreteras), ajuste
+// log en el área [km²], acotado a [0.4, 1]. Para cuencas chicas (≲25 km²) → ≈1.
+export function factorReduccionAreal(A_km2) {
+  const A = Math.max(1, +A_km2 || 0);
+  return Math.min(1, Math.max(0.4, 1.1032 - 0.03474 * Math.log(A)));
+}
+
+// Aplica el FRA a un mapa {T: PP} de precipitación de diseño puntual.
+export function ppReducidaAreal(pp, A_km2) {
+  const fra = factorReduccionAreal(A_km2);
+  const out = {};
+  for (const [T, p] of Object.entries(pp)) out[T] = p * fra;
+  out._fra = fra;
+  return out;
+}
+
 // Coeficiente de duración interpolado (lineal) a una duración en minutos.
 export function cd(coefArr, durMin) {
   const a = coefArr;

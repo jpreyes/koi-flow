@@ -8,7 +8,7 @@ import { correrPipelinePunto } from './pipeline.js?v=13';
 import { analizar } from './frecuencia.js?v=13';
 import { transponer, transponerRegional } from './transposicion.js?v=13';
 import { caudalesHU } from './hidrograma.js?v=13';
-import { ppDiseno, grunsky } from './idf.js?v=13';
+import { ppDiseno, grunsky, factorReduccionAreal } from './idf.js?v=13';
 import { racional, verniKing, dgaAC } from './caudales.js?v=13';
 import { estacionesCercanas, estacionRecomendada, cargarSerie, centroideTramo } from '../datos/dga.js?v=13';
 import { fetchJSON } from '../datos/fetch_json.js?v=13';
@@ -835,11 +835,14 @@ export class HydroPanel {
       if (!this._sel.pluvio) throw new Error('Elige una estación pluvial para la PP de diseño.');
       const sp = await cargarSerie(this._sel.pluvio);
       const an = analizar(Object.values(sp.serie), { T: TSL });
-      const pp = ppDiseno(an.resultados[an.mejor].quantiles, 1.10);
+      const ppPunto = ppDiseno(an.resultados[an.mejor].quantiles, 1.10);
+      // Reducción areal: la PP puntual de la estación NO cae uniforme sobre la cuenca.
+      const fra = factorReduccionAreal(A);
+      const pp = Object.fromEntries(TSL.map((T) => [T, ppPunto[T] * fra]));
       const hu = caudalesHU({ L, Lg, S, A }, pp, CN, z);
       res = Object.fromEntries(TSL.map((T) => [T, hu.valores[T].Q]));
       titulo = `Hidrograma Unitario sintético (Linsley) · PP de ${sp.nombre}`;
-      nota = `tp=${hu.params.tp.toFixed(1)}h, qp=${hu.params.qpA.toFixed(2)} m³/s·mm, CN=${CN}. ${hu.aplica ? '' : '⚠ fuera de rango 10–4500 km².'}`;
+      nota = `tp=${hu.params.tp.toFixed(1)}h, qp=${hu.params.qpA.toFixed(2)} m³/s·mm, CN=${CN}, FRA=${fra.toFixed(2)} (reducción areal, A=${A.toFixed(0)} km²). ${hu.aplica ? '' : '⚠ fuera de rango 10–4500 km² — método pluvial NO válido aquí; en cauces grandes/áridos gobierna la fluviometría.'}`;
     } else if (m === 'racional' || m === 'vk' || m === 'dga') {
       const A = num('pf_a');
       if (!(A > 0)) throw new Error('Ingresa el área A.');
@@ -847,7 +850,9 @@ export class HydroPanel {
       const coef = await fetchJSON('data/coef_hidro.json?v=13', { contexto: 'Coeficientes hidrológicos' });
       const sp = await cargarSerie(this._sel.pluvio);
       const an = analizar(Object.values(sp.serie), { T: TSL });
-      const pp = ppDiseno(an.resultados[an.mejor].quantiles, 1.10);
+      const fra = factorReduccionAreal(A);
+      const ppPunto = ppDiseno(an.resultados[an.mejor].quantiles, 1.10);
+      const pp = Object.fromEntries(TSL.map((T) => [T, ppPunto[T] * fra]));   // reducción areal
       let mm;
       if (m === 'racional') {
         const reg = $('pf_reg').value.trim() || 'I';
@@ -864,7 +869,7 @@ export class HydroPanel {
         titulo = `DGA-AC regional (referencial) · PP de ${sp.nombre}`;
       }
       res = Object.fromEntries(TSL.map((T) => [T, mm.valores[T].Q]));
-      nota = `⚠ Método pluvial (lluvia-escorrentía): ${mm.aplica ? 'aplicable' : 'fuera de rango'} (${mm.rango}). En zona árida es referencial: preferir la fluviometría del cauce.`;
+      nota = `⚠ Método pluvial (lluvia-escorrentía): ${mm.aplica ? 'aplicable' : 'fuera de rango'} (${mm.rango}). FRA=${fra.toFixed(2)} (reducción areal, A=${A.toFixed(0)} km²). En zona árida es REFERENCIAL: gobierna la fluviometría del cauce.`;
     }
 
     this._resPunto.innerHTML = '';
