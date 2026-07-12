@@ -11,6 +11,7 @@ import { caudalesHU } from './hidrograma.js?v=13';
 import { ppDiseno, grunsky, factorReduccionAreal } from './idf.js?v=13';
 import { racional, verniKing, dgaAC } from './caudales.js?v=13';
 import { estacionesCercanas, estacionRecomendada, cargarSerie, centroideTramo, getDistOverride } from '../datos/dga.js?v=13';
+import { abrirEstacionHUD } from '../datos/estacion_hud.js?v=13';
 import { fetchJSON } from '../datos/fetch_json.js?v=13';
 import { calcular as tcCalcular } from './tc.js?v=13';
 import { cuencaGeoJSON, cuencaKMZ, descargar } from '../cuenca/exportar.js?v=13';
@@ -532,7 +533,7 @@ export class HydroPanel {
 
     // Selector de método + cálculo
     const sm = this._section('Método de cálculo');
-    sm.appendChild(el('p', 'hp-note', 'Para cauces, la fluviometría del cauce es preferible a la pluviometría. Las áreas/morfometría se autocompletarán al delinear la cuenca desde el DEM; por ahora se ingresan.'));
+    sm.appendChild(el('p', 'hp-note', 'Para cauces, la fluviometría del cauce es preferible a la pluviometría. La distribución de frecuencia y los datos (editar / descartar años / importar CSV) se eligen con el botón ✎ de cada estación (sección «Estaciones DGA cercanas» arriba); esa elección gobierna este cálculo.'));
     const sel = el('select', 'hp-select');
     sel.innerHTML = `
       <optgroup label="Fluviométricos (preferentes para cauces)">
@@ -596,15 +597,28 @@ export class HydroPanel {
           tr.classList.add('sel', `sel-${tipo}`);
           this.map?.highlightStation(arr[i], { pan: false });
         });
-        // flechita = IR a la estación (vuela)
-        const go = document.createElement('td');
-        go.className = 'hp-go'; go.textContent = '➤'; go.title = 'Ir a la estación';
+        // Acciones: ✎ = ver/editar datos + elegir distribución (abre el editor);
+        // ➤ = ir a la estación (vuela).
+        const acc = document.createElement('td');
+        acc.className = 'hp-go';
+        const ed = document.createElement('span');
+        ed.textContent = '✎'; ed.title = 'Ver / editar datos, descartar años y elegir la distribución';
+        ed.style.cssText = 'cursor:pointer;margin-right:8px';
+        ed.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          const huds = window.__koi?.huds;
+          if (huds) abrirEstacionHUD(huds, arr[i], { onLink: () => this.dock?.show?.('hidro') });
+        });
+        const go = document.createElement('span');
+        go.textContent = '➤'; go.title = 'Ir a la estación'; go.style.cursor = 'pointer';
         go.addEventListener('click', (ev) => { ev.stopPropagation(); this.map?.highlightStation(arr[i], { pan: true }); });
-        tr.appendChild(go);
+        acc.appendChild(ed); acc.appendChild(go);
+        tr.appendChild(acc);
       });
       s.appendChild(t);
     };
     mk(fluvio, 'fluvio'); mk(pluvio, 'pluvio');
+    s.appendChild(el('p', 'hp-note', '✎ = abre los datos de la estación: ver/editar la serie, importar CSV, descartar años atípicos y elegir la distribución de frecuencia. Lo que elijas ahí gobierna el cálculo (fluviometría directa, transposición y pipeline).'));
     s.appendChild(tag);
 
     // Descarga masiva de series cercanas con rango de años configurable.
