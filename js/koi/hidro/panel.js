@@ -775,6 +775,11 @@ export class HydroPanel {
 
   _camposMetodo(m) {
     const f = (l, id, v = '', u = '') => `<label class="hp-f"><span>${l}${u ? ` [${u}]` : ''}</span><input id="${id}" value="${v}"></label>`;
+    // Regiones de Chile (N→S). Verni-King/Racional (DGA 1995) aplican III–IX. El
+    // coeficiente C está calibrado en la app solo para III (0.027); en las demás
+    // se ingresa el C del sitio (mapa/Tabla 3.25 DGA). ★ = coeficiente cargado.
+    const REGIONES = [['XV', 'Arica y Parinacota'], ['I', 'Tarapacá'], ['II', 'Antofagasta'], ['III', 'Atacama ★'], ['IV', 'Coquimbo'], ['V', 'Valparaíso'], ['RM', 'Metropolitana'], ['VI', "O'Higgins"], ['VII', 'Maule'], ['XVI', 'Ñuble'], ['VIII', 'Biobío'], ['IX', 'Araucanía'], ['XIV', 'Los Ríos'], ['X', 'Los Lagos'], ['XI', 'Aysén'], ['XII', 'Magallanes']];
+    const selRegion = (def = 'III') => `<label class="hp-f"><span>Región (zona DGA)</span><select id="pf_reg">${REGIONES.map(([c, n]) => `<option value="${c}"${c === def ? ' selected' : ''}>${c} · ${n}</option>`).join('')}</select></label>`;
     const mo = this._punto?.cuenca?.morfometria;   // autocompletado desde la delineación
     const A = mo ? mo.A : '', L = mo ? mo.L : '', Lg = mo ? mo.Lg : '', S = mo ? mo.S : '';
     if (m === 'fluvio') return f('Factor a instantáneo (zona homogénea)', 'pf_fi', '1.0');
@@ -785,14 +790,12 @@ export class HydroPanel {
     if (m === 'hu') return f('Área A', 'pf_a', A, 'km²') + f('Long. cauce L', 'pf_l', L, 'km') +
       f('Long. centroide Lg', 'pf_lg', Lg, 'km') + f('Pendiente S', 'pf_s', S, 'm/m') +
       f('Curva número CN', 'pf_cn', '75') + f('Zona (1=III-VI)', 'pf_z', '1');
-    if (m === 'racional') return f('Área A', 'pf_a', A, 'km²') +
-      `<label class="hp-f"><span>Región (zona DGA)</span><select id="pf_reg"><option value="III">III (calibrada)</option></select></label>` +
+    if (m === 'racional') return f('Área A', 'pf_a', A, 'km²') + selRegion() +
       f('Coef. escorrentía C (opcional)', 'pf_rc', '', '') +
       f('Tiempo concentración tc', 'pf_tc', '', 'h') + f('Estación coef. IDF', 'pf_idf', 'Putre');
-    if (m === 'vk') return f('Área A', 'pf_a', A, 'km²') +
-      `<label class="hp-f"><span>Región (zona DGA)</span><select id="pf_reg"><option value="III">III (calibrada)</option></select></label>` +
-      f('Coef. C Verni-King (opcional)', 'pf_vkc', '', '') +
-      `<p class="hp-note">El coeficiente de Verni-King es <b>espacial</b> (mapa DGA, <b>0.027–0.89</b> entre la III y la IX Región). La app trae calibrada la zona III (C=0.027). Para otra ubicación, lee el C de tu sitio en el mapa DGA e ingrésalo en «Coef. C».</p>`;
+    if (m === 'vk') return f('Área A', 'pf_a', A, 'km²') + selRegion() +
+      f('Coef. C Verni-King (obligatorio salvo III)', 'pf_vkc', '', '') +
+      `<p class="hp-note">El coeficiente de Verni-King es <b>espacial</b> (mapa / Tabla 3.25 DGA, <b>0.027–0.89</b>, válido III–IX Región). La app solo trae calibrada la zona <b>III (C=0.027)</b>. Para otra región, lee el C de tu sitio en el mapa DGA e ingrésalo en «Coef. C» (si no, el cálculo avisará que falta).</p>`;
     if (m === 'dga') return f('Área A', 'pf_a', A, 'km²');
     return '';
   }
