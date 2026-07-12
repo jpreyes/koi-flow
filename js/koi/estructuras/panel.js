@@ -15,6 +15,8 @@ const ETIQ = { largo: 'Largo [m]', ancho: 'Ancho [m]', espesor: 'Espesor [m]', l
 export class EstructurasPanel {
   constructor() { this.estructuras = []; this.sel = null; this._tipo = 'tablero'; }
   setDock(dock) { this.dock = dock; this.host = dock.hosts.estructuras; this._render(); }
+  // Fase E: el panel vive en una ventana flotante — se monta en el body del HUD.
+  mountIn(container) { this.host = container; this._render(); }
   setMap(m) { this.map = m; }
   setScene(s) {
     this.scene = s;

@@ -40,6 +40,7 @@ import { abrirBreachHUD } from './hidro/breach_ui.js?v=13';
 import { abrirSismoEstriboHUD } from './hidraulica/sismo_estribo_ui.js?v=13';
 import { Flujo2D } from './hidraulica/panel2d.js?v=13';
 import { EstructurasPanel } from './estructuras/panel.js?v=13';
+import { abrirEstructurasHUD } from './estructuras/estructuras_hud.js?v=13';
 import { delinearAuto } from './cuenca/cuenca.js?v=13';
 import { delinearEnGrid, morfometria } from './cuenca/delineacion.js?v=13';
 import { fetchDEM } from './cuenca/dem_tiles.js?v=13';
@@ -292,7 +293,7 @@ async function startBoot() {
   const flujo2d = new Flujo2D();
   flujo2d.setMap(map); flujo2d.setScene(scene); flujo2d.setDock(dock);
   const estr = new EstructurasPanel();
-  estr.setMap(map); estr.setScene(scene); estr.setDock(dock);
+  estr.setMap(map); estr.setScene(scene);   // Fase E: ya no vive en el dock; se monta en un HUD al abrirlo.
   estr.onVer3D(() => { if (current && tieneRelieve(current)) { setMode('3d'); load3D(current); } else setMode('3d'); });
   const capas = new Capas($('tree'), { map, project, onSelectTramo: onTramoSelect, onRelieve: relieveTramo, hydro });
   window.__koi = { capas, map, scene, hydro, bati, flujo2d, estr, dock, huds, project };   // hook de depuración/automatización
@@ -444,8 +445,8 @@ async function startBoot() {
     'tab-cuenca': () => dock.show('cuenca'),
     'tab-hidro': () => dock.show('hidro'),
     'tab-hidraulica': () => dock.show('hidraulica'),
-    'tab-estructuras': () => dock.show('estructuras'),
-    'estructuras-place': () => dock.show('estructuras'),
+    'tab-estructuras': () => abrirEstructurasHUD(window.__koi, huds),
+    'estructuras-place': () => abrirEstructurasHUD(window.__koi, huds),
     'cuenca-delinear': () => dock.show('cuenca'),
     'afluentes-punto': () => dock.show('cuenca'),
     'estaciones-dga': () => dock.show('hidro'),
