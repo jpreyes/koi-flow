@@ -22,7 +22,7 @@ export async function abrirEstacionHUD(huds, est, { onLink } = {}) {
 
   hud.setBody(metaHTML(est) + '<p class="hud-note">Cargando serie…</p>');
   // Estado del HUD: pares [año, valor], distribución elegida ('auto' = mejor).
-  const estado = { pares: [], dist: 'auto', uni, est, fluvio, onLink };
+  const estado = { pares: [], dist: 'auto', uni, est, fluvio, onLink, excluidos: new Set() };
   try {
     const raw = await cargarSerie(est);   // devuelve la serie editada/importada si existe
     const so = raw?.serie ?? raw;
@@ -59,11 +59,13 @@ function parsearTexto(txt) {
 
 function render(hud, estado) {
   const { pares, uni, est } = estado;
-  if (pares.length < 3) {
-    hud.setBody(metaHTML(est) + '<p class="hud-note">Serie insuficiente (mín. 3 años). Edita o importa datos:</p>' + editorHTML(pares, uni));
+  const excl = estado.excluidos || (estado.excluidos = new Set());
+  const activos = pares.filter((p) => !excl.has(p[0]));   // solo los años ELEGIDOS
+  if (activos.length < 3) {
+    hud.setBody(metaHTML(est) + '<p class="hud-note">Serie insuficiente (mín. 3 años activos). Edita, importa o re-incluye años:</p>' + `${barras(pares, uni, excl)}` + editorHTML(pares, uni));
     wire(hud, estado); return;
   }
-  const vals = pares.map((p) => p[1]);
+  const vals = activos.map((p) => p[1]);
   const an = analizar(vals);
   const distKey = estado.dist === 'auto' ? an.mejor : estado.dist;
   const dr = an.resultados[distKey];
@@ -71,14 +73,15 @@ function render(hud, estado) {
   const q100 = dr?.quantiles?.[100];
   const alerta = q100 && q100 > 2.2 * maxObs;
 
-  const pocosAnios = pares.length < 20;   // MC V3 / DGA: mínimo ~20 años para frecuencia
+  const pocosAnios = activos.length < 20;   // MC V3 / DGA: mínimo ~20 años para frecuencia
+  const razon = q100 && an.stats.mean ? q100 / an.stats.mean : null;   // Q100 / caudal medio
   let html = metaHTML(est);
   html += `<div class="hud-kv">
-    <div><span>Registro</span><b style="${pocosAnios ? 'color:var(--coral,#ef6c5a)' : ''}">${pares[0][0]}–${pares[pares.length - 1][0]} (${pares.length} años)</b></div>
+    <div><span>Registro (activos)</span><b style="${pocosAnios ? 'color:var(--coral,#ef6c5a)' : ''}">${activos.length} de ${pares.length} años${excl.size ? ` · ${excl.size} descartado(s)` : ''}</b></div>
     <div><span>Media · Desv.</span><b>${f(an.stats.mean)} · ${f(an.stats.std)} ${uni}</b></div>
-    <div><span>Mín · Máx observado</span><b>${f(Math.min(...vals))} · ${f(maxObs)} ${uni}</b></div></div>`;
-  if (pocosAnios) html += `<p class="hud-note" style="color:var(--coral,#ef6c5a)">⚠ Solo ${pares.length} años: el Manual de Carreteras (V3) pide <b>≥ 20 años</b> para un análisis de frecuencia confiable. Los cuantiles son poco robustos.</p>`;
-  html += `<div class="hud-sec">Máximos anuales (${uni})</div>${barras(pares, uni)}`;
+    <div><span>Mín · Máx activo</span><b>${f(Math.min(...vals))} · ${f(maxObs)} ${uni}</b></div></div>`;
+  if (pocosAnios) html += `<p class="hud-note" style="color:var(--coral,#ef6c5a)">⚠ Solo ${activos.length} años activos: el Manual de Carreteras (V3) pide <b>≥ 20 años</b> para un análisis de frecuencia confiable.</p>`;
+  html += `<div class="hud-sec">Máximos anuales (${uni}) · clic en una barra = descartar/incluir</div>${barras(pares, uni, excl)}`;
   html += editorHTML(pares, uni);
   html += `<div class="hud-sec">Distribución que gobierna</div>
     <select id="est-dist" class="hud-select">
@@ -87,7 +90,8 @@ function render(hud, estado) {
     </select>`;
   html += `<div class="hud-kv" style="margin-top:6px">
     <div><span>Q100 · ${DIST[distKey]}</span><b>${f(q100)} ${uni}</b></div>
-    <div><span>Q10 · Q200</span><b>${f(dr?.quantiles?.[10])} · ${f(dr?.quantiles?.[200])} ${uni}</b></div></div>`;
+    <div><span>Q10 · Q200</span><b>${f(dr?.quantiles?.[10])} · ${f(dr?.quantiles?.[200])} ${uni}</b></div>
+    ${razon ? `<div><span>Q100 / media de máximos</span><b style="${razon > 20 ? 'color:var(--coral,#ef6c5a)' : ''}">${razon.toFixed(1)}×</b></div>` : ''}</div>`;
   html += `<div class="hud-sec">Gráfico de ajuste (observado vs ${DIST[distKey]})</div>${graficoAjuste(vals, uni, distKey)}`;
   if (alerta) html += `<p class="hud-note" style="color:var(--coral,#ef6c5a)">⚠ El Q100 (${f(q100)}) supera <b>2×</b> el máximo observado (${f(maxObs)}). Esta distribución extrapola agresivamente; en series con crecidas atípicas suele ser más realista <b>Gumbel</b> o <b>Log-Pearson III</b>. Compara abajo.</p>`;
   html += `<div class="hud-sec">Ajuste de las distribuciones</div>${tablaDist(an, distKey, uni)}`;
@@ -119,6 +123,14 @@ function wire(hud, estado) {
     setDistOverride(estado.est, estado.dist);   // el pipeline usará esta distribución
     render(hud, estado);
   });
+  // Clic en una barra = descartar/incluir ese año. El pipeline usa solo los activos.
+  hud.body.querySelectorAll('.est-bar').forEach((r) => r.addEventListener('click', () => {
+    const yr = +r.dataset.year;
+    if (estado.excluidos.has(yr)) estado.excluidos.delete(yr); else estado.excluidos.add(yr);
+    const activos = estado.pares.filter((p) => !estado.excluidos.has(p[0]));
+    if (activos.length >= 3) setSerieOverride(estado.est, Object.fromEntries(activos));
+    render(hud, estado);
+  }));
   $('#hud-hidro')?.addEventListener('click', () => estado.onLink?.(estado.est));
 
   const recalc = () => {
@@ -151,14 +163,16 @@ function metaHTML(est) {
     ${est.dist != null ? `<div><span>Distancia</span><b>${est.dist.toFixed(1)} km</b></div>` : ''}</div>`;
 }
 
-// Gráfico de barras de la serie por año.
-function barras(pares, uni) {
+// Gráfico de barras de la serie por año. Barras clicables: los años descartados
+// (en `excl`) se ven en gris y NO entran al análisis.
+function barras(pares, uni, excl) {
   const W = 400, H = 120, pad = 22;
   const vals = pares.map((p) => p[1]), ymax = Math.max(...vals) || 1, n = pares.length;
   const bw = (W - 2 * pad) / n;
-  const bars = pares.map(([, v], i) => {
+  const bars = pares.map(([yr, v], i) => {
+    const off = excl && excl.has(yr);
     const bh = (v / ymax) * (H - 2 * pad), x = pad + i * bw, y = H - pad - bh;
-    return `<rect x="${(x + 0.3).toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(1, bw - 0.8).toFixed(1)}" height="${bh.toFixed(1)}" fill="var(--accent)" opacity="0.85"/>`;
+    return `<rect class="est-bar" data-year="${yr}" x="${(x + 0.3).toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(1, bw - 0.8).toFixed(1)}" height="${bh.toFixed(1)}" fill="${off ? 'var(--text2)' : 'var(--accent)'}" opacity="${off ? 0.3 : 0.85}" style="cursor:pointer"><title>${yr}: ${f(v)} ${uni}${off ? ' (descartado)' : ''} — clic para ${off ? 'incluir' : 'descartar'}</title></rect>`;
   }).join('');
   return `<svg class="hud-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
     ${bars}
