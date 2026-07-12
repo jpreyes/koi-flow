@@ -23,6 +23,9 @@ Correr uno solo: `node --test tests/golden_s17.test.mjs`
 | `routing.test.mjs` | Muskingum: C0+C1+C2=1, atenuación del pico, conservación de volumen. |
 | `distribuciones.test.mjs` | Normal estándar: normCdf/normInv, valores conocidos, round-trip, monotonía. |
 | `koi_file.test.mjs` | Formato `.koi`: round-trip que preserva estructura y arrays tipados (Float32/Int32) bit a bit. |
+| `manning.test.mjs` | **Golden analítico** de la hidráulica 1D: canal rectangular con A/P/R exactos, fórmula de Manning, inversión de profundidad normal (round-trip) y régimen sub/supercrítico por Froude. |
+| `socavacion.test.mjs` | **Golden analítico** (MC/HEC-18): β de frecuencia, α de LL, velocidad competente de Neill, socavación local en pila (CSU) + sanidad (cuadrada>circular, crece con Q). |
+| `alcantarilla.test.mjs` | **Golden analítico** (FHWA HDS-5): área/radio llenos, tirante crítico de cajón, geometría del barril + sanidad (HW crece con Q, dos barriles bajan la HW). |
 
 ## Cómo corren headless
 
