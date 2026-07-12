@@ -15,17 +15,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 // La 2D se fusionó dentro de "Hidráulica" (lienzo unificado 1D/2D) → 3 grupos.
+// Fase E (E5): el panel derecho quedó SOLO como AYUDA contextual. Todo el análisis
+// (cuenca/hidrología/hidráulica/estructuras) migró a ventanas flotantes (DockShim→HUD).
 const TABS = [
-  { key: 'cuenca', label: 'Cuenca',     hosts: ['dem', 'cuenca'] },
-  { key: 'hidro',  label: 'Hidrología', hosts: ['hidro'] },
-  // E3: 'bati' (Hidráulica 1D/2D) migró a ventana flotante; quedan aquí el eje-sección
-  // y la socavación del cruce (HydroPanel) hasta E4.
-  { key: 'hidraulica', label: 'Hidráulica', hosts: ['hidraulica', 'socav'],
-    seps: { hidraulica: 'Análisis por tramo (sobre DEM)' } },
-  // Fase E: el panel derecho pasa a ser AYUDA contextual de la herramienta con foco.
   { key: 'ayuda', label: 'Ayuda', hosts: ['ayuda'] },
 ];
-const HOST_KEYS = ['dem', 'cuenca', 'hidro', 'hidraulica', 'socav', 'ayuda'];
+const HOST_KEYS = ['ayuda'];
 // host → pestaña que lo contiene
 const TAB_OF = {};
 for (const t of TABS) for (const h of t.hosts) TAB_OF[h] = t.key;
@@ -34,8 +29,8 @@ export class Dock {
   constructor(root = document.getElementById('main') || document.body) {
     this.main = root;
     this.hosts = {};
-    this.active = 'hidro';         // clave (host o grupo) mostrada por última vez
-    this.activeTab = 'cuenca';     // grupo visible
+    this.active = 'ayuda';         // clave (host o grupo) mostrada por última vez
+    this.activeTab = 'ayuda';      // grupo visible
     this.COLLAPSED = 34;           // ancho al estar cerrado (px)
     this.dwNormal = 372;           // ancho normal (px)
     this.dwWide = Math.min(720, Math.round(window.innerWidth * 0.5));

@@ -286,8 +286,16 @@ async function startBoot() {
   dock.onResize = (w) => { dockW = w; applyGrid(); };
   applyGrid();
   wireTreeResize(() => treeW, (w) => { treeW = w; applyGrid(); });
-  hydro.setMap(map); hydro.setDock(dock);
-  hydro._renderCuenca(null);   // deja el botón "Agregar punto" visible en la pestaña Cuenca
+  // Fase E · E4: la Hidrología del punto (cuenca + pipeline + cruce) vive en una
+  // ventana flotante (DockShim → HUD) con sub-pestañas por grupo de hosts.
+  const hydroShim = new DockShim(huds, 'hidrologia', { title: '💧 Hidrología del punto', w: 430, h: 660,
+    tabs: [
+      { key: 'cuenca', label: 'Cuenca / relieve', hosts: ['dem', 'cuenca'] },
+      { key: 'hidro', label: 'Hidrología', hosts: ['hidro'] },
+      { key: 'cruce', label: 'Cruce (eje + socavación)', hosts: ['hidraulica', 'socav'] },
+    ] });
+  hydro.setMap(map); hydro.setDock(hydroShim);
+  hydro._renderCuenca(null);   // prepara el botón "Agregar punto" (visible al abrir Hidrología)
   const bati = new BatiPanel();
   // Fase E · E3: la Hidráulica 1D/2D vive en una ventana flotante (DockShim → HUD).
   const batiShim = new DockShim(huds, 'hidraulica', { title: '🌊 Hidráulica 1D / 2D', tabs: [{ key: 'bati', label: 'Hidráulica' }], w: 440, h: 660 });
@@ -445,15 +453,15 @@ async function startBoot() {
     'ver-2d': () => setMode('2d'),
     'ver-3d': () => { if (current && tieneRelieve(current)) { setMode('3d'); load3D(current); } else setMode('3d'); },
     'tema': () => window.__koiToggleTheme?.(),
-    'tab-cuenca': () => dock.show('cuenca'),
-    'tab-hidro': () => dock.show('hidro'),
+    'tab-cuenca': () => hydroShim.show('cuenca'),
+    'tab-hidro': () => hydroShim.show('hidro'),
     'tab-hidraulica': () => bati.open(),
     'tab-estructuras': () => abrirEstructurasHUD(window.__koi, huds),
     'estructuras-place': () => abrirEstructurasHUD(window.__koi, huds),
-    'cuenca-delinear': () => dock.show('cuenca'),
-    'afluentes-punto': () => dock.show('cuenca'),
-    'estaciones-dga': () => dock.show('hidro'),
-    'frecuencia': () => dock.show('hidro'),
+    'cuenca-delinear': () => hydroShim.show('cuenca'),
+    'afluentes-punto': () => hydroShim.show('cuenca'),
+    'estaciones-dga': () => hydroShim.show('hidro'),
+    'frecuencia': () => hydroShim.show('hidro'),
     'remanso1d': () => bati.focusTool('remanso1d'),
     'inun1d': () => bati.focusTool('inun1d'),
     'malla2d': () => bati.focusTool('malla2d'),
