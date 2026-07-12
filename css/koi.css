@@ -349,6 +349,10 @@ body { font: 14px/1.45 system-ui, "Segoe UI", Roboto, sans-serif; background: va
 #load-bar-bg { height: 6px; background: var(--bg4); border-radius: 999px; overflow: hidden; }
 #load-bar { height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--teal)); transition: width .3s ease; }
 #load-row { display: flex; justify-content: space-between; font-size: 12px; color: var(--text2); margin-top: 7px; }
+.load-err { margin-top: 14px; text-align: center; }
+.load-err p { color: var(--red, #e5484d); font-size: 12.5px; margin: 0 0 10px; line-height: 1.4; }
+.load-err button { background: var(--accent); border: 0; color: #fff; border-radius: 8px; padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.load-err button:hover { filter: brightness(1.08); }
 
 #btn-hidro, #btn-informe, #btn-ayuda { background: var(--bg4); border: 1px solid var(--border2); color: var(--text); border-radius: 8px; cursor: pointer; font-size: 13px; padding: 6px 11px; }
 #btn-hidro:hover, #btn-informe:hover, #btn-ayuda:hover { border-color: var(--accent); }

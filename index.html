@@ -170,10 +170,20 @@
 </div>
 <script>
   window.__koiCloseLanding = function () {
+    if (window.__koiBootError) return;   // hay un error en pantalla: no la ocultes
     const l = document.getElementById('landing'); if (!l || l.classList.contains('exit')) return;
     l.classList.add('exit'); setTimeout(function () { l.remove(); }, 600);
   };
-  setTimeout(function () { window.__koiCloseLanding(); }, 20000);
+  // Red de seguridad: si en 25 s no terminó de cargar NI mostró error, avisa (no
+  // esconde una app a medias en silencio).
+  setTimeout(function () {
+    if (window.__koiBootError) return;
+    var l = document.getElementById('landing');
+    if (l && !l.classList.contains('exit')) {
+      var s = document.getElementById('load-status');
+      if (s) s.textContent = 'Está tardando más de lo normal…';
+    }
+  }, 25000);
 </script>
 
 <script src="lib/leaflet/leaflet.js?v=13"></script>

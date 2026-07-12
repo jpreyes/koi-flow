@@ -529,5 +529,27 @@ async function startBoot() {
   setTimeout(() => window.__koiCloseLanding?.(), 350);
 }
 
-if (document.readyState === 'complete') startBoot();
-else window.addEventListener('load', startBoot);
+// Muestra el error EN la pantalla de carga (en vez de dejar la barra congelada
+// 20 s): mensaje + botón Reintentar. B3 · robustez de la primera impresión.
+function mostrarErrorCarga(e) {
+  window.__koiBootError = true;
+  const wrap = $('load-wrap'), status = $('load-status'), bar = $('load-bar');
+  if (bar) { bar.style.width = '100%'; bar.style.background = 'var(--red, #e5484d)'; }
+  if (status) status.textContent = 'No se pudo iniciar';
+  if (wrap && !wrap.querySelector('.load-err')) {
+    const box = document.createElement('div');
+    box.className = 'load-err';
+    box.innerHTML = `<p>${(e && e.message) ? e.message : 'Error desconocido'}</p><button id="load-retry">Reintentar</button>`;
+    wrap.appendChild(box);
+    $('load-retry')?.addEventListener('click', () => location.reload());
+  }
+  console.error('koi boot:', e);
+}
+
+async function iniciarKoi() {
+  try { await startBoot(); }
+  catch (e) { mostrarErrorCarga(e); }
+}
+
+if (document.readyState === 'complete') iniciarKoi();
+else window.addEventListener('load', iniciarKoi);
