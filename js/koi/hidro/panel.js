@@ -626,7 +626,7 @@ export class HydroPanel {
     const form = el('div', 'hp-form');
     form.innerHTML =
       f('Área cuenca control Apc', 'pl_apc', '', 'km²') +
-      f('Región (Racional/VK)', 'pl_reg', 'I') +
+      f('Región (Racional/VK · zona III calibrada)', 'pl_reg', 'III') +
       f('Curva número CN', 'pl_cn', '75');
     s.appendChild(form);
     const dlc = el('div', 'hp-dl');
@@ -666,7 +666,7 @@ export class HydroPanel {
       const fluvioSerie = ctrl ? await cargarSerie(ctrl) : null;
       const r = await correrPipelinePunto({
         nombre: p.nombre, lat: p.lat, morfometria: p.cuenca.morfometria,
-        region: this.elPanel.querySelector('#pl_reg')?.value || 'I',
+        region: this.elPanel.querySelector('#pl_reg')?.value || 'III',
         CN: parseFloat(this.elPanel.querySelector('#pl_cn')?.value) || 75,
         pp: { estacion: plu.nombre, serie: ppSerie, dist: getDistOverride(plu.bna, plu.tipo) || 'mejor' },
         fluvio: ctrl && Apc > 0 ? { estacion: ctrl.nombre, serie: fluvioSerie, Apc, dist: getDistOverride(ctrl.bna, ctrl.tipo) || 'mejor' } : null,
@@ -785,9 +785,14 @@ export class HydroPanel {
     if (m === 'hu') return f('Área A', 'pf_a', A, 'km²') + f('Long. cauce L', 'pf_l', L, 'km') +
       f('Long. centroide Lg', 'pf_lg', Lg, 'km') + f('Pendiente S', 'pf_s', S, 'm/m') +
       f('Curva número CN', 'pf_cn', '75') + f('Zona (1=III-VI)', 'pf_z', '1');
-    if (m === 'racional') return f('Área A', 'pf_a', A, 'km²') + f('Región', 'pf_reg', 'I') +
+    if (m === 'racional') return f('Área A', 'pf_a', A, 'km²') +
+      `<label class="hp-f"><span>Región (zona DGA)</span><select id="pf_reg"><option value="III">III (calibrada)</option></select></label>` +
+      f('Coef. escorrentía C (opcional)', 'pf_rc', '', '') +
       f('Tiempo concentración tc', 'pf_tc', '', 'h') + f('Estación coef. IDF', 'pf_idf', 'Putre');
-    if (m === 'vk') return f('Área A', 'pf_a', A, 'km²') + f('Región', 'pf_reg', 'I');
+    if (m === 'vk') return f('Área A', 'pf_a', A, 'km²') +
+      `<label class="hp-f"><span>Región (zona DGA)</span><select id="pf_reg"><option value="III">III (calibrada)</option></select></label>` +
+      f('Coef. C Verni-King (opcional)', 'pf_vkc', '', '') +
+      `<p class="hp-note">El coeficiente de Verni-King es <b>espacial</b> (mapa DGA, <b>0.027–0.89</b> entre la III y la IX Región). La app trae calibrada la zona III (C=0.027). Para otra ubicación, lee el C de tu sitio en el mapa DGA e ingrésalo en «Coef. C».</p>`;
     if (m === 'dga') return f('Área A', 'pf_a', A, 'km²');
     return '';
   }
@@ -857,19 +862,22 @@ export class HydroPanel {
       const pp = Object.fromEntries(TSL.map((T) => [T, ppPunto[T] * fra]));   // reducción areal
       let mm;
       if (m === 'racional') {
-        const reg = $('pf_reg').value.trim() || 'I';
+        const reg = $('pf_reg')?.value.trim() || 'III';
+        const cc = num('pf_rc');
         const tc = num('pf_tc'); if (!(tc > 0)) throw new Error('Ingresa el tiempo de concentración tc [h].');
         const Itc = {}; for (const T of TSL) Itc[T] = grunsky(pp[T], tc);
-        mm = racional({ A, region: reg, Itc }, coef, TSL);
+        mm = racional({ A, region: reg, Itc, coefC: isFinite(cc) ? cc : undefined }, coef, TSL);
         titulo = `Racional Modificado (referencial) · PP de ${sp.nombre}`;
       } else if (m === 'vk') {
-        const reg = $('pf_reg').value.trim() || 'I';
-        mm = verniKing({ A, region: reg, pp24: pp }, coef, TSL);
+        const reg = $('pf_reg')?.value.trim() || 'III';
+        const cc = num('pf_vkc');
+        mm = verniKing({ A, region: reg, pp24: pp, coefC: isFinite(cc) ? cc : undefined }, coef, TSL);
         titulo = `Verni-King Modificado (referencial) · PP de ${sp.nombre}`;
       } else {
         mm = dgaAC({ A, pp24: pp }, coef, TSL);
         titulo = `DGA-AC regional (referencial) · PP de ${sp.nombre}`;
       }
+      if (mm.sinCoef) throw new Error(`${mm.metodo}: la región "${$('pf_reg')?.value || '?'}" no tiene coeficiente calibrado en la app (solo ${mm.regiones.join(', ')}). Ingresa el coeficiente C de tu sitio (mapa DGA).`);
       res = Object.fromEntries(TSL.map((T) => [T, mm.valores[T].Q]));
       nota = `⚠ Método pluvial (lluvia-escorrentía): ${mm.aplica ? 'aplicable' : 'fuera de rango'} (${mm.rango}). FRA=${fra.toFixed(2)} (reducción areal, A=${A.toFixed(0)} km²). En zona árida es REFERENCIAL: gobierna la fluviometría del cauce.`;
     }

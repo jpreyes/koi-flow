@@ -24,26 +24,32 @@ const factor = (tabla, T) => {
 };
 
 // Racional Modificado: Q = C(T)·I(tc,T)·A/3.6   (I en mm/hr, A en km²)
-export function racional({ A, region, Itc }, coef, Ts) {
-  const C10 = coef.racional.C10_por_region[region];
+//   coefC (opcional) sobrescribe el C10 regional (el usuario lo lee del mapa DGA).
+export function racional({ A, region, Itc, coefC }, coef, Ts) {
+  const regiones = Object.keys(coef.racional.C10_por_region);
+  const C10 = coefC != null && isFinite(+coefC) ? +coefC : coef.racional.C10_por_region[region];
+  const ok = C10 != null && isFinite(C10);
   const out = {};
   for (const T of Ts) {
-    const C = C10 * factor(coef.racional.factor_frecuencia_C, T);
-    out[T] = { C, I: Itc[T], Q: (C * Itc[T] * A) / 3.6 };
+    const C = ok ? C10 * factor(coef.racional.factor_frecuencia_C, T) : null;
+    out[T] = { C, I: Itc[T], Q: ok ? (C * Itc[T] * A) / 3.6 : null };
   }
-  return { metodo: 'Racional Modificado', aplica: A < 25, rango: 'Ap < 25 km²', C10, valores: out };
+  return { metodo: 'Racional Modificado', aplica: ok && A < 25, sinCoef: !ok, rango: 'Ap < 25 km²', regiones, C10, valores: out };
 }
 
-// Verni-King Modificado: Q = C(T)·k·A^a·P24(T)^p
-export function verniKing({ A, region, pp24 }, coef, Ts) {
+// Verni-King Modificado: Q = C(T)·k·A^a·P24(T)^p. El coeficiente C es ESPACIAL
+// (mapa DGA, 0.027–0.89 entre la III y la IX Región): coefC (opcional) lo sobrescribe.
+export function verniKing({ A, region, pp24, coefC }, coef, Ts) {
   const { k, expA, expP, C10_por_region } = coef.verni_king;
-  const C10 = C10_por_region[region];
+  const regiones = Object.keys(C10_por_region);
+  const C10 = coefC != null && isFinite(+coefC) ? +coefC : C10_por_region[region];
+  const ok = C10 != null && isFinite(C10);
   const out = {};
   for (const T of Ts) {
-    const C = C10 * factor(coef.racional.factor_frecuencia_C, T);
-    out[T] = { C, P24: pp24[T], Q: C * k * Math.pow(A, expA) * Math.pow(pp24[T], expP) };
+    const C = ok ? C10 * factor(coef.racional.factor_frecuencia_C, T) : null;
+    out[T] = { C, P24: pp24[T], Q: ok ? C * k * Math.pow(A, expA) * Math.pow(pp24[T], expP) : null };
   }
-  return { metodo: 'Verni-King Modificado', aplica: A >= 10 && A <= 10000, rango: '10–10000 km²', C10, valores: out };
+  return { metodo: 'Verni-King Modificado', aplica: ok && A >= 10 && A <= 10000, sinCoef: !ok, rango: '10–10000 km²', regiones, C10, valores: out };
 }
 
 // DGA-AC: Q10 = k·A^a·P24_10^p ; Q(T) = Q10 · [Q(T)/Q(10)] · α
