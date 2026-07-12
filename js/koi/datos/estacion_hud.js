@@ -5,7 +5,7 @@
 // distribuciones del MC con SELECCIÓN de la que gobierna (y aviso si extrapola muy
 // por encima del máximo observado). Reutiliza cargarSerie (dga.js) y analizar.
 // ─────────────────────────────────────────────────────────────────────────────
-import { cargarSerie, setSerieOverride } from './dga.js?v=13';
+import { cargarSerie, setSerieOverride, setDistOverride } from './dga.js?v=13';
 import { analizar } from '../hidro/frecuencia.js?v=13';
 import { KoiDataError } from './fetch_json.js?v=13';
 
@@ -111,7 +111,11 @@ function editorHTML(pares, uni) {
 
 function wire(hud, estado) {
   const $ = (s) => hud.body.querySelector(s);
-  $('#est-dist')?.addEventListener('change', (e) => { estado.dist = e.target.value; render(hud, estado); });
+  $('#est-dist')?.addEventListener('change', (e) => {
+    estado.dist = e.target.value;
+    setDistOverride(estado.est, estado.dist);   // el pipeline usará esta distribución
+    render(hud, estado);
+  });
   $('#hud-hidro')?.addEventListener('click', () => estado.onLink?.(estado.est));
 
   const recalc = () => {

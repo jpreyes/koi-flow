@@ -10,7 +10,7 @@ import { transponer, transponerRegional } from './transposicion.js?v=13';
 import { caudalesHU } from './hidrograma.js?v=13';
 import { ppDiseno, grunsky, factorReduccionAreal } from './idf.js?v=13';
 import { racional, verniKing, dgaAC } from './caudales.js?v=13';
-import { estacionesCercanas, estacionRecomendada, cargarSerie, centroideTramo } from '../datos/dga.js?v=13';
+import { estacionesCercanas, estacionRecomendada, cargarSerie, centroideTramo, getDistOverride } from '../datos/dga.js?v=13';
 import { fetchJSON } from '../datos/fetch_json.js?v=13';
 import { calcular as tcCalcular } from './tc.js?v=13';
 import { cuencaGeoJSON, cuencaKMZ, descargar } from '../cuenca/exportar.js?v=13';
@@ -668,8 +668,8 @@ export class HydroPanel {
         nombre: p.nombre, lat: p.lat, morfometria: p.cuenca.morfometria,
         region: this.elPanel.querySelector('#pl_reg')?.value || 'I',
         CN: parseFloat(this.elPanel.querySelector('#pl_cn')?.value) || 75,
-        pp: { estacion: plu.nombre, serie: ppSerie },
-        fluvio: ctrl && Apc > 0 ? { estacion: ctrl.nombre, serie: fluvioSerie, Apc } : null,
+        pp: { estacion: plu.nombre, serie: ppSerie, dist: getDistOverride(plu.bna, plu.tipo) || 'mejor' },
+        fluvio: ctrl && Apc > 0 ? { estacion: ctrl.nombre, serie: fluvioSerie, Apc, dist: getDistOverride(ctrl.bna, ctrl.tipo) || 'mejor' } : null,
       });
       ensurePointContext(p).resultados.pipeline = {
         caso: r.caso,
@@ -803,9 +803,11 @@ export class HydroPanel {
       const s = await cargarSerie(this._sel.ctrl);
       const an = analizar(Object.values(s.serie), { T: TSL });
       const fi = num('pf_fi') || 1;
-      const q = an.resultados[an.mejor].quantiles;
+      const dOv = getDistOverride(this._sel.ctrl.bna, this._sel.ctrl.tipo);
+      const distKey = dOv && an.resultados[dOv] ? dOv : an.mejor;
+      const q = an.resultados[distKey].quantiles;
       res = Object.fromEntries(TSL.map((T) => [T, q[T] * fi]));
-      titulo = `Fluviometría directa · ${s.nombre} (${an.mejor})`;
+      titulo = `Fluviometría directa · ${s.nombre} (${distKey}${dOv ? ' · elegida' : ' · auto'})`;
       nota = `Q medio diario × factor instantáneo ${fi}. Estación en el cauce: estimación directa.`;
     } else if (m === 'transp') {
       if (!this._sel.ctrl) throw new Error('Elige la estación de control (clic en la tabla).');

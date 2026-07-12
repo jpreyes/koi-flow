@@ -20,6 +20,18 @@ export function setSerieOverride(est, serie, tipo) {
 }
 export function getSerieOverride(bna, tipo) { return _override.get(_okey(bna, tipo)) || null; }
 
+// Distribución de frecuencia ELEGIDA por el usuario para una estación ('auto' =
+// mejor ajuste). La usan el HUD Y el pipeline (para no depender del auto que a
+// veces extrapola de más, p.ej. Log-Normal en cauces con crecidas atípicas).
+const _distOv = new Map();
+export function setDistOverride(est, dist, tipo) {
+  const bna = typeof est === 'object' ? est.bna : est;
+  const t = typeof est === 'object' ? est.tipo : tipo;
+  if (!dist || dist === 'auto') _distOv.delete(_okey(bna, t));
+  else _distOv.set(_okey(bna, t), dist);
+}
+export function getDistOverride(bna, tipo) { return _distOv.get(_okey(bna, tipo)) || null; }
+
 export function resetCatalogo() { _catalogo = null; }
 
 export async function cargarCatalogo() {
