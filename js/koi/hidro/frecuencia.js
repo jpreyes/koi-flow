@@ -15,6 +15,22 @@ function logStats(serie, base) {
   return stats(xs);
 }
 
+// Test de datos dudosos de GRUBBS-BECK (WRC / Bulletin 17B): sobre los log₁₀ de la
+// serie, define umbrales alto/bajo con K_N(N). Devuelve los umbrales y qué valores
+// caen fuera (datos dudosos altos/bajos), para que el usuario los identifique.
+//   x_{H,L} = 10^(x̄_log ± K_N·s_log)   ;   K_N por N (polinomio del Bulletin 17B).
+export function grubbsBeck(serie) {
+  const vals = (serie || []).filter((v) => v > 0);
+  const N = vals.length;
+  if (N < 4) return { N, KN: null, XH: Infinity, XL: 0, altos: [], bajos: [] };
+  const s = logStats(vals, 10);   // media y desv. de log₁₀
+  const KN = -3.62201 + 6.28446 * Math.pow(N, 0.25) - 2.49835 * Math.sqrt(N) + 0.491436 * Math.pow(N, 0.75) - 0.037911 * N;
+  const XH = Math.pow(10, s.mean + KN * s.std);
+  const XL = Math.pow(10, s.mean - KN * s.std);
+  return { N, KN: +KN.toFixed(3), XH, XL, meanLog: s.mean, stdLog: s.std,
+    esAlto: (v) => v > XH, esBajo: (v) => v < XL };
+}
+
 // χ² de Pearson con intervalos de Sturges; gl = k − 1 − nParams.
 function chi2(serie, model, nParams) {
   const n = serie.length;

@@ -6,7 +6,7 @@
 // por encima del máximo observado). Reutiliza cargarSerie (dga.js) y analizar.
 // ─────────────────────────────────────────────────────────────────────────────
 import { cargarSerie, setSerieOverride, setDistOverride } from './dga.js?v=13';
-import { analizar } from '../hidro/frecuencia.js?v=13';
+import { analizar, grubbsBeck } from '../hidro/frecuencia.js?v=13';
 import { KoiDataError } from './fetch_json.js?v=13';
 
 const f = (v) => (v == null || !isFinite(v) ? '—' : (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(1)));
@@ -81,7 +81,12 @@ function render(hud, estado) {
     <div><span>Media · Desv.</span><b>${f(an.stats.mean)} · ${f(an.stats.std)} ${uni}</b></div>
     <div><span>Mín · Máx activo</span><b>${f(Math.min(...vals))} · ${f(maxObs)} ${uni}</b></div></div>`;
   if (pocosAnios) html += `<p class="hud-note" style="color:var(--coral,#ef6c5a)">⚠ Solo ${activos.length} años activos: el Manual de Carreteras (V3) pide <b>≥ 20 años</b> para un análisis de frecuencia confiable.</p>`;
-  html += `<div class="hud-sec">Máximos anuales (${uni}) · clic en una barra = descartar/incluir</div>${barras(pares, uni, excl)}`;
+  // Detección de datos dudosos (Grubbs-Beck): identifica qué años son atípicos.
+  const gb = grubbsBeck(vals);
+  const altos = activos.filter((p) => gb.esAlto?.(p[1])).map((p) => p[0]);
+  const bajos = activos.filter((p) => gb.esBajo?.(p[1])).map((p) => p[0]);
+  html += `<div class="hud-sec">Máximos anuales (${uni}) · clic en una barra = descartar/incluir</div>${barras(pares, uni, excl, gb)}`;
+  if (gb.KN != null) html += `<p class="hud-note">Datos dudosos <b>Grubbs-Beck</b> (umbral alto ${f(gb.XH)} · bajo ${f(gb.XL)} ${uni})${altos.length ? ` · <b style="color:var(--coral,#ef6c5a)">altos: ${altos.join(', ')}</b>` : ''}${bajos.length ? ` · <b style="color:var(--accent)">bajos: ${bajos.join(', ')}</b>` : ''}${!altos.length && !bajos.length ? ' · ninguno' : ' — evalúa descartarlos (clic en la barra)'}.</p>`;
   html += editorHTML(pares, uni);
   html += `<div class="hud-sec">Distribución que gobierna</div>
     <select id="est-dist" class="hud-select">
@@ -111,6 +116,11 @@ function editorHTML(pares, uni) {
         <button class="bp-b" id="est-recalc">↻ Recalcular</button>
         <button class="bp-b" id="est-import">📥 Importar CSV</button>
         <button class="bp-b" id="est-export">⬇ Exportar CSV</button>
+      </div>
+      <div class="cr-form" style="margin-top:8px;grid-template-columns:1fr 1fr auto;align-items:end">
+        <label class="cr-f"><span>Año</span><input id="est-y" type="number" placeholder="2024"></label>
+        <label class="cr-f"><span>Valor (${uni})</span><input id="est-v" type="number" step="0.1"></label>
+        <button class="bp-b" id="est-add">＋ Agregar año</button>
       </div>
       <input type="file" id="est-csv" accept=".csv,.txt" hidden>
     </div></details>`;
@@ -142,6 +152,15 @@ function wire(hud, estado) {
     render(hud, estado);
   };
   $('#est-recalc')?.addEventListener('click', recalc);
+  // Agregar (o reemplazar) un año puntual sin editar el textarea.
+  $('#est-add')?.addEventListener('click', () => {
+    const y = parseInt($('#est-y')?.value, 10), v = parseFloat($('#est-v')?.value);
+    if (!isFinite(y) || !isFinite(v)) { alert('Ingresa un año y un valor válidos.'); return; }
+    estado.pares = estado.pares.filter((p) => p[0] !== y).concat([[y, v]]).sort((a, b) => a[0] - b[0]);
+    estado.excluidos.delete(y);
+    setSerieOverride(estado.est, Object.fromEntries(estado.pares.filter((p) => !estado.excluidos.has(p[0]))));
+    render(hud, estado);
+  });
   $('#est-import')?.addEventListener('click', () => $('#est-csv')?.click());
   $('#est-csv')?.addEventListener('change', async (e) => {
     const file = e.target.files?.[0]; if (!file) return;
@@ -165,14 +184,17 @@ function metaHTML(est) {
 
 // Gráfico de barras de la serie por año. Barras clicables: los años descartados
 // (en `excl`) se ven en gris y NO entran al análisis.
-function barras(pares, uni, excl) {
+function barras(pares, uni, excl, gb) {
   const W = 400, H = 120, pad = 22;
   const vals = pares.map((p) => p[1]), ymax = Math.max(...vals) || 1, n = pares.length;
   const bw = (W - 2 * pad) / n;
   const bars = pares.map(([yr, v], i) => {
     const off = excl && excl.has(yr);
+    const alto = !off && gb?.esAlto?.(v), bajo = !off && gb?.esBajo?.(v);
+    const fill = off ? 'var(--text2)' : alto ? 'var(--coral,#ef6c5a)' : bajo ? 'var(--accent)' : 'var(--teal,#31c3ce)';
+    const tag = off ? ' (descartado)' : alto ? ' ⚠ dudoso ALTO (Grubbs-Beck)' : bajo ? ' ⚠ dudoso bajo' : '';
     const bh = (v / ymax) * (H - 2 * pad), x = pad + i * bw, y = H - pad - bh;
-    return `<rect class="est-bar" data-year="${yr}" x="${(x + 0.3).toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(1, bw - 0.8).toFixed(1)}" height="${bh.toFixed(1)}" fill="${off ? 'var(--text2)' : 'var(--accent)'}" opacity="${off ? 0.3 : 0.85}" style="cursor:pointer"><title>${yr}: ${f(v)} ${uni}${off ? ' (descartado)' : ''} — clic para ${off ? 'incluir' : 'descartar'}</title></rect>`;
+    return `<rect class="est-bar" data-year="${yr}" x="${(x + 0.3).toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(1, bw - 0.8).toFixed(1)}" height="${bh.toFixed(1)}" fill="${fill}" opacity="${off ? 0.3 : 0.9}" style="cursor:pointer"><title>${yr}: ${f(v)} ${uni}${tag} — clic para ${off ? 'incluir' : 'descartar'}</title></rect>`;
   }).join('');
   return `<svg class="hud-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
     ${bars}
